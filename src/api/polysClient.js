@@ -1,0 +1,763 @@
+// Cliente Polys: entidades em localStorage + autenticação integrada ao backend.
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+const DB_KEY = 'polys-local-db-v1';
+const AUTH_KEY = 'polys-auth-user-id';
+const TOKEN_KEY = 'polys-auth-token';
+const USER_CACHE_KEY = 'polys-auth-user-cache';
+
+function getStorage() {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage;
+}
+
+function loadDb() {
+  const storage = getStorage();
+  if (!storage) {
+    return createInitialDb();
+  }
+  try {
+    const raw = storage.getItem(DB_KEY);
+    if (!raw) {
+      const initial = createInitialDb();
+      storage.setItem(DB_KEY, JSON.stringify(initial));
+      return initial;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Erro ao carregar DB local, recriando...', e);
+    const initial = createInitialDb();
+    storage.setItem(DB_KEY, JSON.stringify(initial));
+    return initial;
+  }
+}
+
+function saveDb(db) {
+  const storage = getStorage();
+  if (!storage) return;
+  storage.setItem(DB_KEY, JSON.stringify(db));
+}
+
+function createInitialDb() {
+  const now = new Date().toISOString();
+  return {
+    users: [
+      {
+        id: '1',
+        full_name: 'Admin Local',
+        email: 'admin@polys.local',
+        password: 'admin123',
+        user_role: 'gestor',
+        email_confirmed: true,
+        created_date: now,
+      },
+    ],
+    zones: [],
+    residences: [],
+    projects: [],
+    projectVotes: [],
+    projectPayments: [],
+    products: [],
+    orders: [],
+    services: [],
+    serviceBookings: [],
+    refundRequests: [],
+    notifications: [],
+    appSettings: [],
+    auditLogs: [],
+    adminRequests: [],
+    inviteLinks: [],
+  };
+}
+
+function generateId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return String(Date.now()) + Math.random().toString(16).slice(2);
+}
+
+function sortItems(items, sortField) {
+  if (!sortField) return items;
+  const desc = sortField.startsWith('-');
+  const field = desc ? sortField.slice(1) : sortField;
+  return [...items].sort((a, b) => {
+    const av = a[field];
+    const bv = b[field];
+    if (av === bv) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (av < bv) return desc ? 1 : -1;
+    if (av > bv) return desc ? -1 : 1;
+    return 0;
+  });
+}
+
+function sanitizeUser(user) {
+  if (!user) return null;
+  const { password, ...rest } = user;
+  return rest;
+}
+
+function mapBackendUserToLocal(user) {
+  if (!user) return null;
+  const now = new Date().toISOString();
+  const rawRole = user.user_role || user.role || 'usuario';
+  let normalizedRole = String(rawRole).toLowerCase();
+  if (normalizedRole === 'user') normalizedRole = 'usuario';
+  if (normalizedRole === 'admin' || normalizedRole === 'administrator') normalizedRole = 'administrador';
+  if (normalizedRole === 'manager') normalizedRole = 'gestor';
+  return {
+    id: user.id,
+    full_name: user.full_name || user.name || user.email,
+    email: user.email,
+    phone: user.phone || '',
+    cep: user.cep || '',
+    state: user.state || '',
+    city: user.city || '',
+    neighborhood: user.neighborhood || '',
+    street: user.street || '',
+    house_number: user.house_number || user.houseNumber || '',
+    user_role: normalizedRole,
+    avatar_url: user.avatar_url || user.avatarUrl || null,
+    banner_url: user.banner_url || user.bannerUrl || null,
+    pix_random: user.pix_random || user.pixKeyRandom || '',
+    pix_phone: user.pix_phone || user.pixKeyPhone || '',
+    pix_email: user.pix_email || user.pixKeyEmail || '',
+    pix_cpf: user.pix_cpf || user.pixKeyCpf || '',
+    email_confirmed: user.email_confirmed ?? true,
+    created_date: user.createdAt || now,
+  };
+}
+
+async function apiRequest(path, options = {}) {
+  const storage = getStorage();
+  const token = storage?.getItem(TOKEN_KEY);
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    // ignore parse error
+  }
+
+  if (!res.ok) {
+    const message = data?.message || 'Erro na requisição';
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+const entityCollections = {
+  Zone: 'zones',
+  Residence: 'residences',
+  // Entidades de projeto são tratadas via backend real
+  Project: 'projects',
+  ProjectVote: 'projectVotes',
+  ProjectPayment: 'projectPayments',
+  Product: 'products',
+  Order: 'orders',
+  Service: 'services',
+  ServiceBooking: 'serviceBookings',
+  RefundRequest: 'refundRequests',
+  Notification: 'notifications',
+  AppSettings: 'appSettings',
+  AuditLog: 'auditLogs',
+  AdminRequest: 'adminRequests',
+  InviteLink: 'inviteLinks',
+};
+
+function makeEntityApi(entityName) {
+  // Products, Services e Projects usam o backend real
+  if (entityName === 'Product') {
+    return {
+      async list(sortField = '-created_date', limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        return apiRequest(`/products?${params.toString()}`, { method: 'GET' });
+      },
+
+      async filter(where = {}, sortField, limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        Object.entries(where).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        return apiRequest(`/products?${params.toString()}`, { method: 'GET' });
+      },
+
+      async create(data) {
+        return apiRequest('/products', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async update(id, data) {
+        return apiRequest(`/products/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async delete(id) {
+        return apiRequest(`/products/${id}`, {
+          method: 'DELETE',
+        });
+      },
+    };
+  }
+
+  if (entityName === 'Service') {
+    return {
+      async list(sortField = '-created_date', limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        return apiRequest(`/services?${params.toString()}`, { method: 'GET' });
+      },
+
+      async filter(where = {}, sortField, limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        Object.entries(where).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        return apiRequest(`/services?${params.toString()}`, { method: 'GET' });
+      },
+
+      async create(data) {
+        return apiRequest('/services', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async update(id, data) {
+        return apiRequest(`/services/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async delete(id) {
+        return apiRequest(`/services/${id}`, {
+          method: 'DELETE',
+        });
+      },
+    };
+  }
+
+  if (entityName === 'Project') {
+    return {
+      async list(sortField = '-created_date', limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        return apiRequest(`/projects?${params.toString()}`, { method: 'GET' });
+      },
+
+      async filter(where = {}, sortField, limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        Object.entries(where).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        return apiRequest(`/projects?${params.toString()}`, { method: 'GET' });
+      },
+
+      async create(data) {
+        return apiRequest('/projects', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async update(id, data) {
+        return apiRequest(`/projects/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async delete(id) {
+        return apiRequest(`/projects/${id}`, {
+          method: 'DELETE',
+        });
+      },
+    };
+  }
+
+  if (entityName === 'ProjectVote') {
+    return {
+      async list(sortField = '-created_date', limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        return apiRequest(`/project-votes?${params.toString()}`, { method: 'GET' });
+      },
+
+      async filter(where = {}, sortField, limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        Object.entries(where).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        return apiRequest(`/project-votes?${params.toString()}`, { method: 'GET' });
+      },
+
+      async create(data) {
+        return apiRequest('/project-votes', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async delete(data) {
+        return apiRequest('/project-votes', {
+          method: 'DELETE',
+          body: JSON.stringify(data),
+        });
+      },
+    };
+  }
+
+  if (entityName === 'ProjectPayment') {
+    return {
+      async list(sortField = '-created_date', limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        return apiRequest(`/project-payments?${params.toString()}`, { method: 'GET' });
+      },
+
+      async filter(where = {}, sortField, limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        Object.entries(where).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        return apiRequest(`/project-payments?${params.toString()}`, { method: 'GET' });
+      },
+
+      async create(data) {
+        return apiRequest('/project-payments', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async update(id, data) {
+        return apiRequest(`/project-payments/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        });
+      },
+    };
+  }
+
+  if (entityName === 'Service') {
+    return {
+      async list(sortField = '-created_date', limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        return apiRequest(`/services?${params.toString()}`, { method: 'GET' });
+      },
+
+      async filter(where = {}, sortField, limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        Object.entries(where).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        return apiRequest(`/services?${params.toString()}`, { method: 'GET' });
+      },
+
+      async create(data) {
+        return apiRequest('/services', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async update(id, data) {
+        return apiRequest(`/services/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async delete(id) {
+        return apiRequest(`/services/${id}`, {
+          method: 'DELETE',
+        });
+      },
+    };
+  }
+
+  // Outras entidades continuam usando o "banco" local
+  const collection = entityCollections[entityName];
+  if (!collection) {
+    throw new Error(`Coleção desconhecida: ${entityName}`);
+  }
+
+  return {
+    async list(sortField = '-created_date', limit) {
+      const db = loadDb();
+      let items = db[collection] || [];
+      items = sortItems(items, sortField);
+      if (typeof limit === 'number') {
+        items = items.slice(0, limit);
+      }
+      return items;
+    },
+
+    async filter(where = {}, sortField, limit) {
+      const db = loadDb();
+      let items = db[collection] || [];
+      items = items.filter((item) =>
+        Object.entries(where).every(([key, value]) => item[key] === value),
+      );
+      items = sortItems(items, sortField);
+      if (typeof limit === 'number') {
+        items = items.slice(0, limit);
+      }
+      return items;
+    },
+
+    async create(data) {
+      const db = loadDb();
+      const now = new Date().toISOString();
+      const item = {
+        id: generateId(),
+        created_date: now,
+        ...data,
+      };
+      db[collection] = [...(db[collection] || []), item];
+      saveDb(db);
+      return item;
+    },
+
+    async update(id, data) {
+      const db = loadDb();
+      const items = db[collection] || [];
+      const index = items.findIndex((it) => it.id === id);
+      if (index === -1) {
+        throw new Error(`Registro não encontrado em ${collection}`);
+      }
+      const updated = { ...items[index], ...data };
+      items[index] = updated;
+      db[collection] = items;
+      saveDb(db);
+      return updated;
+    },
+
+    async delete(id) {
+      const db = loadDb();
+      db[collection] = (db[collection] || []).filter((it) => it.id !== id);
+      saveDb(db);
+      return { success: true };
+    },
+  };
+}
+
+const auth = {
+  async login({ email, password }) {
+    const data = await apiRequest('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    const mapped = mapBackendUserToLocal(data.user);
+
+    // Sincroniza com o "banco" local (para campos extras usados no app)
+    const db = loadDb();
+    const index = db.users.findIndex((u) => u.id === mapped.id);
+    if (index === -1) {
+      db.users.push({ ...mapped });
+    } else {
+      db.users[index] = { ...db.users[index], ...mapped };
+    }
+    saveDb(db);
+
+    const storage = getStorage();
+    if (storage) {
+      storage.setItem(AUTH_KEY, mapped.id);
+      storage.setItem(TOKEN_KEY, data.access_token);
+      storage.setItem(USER_CACHE_KEY, JSON.stringify(mapped));
+    }
+    return sanitizeUser(mapped);
+  },
+
+  async register({ full_name, email, password }) {
+    const data = await apiRequest('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name: full_name, email, password }),
+    });
+
+    // Opcional: já fazer login após registrar
+    await auth.login({ email, password });
+
+    return data;
+  },
+
+  async logout(redirectTo) {
+    const storage = getStorage();
+    if (storage) {
+      storage.removeItem(AUTH_KEY);
+      storage.removeItem(TOKEN_KEY);
+      storage.removeItem(USER_CACHE_KEY);
+    }
+    if (redirectTo && typeof window !== 'undefined') {
+      window.location.href = redirectTo;
+    }
+  },
+
+  async me() {
+    const storage = getStorage();
+    if (!storage) throw new Error('Ambiente sem storage');
+
+    // Tenta carregar do backend
+    try {
+      const data = await apiRequest('/users/me', {
+        method: 'GET',
+      });
+      const mapped = mapBackendUserToLocal(data);
+
+      const db = loadDb();
+      const index = db.users.findIndex((u) => u.id === mapped.id);
+      if (index === -1) {
+        db.users.push({ ...mapped });
+      } else {
+        db.users[index] = { ...db.users[index], ...mapped };
+      }
+      saveDb(db);
+
+      storage.setItem(AUTH_KEY, mapped.id);
+      storage.setItem(USER_CACHE_KEY, JSON.stringify(mapped));
+
+      return sanitizeUser(mapped);
+    } catch (err) {
+      // Se der 401 ou outro erro, considera não autenticado
+      storage.removeItem(AUTH_KEY);
+      storage.removeItem(TOKEN_KEY);
+      storage.removeItem(USER_CACHE_KEY);
+      throw err;
+    }
+  },
+
+  async isAuthenticated() {
+    const storage = getStorage();
+    if (!storage) return false;
+    const token = storage.getItem(TOKEN_KEY);
+    return !!token;
+  },
+
+  async updateMe(data) {
+    const storage = getStorage();
+    if (!storage) throw new Error('Ambiente sem storage');
+    const userId = storage.getItem(AUTH_KEY);
+    if (!userId) {
+      throw new Error('Não autenticado');
+    }
+    const db = loadDb();
+    const index = db.users.findIndex((u) => u.id === userId);
+    if (index === -1) {
+      throw new Error('Usuário não encontrado');
+    }
+
+    const current = db.users[index];
+    const updatedLocal = { ...current, ...data };
+
+    // Atualiza campos compatíveis também no backend (nome, role, avatar, banner)
+    const backendPayload = {};
+    if (data.full_name) backendPayload.name = data.full_name;
+    if (data.user_role) backendPayload.role = data.user_role;
+    if (data.avatar_url) backendPayload.avatarUrl = data.avatar_url;
+    if (data.banner_url) backendPayload.bannerUrl = data.banner_url;
+    if (data.pix_random !== undefined) backendPayload.pixKeyRandom = data.pix_random;
+    if (data.pix_phone !== undefined) backendPayload.pixKeyPhone = data.pix_phone;
+    if (data.pix_email !== undefined) backendPayload.pixKeyEmail = data.pix_email;
+    if (data.pix_cpf !== undefined) backendPayload.pixKeyCpf = data.pix_cpf;
+    if (data.phone !== undefined) backendPayload.phone = data.phone;
+    if (data.cep !== undefined) backendPayload.cep = data.cep;
+    if (data.state !== undefined) backendPayload.state = data.state;
+    if (data.city !== undefined) backendPayload.city = data.city;
+    if (data.neighborhood !== undefined) backendPayload.neighborhood = data.neighborhood;
+    if (data.street !== undefined) backendPayload.street = data.street;
+    if (data.house_number !== undefined) backendPayload.houseNumber = data.house_number;
+
+    if (Object.keys(backendPayload).length > 0) {
+      try {
+        await apiRequest(`/users/${userId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(backendPayload),
+        });
+      } catch (e) {
+        console.error('Erro ao atualizar usuário no backend', e);
+      }
+    }
+
+    db.users[index] = updatedLocal;
+    saveDb(db);
+    storage.setItem(USER_CACHE_KEY, JSON.stringify(updatedLocal));
+
+    return sanitizeUser(updatedLocal);
+  },
+
+  redirectToLogin(targetUrl) {
+    if (typeof window === 'undefined') return;
+    const params = targetUrl
+      ? `?redirect=${encodeURIComponent(targetUrl)}`
+      : '';
+    window.location.href = `/Login${params}`;
+  },
+};
+
+const integrations = {
+  Core: {
+    async UploadFile({ file }) {
+      const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
+      const MIN_SIZE_BYTES = 5 * 1024; // 5KB
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Formato de imagem não suportado. Use JPG, PNG ou WEBP.');
+      }
+
+      if (file.size > MAX_SIZE_BYTES) {
+        throw new Error('Imagem muito grande. Tamanho máximo: 2MB.');
+      }
+
+      if (file.size < MIN_SIZE_BYTES) {
+        throw new Error('Imagem muito pequena ou corrompida. Tente outra imagem.');
+      }
+
+      const createOptimizedDataUrl = () =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          const url = URL.createObjectURL(file);
+
+          img.onload = () => {
+            try {
+              const MAX_DIMENSION = 900;
+              let { width, height } = img;
+
+              const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
+              width = Math.round(width * scale);
+              height = Math.round(height * scale);
+
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+
+              const quality = 0.75;
+              const dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+              URL.revokeObjectURL(url);
+              resolve(dataUrl);
+            } catch (err) {
+              reject(err);
+            }
+          };
+
+          img.onerror = (err) => {
+            URL.revokeObjectURL(url);
+            reject(err);
+          };
+
+          img.src = url;
+        });
+
+      const dataUrl = await createOptimizedDataUrl();
+      return { file_url: dataUrl };
+    },
+
+    async SendEmail({ to, subject, body }) {
+      console.log('Mock envio de email:', { to, subject, body });
+      return { success: true };
+    },
+
+    async InvokeLLM() {
+      console.log('Mock InvokeLLM chamado');
+      return { success: true };
+    },
+
+    async GenerateImage() {
+      console.log('Mock GenerateImage chamado');
+      return { success: true };
+    },
+
+    async ExtractDataFromUploadedFile() {
+      console.log('Mock ExtractDataFromUploadedFile chamado');
+      return { success: true };
+    },
+
+    async CreateFileSignedUrl() {
+      console.log('Mock CreateFileSignedUrl chamado');
+      return { success: true };
+    },
+
+    async UploadPrivateFile() {
+      console.log('Mock UploadPrivateFile chamado');
+      return { success: true };
+    },
+  },
+};
+
+const settings = {
+  async get() {
+    return apiRequest('/settings', { method: 'GET' });
+  },
+
+  async update(partial) {
+    return apiRequest('/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(partial),
+    });
+  },
+};
+
+export const polysApi = {
+  auth,
+  settings,
+  integrations,
+  entities: Object.keys(entityCollections).reduce((acc, name) => {
+    acc[name] = makeEntityApi(name);
+    return acc;
+  }, {}),
+};
+
+
