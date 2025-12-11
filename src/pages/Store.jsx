@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery } from '@tanstack/react-query';
+import { useZoneFilter } from '@/contexts/SelectedZoneContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Filter, Grid3X3, List, ShoppingBag, Package,
-  SlidersHorizontal, X
+  SlidersHorizontal, X, MapPin
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,9 @@ export default function Store() {
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('recent');
 
+  // Zone filter
+  const { selectedZone, filterByZone } = useZoneFilter();
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -59,8 +63,8 @@ export default function Store() {
     queryFn: () => polysApi.entities.Product.list('-created_date', 100),
   });
 
-  // Filter and sort products
-  const filteredProducts = products
+  // Filter and sort products (including zone filter)
+  const filteredProducts = filterByZone(products, 'zone_id')
     .filter(product => {
       const matchesSearch = product.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -274,8 +278,14 @@ export default function Store() {
           </div>
 
           {/* Active Filters */}
-          {(categoryFilter !== 'all' || conditionFilter !== 'all' || priceRange[1] < 10000) && (
+          {(selectedZone || categoryFilter !== 'all' || conditionFilter !== 'all' || priceRange[1] < 10000) && (
             <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+              {selectedZone && (
+                <Badge className="gap-1 bg-teal-600">
+                  <MapPin className="w-3 h-3" />
+                  {selectedZone.name}
+                </Badge>
+              )}
               {categoryFilter !== 'all' && (
                 <Badge variant="secondary" className="gap-1">
                   {categories.find(c => c.value === categoryFilter)?.label}

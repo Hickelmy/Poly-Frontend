@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
@@ -6,13 +6,43 @@ import { motion } from 'framer-motion';
 import { 
   Map, Users, Shield, ArrowRight, Check, Star, 
   Building2, Camera, Wrench, Heart, ChevronRight,
-  MapPin, Vote, Wallet, ShoppingBag, Zap, Lock
+  MapPin, Vote, Wallet, ShoppingBag, Zap, Lock,
+  Sun, Moon
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function Landing() {
   const [activeCase, setActiveCase] = useState(0);
+  const [darkMode, setDarkMode] = useState(() => {
+    // Verifica preferência salva ou do sistema
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('landing-theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  // Escuta mudanças na preferência do sistema
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e) => {
+      const saved = localStorage.getItem('landing-theme');
+      if (!saved) {
+        setDarkMode(e.matches);
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Salva preferência no localStorage
+  const toggleTheme = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    localStorage.setItem('landing-theme', newMode ? 'dark' : 'light');
+  };
 
   const features = [
     {
@@ -70,25 +100,46 @@ export default function Landing() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'dark bg-slate-950' : 'bg-white'}`}>
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100">
+      <nav className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b transition-colors duration-300 ${
+        darkMode 
+          ? 'bg-slate-950/80 border-slate-800' 
+          : 'bg-white/80 border-slate-100'
+      }`}>
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
               <Map className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-slate-900">POLYS</span>
+            <span className={`text-xl font-bold transition-colors ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+              POLYS
+            </span>
           </div>
           <div className="hidden md:flex items-center gap-8">
-            <a href="#como-funciona" className="text-slate-600 hover:text-teal-600 transition-colors">Como Funciona</a>
-            <a href="#beneficios" className="text-slate-600 hover:text-teal-600 transition-colors">Benefícios</a>
-            <a href="#casos" className="text-slate-600 hover:text-teal-600 transition-colors">Casos de Uso</a>
+            <a href="#como-funciona" className={`transition-colors ${
+              darkMode ? 'text-slate-400 hover:text-teal-400' : 'text-slate-600 hover:text-teal-600'
+            }`}>Como Funciona</a>
+            <a href="#beneficios" className={`transition-colors ${
+              darkMode ? 'text-slate-400 hover:text-teal-400' : 'text-slate-600 hover:text-teal-600'
+            }`}>Benefícios</a>
+            <a href="#casos" className={`transition-colors ${
+              darkMode ? 'text-slate-400 hover:text-teal-400' : 'text-slate-600 hover:text-teal-600'
+            }`}>Casos de Uso</a>
           </div>
           <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
             <Button 
               variant="ghost" 
-              className="text-slate-600"
+              size="icon"
+              onClick={toggleTheme}
+              className={`rounded-full ${darkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
+            <Button 
+              variant="ghost" 
+              className={darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600'}
               onClick={() => polysApi.auth.redirectToLogin(createPageUrl('Dashboard'))}
             >
               Entrar
@@ -105,9 +156,17 @@ export default function Landing() {
 
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50" />
-        <div className="absolute top-20 right-0 w-96 h-96 bg-teal-200/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl" />
+        <div className={`absolute inset-0 transition-colors duration-300 ${
+          darkMode 
+            ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' 
+            : 'bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50'
+        }`} />
+        <div className={`absolute top-20 right-0 w-96 h-96 rounded-full blur-3xl ${
+          darkMode ? 'bg-teal-900/30' : 'bg-teal-200/30'
+        }`} />
+        <div className={`absolute bottom-0 left-0 w-96 h-96 rounded-full blur-3xl ${
+          darkMode ? 'bg-emerald-900/30' : 'bg-emerald-200/30'
+        }`} />
         
         <div className="max-w-7xl mx-auto relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -116,19 +175,23 @@ export default function Landing() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-100 rounded-full mb-6">
-                <Zap className="w-4 h-4 text-teal-600" />
-                <span className="text-sm font-medium text-teal-700">Plataforma de Comunidade Local</span>
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 ${
+                darkMode ? 'bg-teal-900/50 text-teal-400' : 'bg-teal-100 text-teal-700'
+              }`}>
+                <Zap className="w-4 h-4" />
+                <span className="text-sm font-medium">Plataforma de Comunidade Local</span>
               </div>
               
-              <h1 className="text-5xl lg:text-6xl font-bold text-slate-900 leading-tight mb-6">
+              <h1 className={`text-5xl lg:text-6xl font-bold leading-tight mb-6 ${
+                darkMode ? 'text-white' : 'text-slate-900'
+              }`}>
                 Transforme sua
-                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-600">
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-emerald-500">
                   vizinhança
                 </span>
               </h1>
               
-              <p className="text-xl text-slate-600 mb-8 leading-relaxed">
+              <p className={`text-xl mb-8 leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                 Una-se aos seus vizinhos, vote em melhorias comunitárias, 
                 financie projetos e participe do marketplace local.
               </p>
@@ -143,7 +206,15 @@ export default function Landing() {
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
                 <a href="#como-funciona">
-                  <Button size="lg" variant="outline" className="rounded-full px-8 h-14 text-lg border-2">
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className={`rounded-full px-8 h-14 text-lg border-2 ${
+                      darkMode 
+                        ? 'border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white' 
+                        : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
                     Saiba Como Funciona
                   </Button>
                 </a>
@@ -151,18 +222,18 @@ export default function Landing() {
 
               <div className="flex items-center gap-8 mt-12">
                 <div>
-                  <p className="text-3xl font-bold text-slate-900">2.5K+</p>
-                  <p className="text-slate-500">Moradores Ativos</p>
+                  <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>2.5K+</p>
+                  <p className={darkMode ? 'text-slate-500' : 'text-slate-500'}>Moradores Ativos</p>
                 </div>
-                <div className="w-px h-12 bg-slate-200" />
+                <div className={`w-px h-12 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
                 <div>
-                  <p className="text-3xl font-bold text-slate-900">R$ 850K</p>
-                  <p className="text-slate-500">Já Arrecadados</p>
+                  <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>R$ 850K</p>
+                  <p className={darkMode ? 'text-slate-500' : 'text-slate-500'}>Já Arrecadados</p>
                 </div>
-                <div className="w-px h-12 bg-slate-200" />
+                <div className={`w-px h-12 ${darkMode ? 'bg-slate-700' : 'bg-slate-200'}`} />
                 <div>
-                  <p className="text-3xl font-bold text-slate-900">47</p>
-                  <p className="text-slate-500">Projetos Concluídos</p>
+                  <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>47</p>
+                  <p className={darkMode ? 'text-slate-500' : 'text-slate-500'}>Projetos Concluídos</p>
                 </div>
               </div>
             </motion.div>
@@ -190,33 +261,39 @@ export default function Landing() {
               
               {/* Floating Cards */}
               <motion.div 
-                className="absolute -left-8 top-20 bg-white rounded-2xl shadow-xl p-4 max-w-[200px]"
+                className={`absolute -left-8 top-20 rounded-2xl shadow-xl p-4 max-w-[200px] ${
+                  darkMode ? 'bg-slate-800' : 'bg-white'
+                }`}
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 3, repeat: Infinity }}
               >
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
                     <Check className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">Projeto Aprovado!</p>
-                    <p className="text-xs text-slate-500">Câmeras de Segurança</p>
+                    <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Projeto Aprovado!</p>
+                    <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Câmeras de Segurança</p>
                   </div>
                 </div>
               </motion.div>
 
               <motion.div 
-                className="absolute -right-4 bottom-32 bg-white rounded-2xl shadow-xl p-4"
+                className={`absolute -right-4 bottom-32 rounded-2xl shadow-xl p-4 ${
+                  darkMode ? 'bg-slate-800' : 'bg-white'
+                }`}
                 animate={{ y: [0, 10, 0] }}
                 transition={{ duration: 3, repeat: Infinity, delay: 0.5 }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    darkMode ? 'bg-teal-900/50' : 'bg-teal-100'
+                  }`}>
                     <Heart className="w-5 h-5 text-teal-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">+R$ 1.250</p>
-                    <p className="text-xs text-slate-500">Nova doação recebida</p>
+                    <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>+R$ 1.250</p>
+                    <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Nova doação recebida</p>
                   </div>
                 </div>
               </motion.div>
@@ -226,11 +303,15 @@ export default function Landing() {
       </section>
 
       {/* How it Works */}
-      <section id="como-funciona" className="py-24 px-6 bg-white">
+      <section id="como-funciona" className={`py-24 px-6 transition-colors duration-300 ${
+        darkMode ? 'bg-slate-900' : 'bg-white'
+      }`}>
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-slate-900 mb-4">Como Funciona</h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            <h2 className={`text-4xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+              Como Funciona
+            </h2>
+            <p className={`text-xl max-w-2xl mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
               Três passos simples para transformar sua comunidade
             </p>
           </div>
@@ -244,16 +325,26 @@ export default function Landing() {
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow bg-gradient-to-br from-slate-50 to-white">
+                <Card className={`relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-shadow ${
+                  darkMode 
+                    ? 'bg-gradient-to-br from-slate-800 to-slate-850' 
+                    : 'bg-gradient-to-br from-slate-50 to-white'
+                }`}>
                   <CardContent className="p-8">
-                    <span className="absolute top-4 right-4 text-6xl font-bold text-slate-100">
+                    <span className={`absolute top-4 right-4 text-6xl font-bold ${
+                      darkMode ? 'text-slate-700' : 'text-slate-100'
+                    }`}>
                       {feature.step}
                     </span>
-                    <div className="w-14 h-14 rounded-2xl bg-teal-100 flex items-center justify-center mb-6">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${
+                      darkMode ? 'bg-teal-900/50' : 'bg-teal-100'
+                    }`}>
                       <feature.icon className="w-7 h-7 text-teal-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-3">{feature.title}</h3>
-                    <p className="text-slate-600">{feature.description}</p>
+                    <h3 className={`text-xl font-bold mb-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                      {feature.title}
+                    </h3>
+                    <p className={darkMode ? 'text-slate-400' : 'text-slate-600'}>{feature.description}</p>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -263,14 +354,16 @@ export default function Landing() {
       </section>
 
       {/* Benefits */}
-      <section id="beneficios" className="py-24 px-6 bg-slate-50">
+      <section id="beneficios" className={`py-24 px-6 transition-colors duration-300 ${
+        darkMode ? 'bg-slate-950' : 'bg-slate-50'
+      }`}>
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-4xl font-bold text-slate-900 mb-6">
+              <h2 className={`text-4xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
                 Por que usar o POLYS?
               </h2>
-              <p className="text-xl text-slate-600 mb-12">
+              <p className={`text-xl mb-12 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                 Uma plataforma completa para gestão comunitária, 
                 com transparência total e segurança em todas as transações.
               </p>
@@ -285,12 +378,18 @@ export default function Landing() {
                     transition={{ delay: index * 0.1 }}
                     className="flex items-start gap-4"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+                      darkMode ? 'bg-teal-900/50' : 'bg-teal-100'
+                    }`}>
                       <benefit.icon className="w-6 h-6 text-teal-600" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-slate-900 mb-1">{benefit.title}</h4>
-                      <p className="text-sm text-slate-600">{benefit.desc}</p>
+                      <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                        {benefit.title}
+                      </h4>
+                      <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                        {benefit.desc}
+                      </p>
                     </div>
                   </motion.div>
                 ))}
@@ -308,16 +407,18 @@ export default function Landing() {
                 alt="Comunidade unida"
                 className="rounded-3xl shadow-2xl"
               />
-              <div className="absolute -bottom-6 -left-6 bg-white rounded-2xl shadow-xl p-6">
+              <div className={`absolute -bottom-6 -left-6 rounded-2xl shadow-xl p-6 ${
+                darkMode ? 'bg-slate-800' : 'bg-white'
+              }`}>
                 <div className="flex items-center gap-4">
                   <div className="flex -space-x-3">
                     {[1,2,3,4].map(i => (
-                      <div key={i} className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 border-2 border-white" />
+                      <div key={i} className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 border-2 border-white dark:border-slate-800" />
                     ))}
                   </div>
                   <div>
-                    <p className="font-semibold text-slate-900">+2.500 vizinhos</p>
-                    <p className="text-sm text-slate-500">já estão conectados</p>
+                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>+2.500 vizinhos</p>
+                    <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>já estão conectados</p>
                   </div>
                 </div>
               </div>
@@ -327,11 +428,15 @@ export default function Landing() {
       </section>
 
       {/* Use Cases */}
-      <section id="casos" className="py-24 px-6 bg-white">
+      <section id="casos" className={`py-24 px-6 transition-colors duration-300 ${
+        darkMode ? 'bg-slate-900' : 'bg-white'
+      }`}>
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-slate-900 mb-4">Casos de Sucesso</h2>
-            <p className="text-xl text-slate-600">
+            <h2 className={`text-4xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+              Casos de Sucesso
+            </h2>
+            <p className={`text-xl ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
               Veja projetos que já foram financiados pela comunidade
             </p>
           </div>
@@ -345,7 +450,9 @@ export default function Landing() {
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all group">
+                <Card className={`overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all group ${
+                  darkMode ? 'bg-slate-800' : 'bg-white'
+                }`}>
                   <div className="relative h-48 overflow-hidden">
                     <img 
                       src={item.image}
@@ -359,20 +466,28 @@ export default function Landing() {
                     )}
                   </div>
                   <CardContent className="p-6">
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">{item.title}</h3>
-                    <p className="text-slate-600 text-sm mb-4">{item.description}</p>
+                    <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                      {item.title}
+                    </h3>
+                    <p className={`text-sm mb-4 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                      {item.description}
+                    </p>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Arrecadado</span>
-                        <span className="font-semibold text-teal-600">{item.raised}</span>
+                        <span className={darkMode ? 'text-slate-500' : 'text-slate-500'}>Arrecadado</span>
+                        <span className="font-semibold text-teal-500">{item.raised}</span>
                       </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-2 rounded-full overflow-hidden ${
+                        darkMode ? 'bg-slate-700' : 'bg-slate-100'
+                      }`}>
                         <div 
                           className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full"
                           style={{ width: `${item.progress}%` }}
                         />
                       </div>
-                      <p className="text-xs text-slate-500 text-right">Meta: {item.target}</p>
+                      <p className={`text-xs text-right ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                        Meta: {item.target}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -383,7 +498,11 @@ export default function Landing() {
       </section>
 
       {/* Security Section */}
-      <section className="py-24 px-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+      <section className={`py-24 px-6 text-white ${
+        darkMode 
+          ? 'bg-gradient-to-br from-slate-950 to-slate-900' 
+          : 'bg-gradient-to-br from-slate-900 to-slate-800'
+      }`}>
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -414,7 +533,11 @@ export default function Landing() {
             </div>
 
             <div className="relative">
-              <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20">
+              <div className={`backdrop-blur-lg rounded-3xl p-8 border ${
+                darkMode 
+                  ? 'bg-slate-800/50 border-slate-700' 
+                  : 'bg-white/10 border-white/20'
+              }`}>
                 <div className="flex items-center gap-4 mb-6">
                   <Shield className="w-12 h-12 text-teal-400" />
                   <div>
@@ -423,21 +546,21 @@ export default function Landing() {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="bg-white/5 rounded-xl p-4">
+                  <div className={`rounded-xl p-4 ${darkMode ? 'bg-slate-700/50' : 'bg-white/5'}`}>
                     <div className="flex justify-between mb-2">
                       <span className="text-slate-400">Projeto Câmeras</span>
                       <span className="text-teal-400">85%</span>
                     </div>
-                    <div className="h-2 bg-white/10 rounded-full">
+                    <div className={`h-2 rounded-full ${darkMode ? 'bg-slate-600' : 'bg-white/10'}`}>
                       <div className="h-full w-[85%] bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full" />
                     </div>
                   </div>
-                  <div className="bg-white/5 rounded-xl p-4">
+                  <div className={`rounded-xl p-4 ${darkMode ? 'bg-slate-700/50' : 'bg-white/5'}`}>
                     <div className="flex justify-between mb-2">
                       <span className="text-slate-400">Reforma Praça</span>
                       <span className="text-teal-400">100%</span>
                     </div>
-                    <div className="h-2 bg-white/10 rounded-full">
+                    <div className={`h-2 rounded-full ${darkMode ? 'bg-slate-600' : 'bg-white/10'}`}>
                       <div className="h-full w-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full" />
                     </div>
                   </div>
@@ -469,7 +592,9 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="py-16 px-6 bg-slate-900 text-white">
+      <footer className={`py-16 px-6 text-white ${
+        darkMode ? 'bg-slate-950' : 'bg-slate-900'
+      }`}>
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div>
@@ -512,7 +637,9 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800 text-center text-slate-500">
+          <div className={`pt-8 border-t text-center ${
+            darkMode ? 'border-slate-800 text-slate-500' : 'border-slate-800 text-slate-500'
+          }`}>
             <p>© 2025 POLYS. Todos os direitos reservados.</p>
           </div>
         </div>

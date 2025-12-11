@@ -127,16 +127,16 @@ export default function ProjectCard({ project, onVote, onDonate, userVoted }) {
         {/* Stats */}
         <div className="space-y-2 mb-4 text-sm">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-              <Vote className="w-4 h-4" />
+          <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+            <Vote className="w-4 h-4" />
               <span>{minVotes > 0 ? `${diff}/${minVotes} votos úteis` : `${diff} votos úteis`}</span>
+          </div>
+          {project.funding_deadline && (
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+              <Calendar className="w-4 h-4" />
+              <span>{format(new Date(project.funding_deadline), 'dd MMM', { locale: ptBR })}</span>
             </div>
-            {project.funding_deadline && (
-              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                <Calendar className="w-4 h-4" />
-                <span>{format(new Date(project.funding_deadline), 'dd MMM', { locale: ptBR })}</span>
-              </div>
-            )}
+          )}
           </div>
 
           {/* Tug of war bar */}

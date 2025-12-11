@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Map, Mail, Lock, Eye, EyeOff, LogIn, Loader2 } from 'lucide-react';
 import { polysApi } from '@/api/polysClient';
@@ -15,9 +15,38 @@ export default function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   const searchParams = new URLSearchParams(location.search);
   const redirect = searchParams.get('redirect') || createPageUrl('Dashboard');
+
+  // Verifica se o usuário já está autenticado ao carregar a página
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      try {
+        const isAuth = await polysApi.auth.isAuthenticated();
+        if (isAuth) {
+          // Se há token, tenta validar com o backend
+          try {
+            await polysApi.auth.me();
+            // Token válido, redireciona para o dashboard
+            navigate(redirect, { replace: true });
+          } catch (err) {
+            // Token inválido ou expirado, limpa e mostra a página de login
+            // O erro já foi tratado pelo auth.me() que limpa o storage
+            setCheckingAuth(false);
+          }
+        } else {
+          setCheckingAuth(false);
+        }
+      } catch (err) {
+        // Em caso de erro, apenas mostra a página de login
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAuthentication();
+  }, [navigate, redirect]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,6 +69,18 @@ export default function Login() {
       setLoading(false);
     }
   };
+
+  // Mostra loading enquanto verifica autenticação
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4 transition-colors">
+        <div className="w-full max-w-md text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-teal-600 mb-4" />
+          <p className="text-sm text-slate-500">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
   <div className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4 transition-colors">
@@ -125,9 +166,6 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        <p className="mt-4 text-xs text-slate-400 text-center">
-          Dica: usuário inicial admin@polys.local / senha admin123
-        </p>
       </div>
     </div>
   );

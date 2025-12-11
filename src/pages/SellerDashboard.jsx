@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { polysApi } from '@/api/polysClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSelectedZone } from '@/contexts/SelectedZoneContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   Package, Plus, ShoppingBag, TrendingUp, Wallet, Eye,
-  Edit, Trash2, MoreVertical, Upload, X, Loader2, Wrench
+  Edit, Trash2, MoreVertical, Upload, X, Loader2, Wrench, MapPin
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -586,6 +587,7 @@ function BookingRow({ booking, onUpdate }) {
 
 // Product Form Modal
 function ProductFormModal({ open, onClose, product, user, onSuccess }) {
+  const { zones } = useSelectedZone();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -593,7 +595,8 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
     quantity_available: '1',
     category: '',
     condition: 'novo',
-    images: []
+    images: [],
+    zone_id: ''
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -607,7 +610,8 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
         quantity_available: product.quantity_available?.toString() || '1',
         category: product.category || '',
         condition: product.condition || 'novo',
-        images: product.images || []
+        images: product.images || [],
+        zone_id: product.zone_id || user?.residence_zone_id || ''
       });
     } else {
       setFormData({
@@ -617,10 +621,11 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
         quantity_available: '1',
         category: '',
         condition: 'novo',
-        images: []
+        images: [],
+        zone_id: user?.residence_zone_id || ''
       });
     }
-  }, [product, open]);
+  }, [product, open, user?.residence_zone_id]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -642,6 +647,11 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
       return;
     }
 
+    if (!formData.zone_id) {
+      toast.error('Selecione a área onde o produto está disponível');
+      return;
+    }
+
     setSaving(true);
     try {
       const data = {
@@ -651,6 +661,9 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
         seller_id: user.id,
         seller_email: user.email,
         seller_name: user.full_name,
+        zone_id: formData.zone_id || null,
+        lat: user.residence_lat || null,
+        lng: user.residence_lng || null,
         active: true
       };
 
@@ -676,6 +689,32 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Zone Selector */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-teal-600" />
+              Área de Disponibilidade *
+            </Label>
+            <Select 
+              value={formData.zone_id} 
+              onValueChange={(value) => setFormData({ ...formData, zone_id: value })}
+            >
+              <SelectTrigger className={!formData.zone_id ? "border-amber-500" : ""}>
+                <SelectValue placeholder="Selecione a área" />
+              </SelectTrigger>
+              <SelectContent>
+                {zones.map((zone) => (
+                  <SelectItem key={zone.id} value={zone.id}>
+                    {zone.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-500">
+              O produto ficará visível apenas para usuários que filtram por esta área
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label>Título *</Label>
             <Input
@@ -782,13 +821,15 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
 
 // Service Form Modal
 function ServiceFormModal({ open, onClose, service, user, onSuccess }) {
+  const { zones } = useSelectedZone();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     price: '',
     price_type: 'servico',
     service_type: '',
-    images: []
+    images: [],
+    zone_id: ''
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -801,7 +842,8 @@ function ServiceFormModal({ open, onClose, service, user, onSuccess }) {
         price: service.price?.toString() || '',
         price_type: service.price_type || 'servico',
         service_type: service.service_type || '',
-        images: service.images || []
+        images: service.images || [],
+        zone_id: service.zone_id || user?.residence_zone_id || ''
       });
     } else {
       setFormData({
@@ -810,10 +852,11 @@ function ServiceFormModal({ open, onClose, service, user, onSuccess }) {
         price: '',
         price_type: 'servico',
         service_type: '',
-        images: []
+        images: [],
+        zone_id: user?.residence_zone_id || ''
       });
     }
-  }, [service, open]);
+  }, [service, open, user?.residence_zone_id]);
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -835,6 +878,11 @@ function ServiceFormModal({ open, onClose, service, user, onSuccess }) {
       return;
     }
 
+    if (!formData.zone_id) {
+      toast.error('Selecione a área onde o serviço está disponível');
+      return;
+    }
+
     setSaving(true);
     try {
       const data = {
@@ -843,6 +891,9 @@ function ServiceFormModal({ open, onClose, service, user, onSuccess }) {
         provider_id: user.id,
         provider_email: user.email,
         provider_name: user.full_name,
+        zone_id: formData.zone_id || null,
+        lat: user.residence_lat || null,
+        lng: user.residence_lng || null,
         active: true
       };
 
@@ -868,6 +919,32 @@ function ServiceFormModal({ open, onClose, service, user, onSuccess }) {
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Zone Selector */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-teal-600" />
+              Área de Atendimento *
+            </Label>
+            <Select 
+              value={formData.zone_id} 
+              onValueChange={(value) => setFormData({ ...formData, zone_id: value })}
+            >
+              <SelectTrigger className={!formData.zone_id ? "border-amber-500" : ""}>
+                <SelectValue placeholder="Selecione a área" />
+              </SelectTrigger>
+              <SelectContent>
+                {zones.map((zone) => (
+                  <SelectItem key={zone.id} value={zone.id}>
+                    {zone.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-500">
+              O serviço ficará visível apenas para usuários que filtram por esta área
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label>Título *</Label>
             <Input

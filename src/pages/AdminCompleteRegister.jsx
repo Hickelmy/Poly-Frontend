@@ -4,13 +4,16 @@ import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { 
   Map, Mail, Lock, Eye, EyeOff, User, Phone, FileText, 
-  MapPin, Calendar, Loader2, CheckCircle, XCircle, ArrowLeft 
+  MapPin, Calendar as CalendarIcon, Loader2, CheckCircle, XCircle, ArrowLeft 
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function AdminCompleteRegister() {
   const [token, setToken] = useState(null);
@@ -32,6 +35,7 @@ export default function AdminCompleteRegister() {
     confirm_password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [birthDate, setBirthDate] = useState(null);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -117,17 +121,63 @@ export default function AdminCompleteRegister() {
 
     setSaving(true);
     try {
+      // Criar usuário no backend
+      const fullName = `${formData.first_name} ${formData.last_name}`.trim();
+      
+      const userData = {
+        name: fullName,
+        email: formData.email,
+        password: formData.password,
+        role: invite.type === 'gestor' ? 'gestor' : 'administrador',
+        phone: formData.phone || null,
+        // Campos extras que podem ser salvos no localStorage para uso futuro
+        // (já que o schema do User não tem esses campos)
+        cpf: formData.cpf || null,
+        location: formData.location || null,
+        birth_date: birthDate ? birthDate.toISOString() : null,
+      };
+
+      // Registrar usuário no backend
+      await polysApi.auth.register({
+        full_name: fullName,
+        email: formData.email,
+        password: formData.password,
+        role: invite.type === 'gestor' ? 'gestor' : 'administrador',
+      });
+
+      // Salvar dados extras no localStorage (para uso futuro se necessário)
+      try {
+        const db = JSON.parse(localStorage.getItem('polys_db') || '{}');
+        if (!db.users) db.users = [];
+        const userIndex = db.users.findIndex(u => u.email === formData.email);
+        const extraData = {
+          cpf: formData.cpf,
+          location: formData.location,
+          birth_date: birthDate ? birthDate.toISOString() : null,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+        };
+        if (userIndex >= 0) {
+          db.users[userIndex] = { ...db.users[userIndex], ...extraData };
+        } else {
+          db.users.push({ email: formData.email, ...extraData });
+        }
+        localStorage.setItem('polys_db', JSON.stringify(db));
+      } catch (e) {
+        console.warn('Erro ao salvar dados extras:', e);
+      }
+
       // Mark invite as used
       await polysApi.entities.InviteLink.update(invite.id, {
         status: 'used',
         used_at: new Date().toISOString()
       });
 
-      // Redirect to login - user will ser autenticado pelo cliente Polys
-      toast.success('Cadastro preparado! Faça login para continuar.');
+      toast.success('Cadastro concluído com sucesso!');
       setSuccess(true);
     } catch (error) {
-      toast.error('Erro ao completar cadastro');
+      console.error('Erro ao completar cadastro:', error);
+      toast.error(error.message || 'Erro ao completar cadastro');
     }
     setSaving(false);
   };
@@ -192,7 +242,7 @@ export default function AdminCompleteRegister() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to={createPageUrl('Landing')} className="inline-flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg">
               <Map className="w-7 h-7 text-white" />
             </div>
             <div className="text-left">
@@ -266,16 +316,36 @@ export default function AdminCompleteRegister() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="birth_date">Data de Nascimento</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      id="birth_date"
-                      type="date"
-                      value={formData.birth_date}
-                      onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
-                      className="pl-10"
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal pl-10",
+                          !birthDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="absolute left-3 h-4 w-4 text-slate-400" />
+                        {birthDate
+                          ? birthDate.toLocaleDateString('pt-BR')
+                          : "Escolha uma data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={birthDate}
+                        onSelect={setBirthDate}
+                        disabled={(date) => {
+                          const today = new Date();
+                          today.setHours(23, 59, 59, 999);
+                          return date > today;
+                        }}
+                        initialFocus
                     />
-                  </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Telefone *</Label>
@@ -301,7 +371,7 @@ export default function AdminCompleteRegister() {
                     id="email"
                     type="email"
                     value={formData.email}
-                    className="pl-10 bg-slate-50"
+                    className="pl-10 bg-teal-50/50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-800"
                     disabled
                   />
                 </div>

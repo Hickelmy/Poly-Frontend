@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
+import { useSelectedZone } from '@/contexts/SelectedZoneContext';
 import { 
   Home, Map, Users, ShoppingBag, Wrench, Settings, Bell, 
   LogOut, Menu, X, Sun, Moon, ChevronDown, Shield, 
-  HelpCircle, FileText, LayoutDashboard, UserCog, Link2, MapPinned
+  HelpCircle, FileText, LayoutDashboard, UserCog, Link2, MapPinned,
+  BarChart3, MapPin, Check, Newspaper
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +42,9 @@ export default function Layout({ children, currentPageName }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [appSettings, setAppSettings] = useState(null);
+  
+  // Zone selection context
+  const { selectedZone, setSelectedZone, zones, loading: zonesLoading } = useSelectedZone();
 
   useEffect(() => {
     loadUser();
@@ -121,6 +133,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Comunidade', icon: Users, page: 'Projects', roles: ['usuario', 'administrador', 'gestor', 'suporte'] },
     { name: 'Loja', icon: ShoppingBag, page: 'Store', roles: ['usuario', 'administrador', 'gestor', 'suporte'] },
     { name: 'Serviços', icon: Wrench, page: 'Services', roles: ['usuario', 'administrador', 'gestor', 'suporte'] },
+    { name: 'Notícias', icon: Newspaper, page: 'News', roles: ['usuario', 'administrador', 'gestor', 'suporte'] },
     { name: 'Meus Pedidos', icon: FileText, page: 'MyOrders', roles: ['usuario', 'administrador', 'gestor', 'suporte'] },
     { name: 'Minhas Vendas', icon: ShoppingBag, page: 'SellerDashboard', roles: ['usuario', 'administrador', 'gestor', 'suporte'] },
     { name: 'Suporte', icon: HelpCircle, page: 'Support', roles: ['usuario', 'administrador', 'gestor', 'suporte'] },
@@ -130,6 +143,7 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Gestão de Áreas', icon: MapPinned, page: 'ZoneManagement', roles: ['gestor'] },
     { name: 'Links de Convite', icon: Link2, page: 'InviteLinks', roles: ['gestor'] },
     { name: 'Gestão de Usuários', icon: UserCog, page: 'UserManagement', roles: ['gestor', 'administrador'] },
+    { name: 'Custos e Lucros', icon: BarChart3, page: 'FinancialReport', roles: ['gestor', 'administrador'] },
     { name: 'Configurações', icon: Settings, page: 'AppSettings', roles: ['gestor'] },
     { name: 'Auditoria', icon: Shield, page: 'AuditLogs', roles: ['gestor', 'administrador'] },
   ];
@@ -293,6 +307,61 @@ export default function Layout({ children, currentPageName }) {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Zone Selector */}
+              {zones.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className={cn(
+                        "gap-2 min-w-[140px] max-w-[200px] justify-start",
+                        selectedZone 
+                          ? "border-teal-500 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400" 
+                          : "text-slate-600 dark:text-slate-400"
+                      )}
+                    >
+                      <MapPin className="w-4 h-4 shrink-0" />
+                      <span className="truncate">
+                        {selectedZone ? selectedZone.name : 'Todas as Áreas'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 ml-auto shrink-0" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-56">
+                    <div className="p-2 border-b">
+                      <p className="text-xs text-slate-500 font-medium">Filtrar por Área</p>
+                    </div>
+                    <DropdownMenuItem 
+                      onClick={() => setSelectedZone(null)}
+                      className={cn(
+                        "flex items-center gap-2 cursor-pointer",
+                        !selectedZone && "bg-teal-50 dark:bg-teal-900/20"
+                      )}
+                    >
+                      <Map className="w-4 h-4" />
+                      <span>Todas as Áreas</span>
+                      {!selectedZone && <Check className="w-4 h-4 ml-auto text-teal-600" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {zones.map((zone) => (
+                      <DropdownMenuItem
+                        key={zone.id}
+                        onClick={() => setSelectedZone(zone)}
+                        className={cn(
+                          "flex items-center gap-2 cursor-pointer",
+                          selectedZone?.id === zone.id && "bg-teal-50 dark:bg-teal-900/20"
+                        )}
+                      >
+                        <MapPinned className="w-4 h-4" />
+                        <span className="truncate">{zone.name}</span>
+                        {selectedZone?.id === zone.id && (
+                          <Check className="w-4 h-4 ml-auto text-teal-600" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               {/* Theme Toggle */}
               <Button
                 variant="ghost"

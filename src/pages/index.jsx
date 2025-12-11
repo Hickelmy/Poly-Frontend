@@ -44,6 +44,10 @@ import AppSettings from "./AppSettings";
 
 import AuditLogs from "./AuditLogs";
 
+import FinancialReport from "./FinancialReport";
+
+import News from "./News";
+
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
@@ -91,6 +95,10 @@ const PAGES = {
     AppSettings: AppSettings,
 
     AuditLogs: AuditLogs,
+
+    FinancialReport: FinancialReport,
+
+    News: News,
     
 }
 
@@ -167,6 +175,12 @@ function PagesContent() {
                 <Route path="/appsettings" element={<AppSettings />} />
                 <Route path="/AuditLogs" element={<AuditLogs />} />
                 <Route path="/auditlogs" element={<AuditLogs />} />
+
+                <Route path="/FinancialReport" element={<FinancialReport />} />
+                <Route path="/financialreport" element={<FinancialReport />} />
+
+                <Route path="/News" element={<News />} />
+                <Route path="/news" element={<News />} />
                 
             </Routes>
         </Layout>

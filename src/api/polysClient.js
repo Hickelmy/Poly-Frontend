@@ -40,19 +40,10 @@ function saveDb(db) {
 }
 
 function createInitialDb() {
-  const now = new Date().toISOString();
+  // Banco local vazio - todos os dados devem vir do backend
+  // Este banco é usado apenas para cache temporário e entidades não migradas
   return {
-    users: [
-      {
-        id: '1',
-        full_name: 'Admin Local',
-        email: 'admin@polys.local',
-        password: 'admin123',
-        user_role: 'gestor',
-        email_confirmed: true,
-        created_date: now,
-      },
-    ],
+    users: [],
     zones: [],
     residences: [],
     projects: [],
@@ -383,6 +374,53 @@ function makeEntityApi(entityName) {
     };
   }
 
+  // Zone usa o backend
+  if (entityName === 'Zone') {
+    return {
+      async list(sortField = 'name', limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('orderBy', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        return apiRequest(`/zones?${params.toString()}`, { method: 'GET' });
+      },
+
+      async filter(where = {}, sortField, limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('orderBy', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        Object.entries(where).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        return apiRequest(`/zones?${params.toString()}`, { method: 'GET' });
+      },
+
+      async getOne(id) {
+        return apiRequest(`/zones/${id}`, { method: 'GET' });
+      },
+
+      async create(data) {
+        return apiRequest('/zones', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async update(id, data) {
+        return apiRequest(`/zones/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async delete(id) {
+        return apiRequest(`/zones/${id}`, {
+          method: 'DELETE',
+        });
+      },
+    };
+  }
+
   if (entityName === 'Service') {
     return {
       async list(sortField = '-created_date', limit) {
@@ -491,6 +529,20 @@ function makeEntityApi(entityName) {
   };
 }
 
+// Função para limpar todos os dados do localStorage relacionados ao Polys
+function clearAllLocalData() {
+  const storage = getStorage();
+  if (storage) {
+    storage.removeItem(DB_KEY);
+    storage.removeItem(AUTH_KEY);
+    storage.removeItem(TOKEN_KEY);
+    storage.removeItem(USER_CACHE_KEY);
+    // Limpa também o selected zone do contexto
+    storage.removeItem('polys-selected-zone');
+    console.log('✅ Todos os dados locais do Polys foram limpos');
+  }
+}
+
 const auth = {
   async login({ email, password }) {
     const data = await apiRequest('/auth/login', {
@@ -519,10 +571,10 @@ const auth = {
     return sanitizeUser(mapped);
   },
 
-  async register({ full_name, email, password }) {
+  async register({ full_name, email, password, role }) {
     const data = await apiRequest('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name: full_name, email, password }),
+      body: JSON.stringify({ name: full_name, email, password, role }),
     });
 
     // Opcional: já fazer login após registrar
@@ -537,6 +589,8 @@ const auth = {
       storage.removeItem(AUTH_KEY);
       storage.removeItem(TOKEN_KEY);
       storage.removeItem(USER_CACHE_KEY);
+      // Limpa também os dados locais mockados para evitar cache de dados antigos
+      storage.removeItem(DB_KEY);
     }
     if (redirectTo && typeof window !== 'undefined') {
       window.location.href = redirectTo;
@@ -750,10 +804,168 @@ const settings = {
   },
 };
 
+// API Tokens (para integrações como Abacate Pay)
+const apiTokens = {
+  async list() {
+    return apiRequest('/api-tokens', { method: 'GET' });
+  },
+
+  async get(id) {
+    return apiRequest(`/api-tokens/${id}`, { method: 'GET' });
+  },
+
+  async create(data) {
+    return apiRequest('/api-tokens', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id, data) {
+    return apiRequest(`/api-tokens/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async delete(id) {
+    return apiRequest(`/api-tokens/${id}`, { method: 'DELETE' });
+  },
+
+  async reorder(tokenIds) {
+    return apiRequest('/api-tokens/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ token_ids: tokenIds }),
+    });
+  },
+};
+
+// Gateway de Pagamento (integração com Abacate Pay)
+const paymentGateway = {
+  async createPixPayment(data) {
+    return apiRequest('/payment-gateway/create-pix', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async generateQRCode(billingId) {
+    return apiRequest('/payment-gateway/generate-qrcode', {
+      method: 'POST',
+      body: JSON.stringify({ billing_id: billingId }),
+    });
+  },
+
+  async checkStatus(paymentId) {
+    return apiRequest(`/payment-gateway/status/${paymentId}`, { method: 'GET' });
+  },
+};
+
+// API de Notícias
+const news = {
+  async list(options = {}) {
+    const params = new URLSearchParams();
+    if (options.zoneId) params.set('zoneId', options.zoneId);
+    if (options.publishedOnly !== undefined) params.set('publishedOnly', String(options.publishedOnly));
+    if (options.limit) params.set('limit', String(options.limit));
+    if (options.offset) params.set('offset', String(options.offset));
+    return apiRequest(`/news?${params.toString()}`, { method: 'GET' });
+  },
+
+  async get(id) {
+    return apiRequest(`/news/${id}`, { method: 'GET' });
+  },
+
+  async create(data) {
+    return apiRequest('/news', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id, data) {
+    return apiRequest(`/news/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async delete(id) {
+    return apiRequest(`/news/${id}`, { method: 'DELETE' });
+  },
+
+  async like(id) {
+    return apiRequest(`/news/${id}/like`, { method: 'POST' });
+  },
+
+  async unlike(id) {
+    return apiRequest(`/news/${id}/like`, { method: 'DELETE' });
+  },
+
+  async getComments(id) {
+    return apiRequest(`/news/${id}/comments`, { method: 'GET' });
+  },
+
+  async addComment(id, content) {
+    return apiRequest(`/news/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  async deleteComment(newsId, commentId) {
+    return apiRequest(`/news/${newsId}/comments/${commentId}`, { method: 'DELETE' });
+  },
+
+  async report(id, reason, description) {
+    return apiRequest(`/news/${id}/report`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, description }),
+    });
+  },
+
+  async getReports(options = {}) {
+    const params = new URLSearchParams();
+    if (options.newsId) params.set('newsId', options.newsId);
+    if (options.status) params.set('status', options.status);
+    return apiRequest(`/news/reports?${params.toString()}`, { method: 'GET' });
+  },
+};
+
+// API de usuários
+const users = {
+  async me() {
+    return auth.me();
+  },
+
+  async get(id) {
+    return apiRequest(`/users/${id}`, { method: 'GET' });
+  },
+
+  async list(options = {}) {
+    const params = new URLSearchParams();
+    if (options.role) params.set('role', options.role);
+    if (options.limit) params.set('limit', String(options.limit));
+    return apiRequest(`/users?${params.toString()}`, { method: 'GET' });
+  },
+
+  async update(id, data) {
+    return apiRequest(`/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+};
+
 export const polysApi = {
   auth,
   settings,
+  apiTokens,
+  paymentGateway,
   integrations,
+  news,
+  users,
+  clearAllLocalData, // Função para limpar todos os dados locais
   entities: Object.keys(entityCollections).reduce((acc, name) => {
     acc[name] = makeEntityApi(name);
     return acc;

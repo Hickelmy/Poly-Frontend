@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { polysApi } from '@/api/polysClient';
 import { createPageUrl } from '../utils';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ import {
 import { Calendar as CalendarIcon, Plus, Minus, Trash2, Upload, Loader2, X } from 'lucide-react';
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import LocationPicker from "@/components/LocationPicker";
 
 const CATEGORY_OPTIONS = [
   { value: 'seguranca', label: 'Segurança' },
@@ -69,6 +71,45 @@ export default function CreateProject() {
     funding_deadline: '',
     status: 'proposed',
   });
+  const [location, setLocation] = useState({
+    address: '',
+    latitude: null,
+    longitude: null,
+  });
+
+  // Fetch zones for zone_id assignment
+  const { data: zones = [] } = useQuery({
+    queryKey: ['zones'],
+    queryFn: () => polysApi.entities.Zone.filter({ active: true }),
+  });
+
+  // Point-in-polygon check
+  const isPointInPolygon = (point, polygon) => {
+    const x = point[0], y = point[1];
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i][0], yi = polygon[i][1];
+      const xj = polygon[j][0], yj = polygon[j][1];
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  };
+
+  // Find zone_id based on project location
+  const findZoneIdForLocation = (lat, lng) => {
+    if (!lat || !lng || zones.length === 0) return null;
+    for (const zone of zones) {
+      if (zone.polygon_geojson?.coordinates) {
+        const polygon = zone.polygon_geojson.coordinates[0];
+        if (isPointInPolygon([lng, lat], polygon)) {
+          return zone.id;
+        }
+      }
+    }
+    return null;
+  };
 
   useEffect(() => {
     const loadUser = async () => {
@@ -229,17 +270,22 @@ export default function CreateProject() {
     e.preventDefault();
 
     if (!user) {
-      toast.error('Faça login como administrador para criar projetos.');
+      toast.error('Faça login como administrador ou gestor para criar projetos.');
       return;
     }
 
-    if (user.user_role !== 'administrador') {
-      toast.error('Apenas administradores podem criar projetos.');
+    if (user.user_role !== 'administrador' && user.user_role !== 'gestor') {
+      toast.error('Apenas administradores e gestores podem criar projetos.');
       return;
     }
 
     if (!formData.title || !formData.category) {
       toast.error('Preencha pelo menos título e categoria.');
+      return;
+    }
+
+    if (!location.address || !location.latitude || !location.longitude) {
+      toast.error('Selecione a localização do problema.');
       return;
     }
 
@@ -269,6 +315,9 @@ export default function CreateProject() {
         0,
       );
 
+      // Find zone_id based on project location
+      const zoneId = findZoneIdForLocation(location.latitude, location.longitude);
+
       const payload = {
         title: formData.title,
         short_description: formData.short_description || formData.description?.slice(0, 140),
@@ -283,6 +332,12 @@ export default function CreateProject() {
         status: formData.status || 'proposed',
         owner_id: user.id,
         owner_email: user.email,
+        location_address: location.address,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        lat: location.latitude, // Para compatibilidade com os filtros do mapa
+        lng: location.longitude,
+        zone_id: zoneId, // Associa o projeto à zona onde está localizado
         evidences,
         expenses: normalizedExpenses,
         expenses_total: expensesTotal,
@@ -308,14 +363,14 @@ export default function CreateProject() {
     );
   }
 
-  if (!user || user.user_role !== 'administrador') {
+  if (!user || (user.user_role !== 'administrador' && user.user_role !== 'gestor')) {
     return (
       <div className="max-w-xl mx-auto">
         <Card className="border-0 shadow-sm">
           <CardHeader>
             <CardTitle>Permissão necessária</CardTitle>
             <CardDescription>
-              Apenas administradores podem cadastrar novos projetos de melhoria comunitária.
+              Apenas administradores e gestores podem cadastrar novos projetos de melhoria comunitária.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -367,6 +422,12 @@ export default function CreateProject() {
                 placeholder="Descreva o problema, a proposta de solução e o impacto esperado..."
               />
             </div>
+
+            {/* Localização */}
+            <LocationPicker
+              value={location}
+              onChange={setLocation}
+            />
 
             {/* Evidências / Imagens */}
             <div className="space-y-3 border rounded-lg p-4 bg-slate-50/70 dark:bg-slate-900/30">

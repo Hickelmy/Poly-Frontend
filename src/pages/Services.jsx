@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery } from '@tanstack/react-query';
+import { useZoneFilter } from '@/contexts/SelectedZoneContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Filter, Grid3X3, List, Wrench, Star,
-  Calendar, Plus
+  Calendar, Plus, MapPin
 } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +33,9 @@ export default function Services() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
 
+  // Zone filter
+  const { selectedZone, filterByZone } = useZoneFilter();
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -49,8 +54,8 @@ export default function Services() {
     queryFn: () => polysApi.entities.Service.filter({ active: true }, '-created_date', 100),
   });
 
-  // Filter and sort services
-  const filteredServices = services
+  // Filter and sort services (including zone filter)
+  const filteredServices = filterByZone(services, 'zone_id')
     .filter(service => {
       const matchesSearch = service.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            service.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -201,6 +206,16 @@ export default function Services() {
               </div>
             </div>
           </div>
+
+          {/* Active Zone Filter */}
+          {selectedZone && (
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+              <Badge className="gap-1 bg-teal-600">
+                <MapPin className="w-3 h-3" />
+                {selectedZone.name}
+              </Badge>
+            </div>
+          )}
         </CardContent>
       </Card>
 

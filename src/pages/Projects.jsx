@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useZoneFilter } from '@/contexts/SelectedZoneContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Filter, Plus, Grid3X3, List, ChevronDown,
-  Vote, Heart, TrendingUp, Building2
+  Vote, Heart, TrendingUp, Building2, MapPin
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import ProjectCard from '../components/projects/ProjectCard';
 import DonationModal from '../components/modals/DonationModal';
+import CreateProjectModal from '../components/modals/CreateProjectModal';
 
 export default function Projects() {
   const [user, setUser] = useState(null);
@@ -40,6 +41,10 @@ export default function Projects() {
   const [donationModalOpen, setDonationModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [userVotes, setUserVotes] = useState([]);
+  const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
+
+  // Zone filter
+  const { selectedZone, filterByZone } = useZoneFilter();
 
   const queryClient = useQueryClient();
 
@@ -128,8 +133,8 @@ export default function Projects() {
     setDonationModalOpen(true);
   };
 
-  // Filter projects
-  const filteredProjects = projects.filter(project => {
+  // Filter projects (including zone filter)
+  const filteredProjects = filterByZone(projects, 'zone_id').filter(project => {
     const matchesSearch = project.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          project.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
@@ -176,13 +181,14 @@ export default function Projects() {
           </p>
         </div>
         
-        {user?.user_role === 'administrador' && (
-          <Link to={createPageUrl('CreateProject')}>
-            <Button className="bg-teal-600 hover:bg-teal-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Criar Projeto
-            </Button>
-          </Link>
+        {(user?.user_role === 'administrador' || user?.user_role === 'gestor') && (
+          <Button 
+            className="bg-teal-600 hover:bg-teal-700"
+            onClick={() => setCreateProjectModalOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Criar Projeto
+          </Button>
         )}
       </div>
 
@@ -419,6 +425,13 @@ export default function Projects() {
           setSelectedProject(null);
         }}
         project={selectedProject}
+        user={user}
+      />
+
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        open={createProjectModalOpen}
+        onClose={() => setCreateProjectModalOpen(false)}
         user={user}
       />
     </div>

@@ -1,26 +1,6 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Shield } from 'lucide-react';
-
-// Dados fictícios por enquanto
-const MOCK_LOGS = [
-  {
-    id: '1',
-    type: 'login',
-    actor: 'admin@polys.local',
-    description: 'Login realizado',
-    createdAt: '2025-12-03 00:12',
-  },
-  {
-    id: '2',
-    type: 'user_update',
-    actor: 'admin@polys.local',
-    description: 'Permissões do usuário teste@email.com atualizadas',
-    createdAt: '2025-12-03 00:20',
-  },
-];
+import { Shield, Clock, Database } from 'lucide-react';
 
 export default function AuditLogs() {
   return (
@@ -32,45 +12,26 @@ export default function AuditLogs() {
             Auditoria
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-slate-500">
-            Aqui você poderá visualizar ações sensíveis realizadas na plataforma
-            (logins, mudanças de permissão, configurações, etc).
-          </p>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Data</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {MOCK_LOGS.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs capitalize">
-                      {log.type.replace('_', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">{log.actor}</TableCell>
-                  <TableCell className="text-sm">{log.description}</TableCell>
-                  <TableCell className="text-xs text-slate-500">{log.createdAt}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          <p className="text-xs text-slate-400">
-            Esta tela usa dados de exemplo. Depois podemos ligar essa listagem ao backend
-            usando uma tabela de auditoria no Prisma.
-          </p>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+              <Database className="w-8 h-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+              Em Desenvolvimento
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
+              O sistema de auditoria está sendo desenvolvido. Em breve você poderá 
+              visualizar todas as ações sensíveis realizadas na plataforma, como 
+              logins, mudanças de permissão e configurações.
+            </p>
+            <div className="flex items-center gap-2 mt-4 text-xs text-slate-400">
+              <Clock className="w-4 h-4" />
+              <span>Previsão: Próxima atualização</span>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-
-

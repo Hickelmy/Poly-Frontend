@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery } from '@tanstack/react-query';
+import { useSelectedZone, useZoneFilter } from '@/contexts/SelectedZoneContext';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Map, Plus, Filter, Layers, Building2, Camera, ShoppingBag,
   Vote, Heart, Bell, Wallet, Search, MapPin, Users,
-  TrendingUp, Calendar, ChevronRight, Eye, Navigation, Home, AlertCircle
+  TrendingUp, Calendar, ChevronRight, Eye, Navigation, Home, AlertCircle,
+  Check, X as XIcon
 } from 'lucide-react';
 import LocationSetupModal from '../components/map/LocationSetupModal';
 import { Button } from "@/components/ui/button";
@@ -97,6 +99,8 @@ function MapView({
   getZonePolygon,
   markers,
   onMarkerClick,
+  selectedZone,
+  onZoneClick,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -159,35 +163,96 @@ function MapView({
     }
   }, [userLocation]);
 
-  // Polígonos das zonas
+  // Polígonos das zonas - agora com clique para selecionar
   useEffect(() => {
     if (!zonesLayerRef.current) return;
     zonesLayerRef.current.clearLayers();
 
-    if (userZone) {
-      const poly = getZonePolygon(userZone);
-      if (poly) {
-        L.polygon(poly, {
-          color: '#1e3a5f',
-          weight: 3,
-          fillOpacity: 0,
-        }).addTo(zonesLayerRef.current);
-      }
-    }
+    zones.forEach((zone) => {
+      const poly = getZonePolygon(zone);
+      if (!poly) return;
 
-    zones
-      .filter((z) => !userZone || z.id !== userZone.id)
-      .forEach((zone) => {
-        const poly = getZonePolygon(zone);
-        if (!poly) return;
-        L.polygon(poly, {
-          color: '#94a3b8',
-          weight: 2,
-          fillOpacity: 0,
-          dashArray: '5, 5',
-        }).addTo(zonesLayerRef.current);
+      const isSelected = selectedZone?.id === zone.id;
+      const isUserZone = userZone?.id === zone.id;
+
+      const polygon = L.polygon(poly, {
+        color: isSelected ? '#14b8a6' : isUserZone ? '#1e3a5f' : '#94a3b8',
+        weight: isSelected ? 4 : isUserZone ? 3 : 2,
+        fillColor: isSelected ? '#14b8a6' : '#94a3b8',
+        fillOpacity: isSelected ? 0.15 : 0.05,
+        dashArray: isSelected || isUserZone ? null : '5, 5',
       });
-  }, [zones, userZone, getZonePolygon]);
+
+      // Popup de seleção ao clicar na zona
+      polygon.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        
+        const popupContent = document.createElement('div');
+        popupContent.className = 'zone-select-popup';
+        popupContent.innerHTML = `
+          <div style="padding: 8px; min-width: 180px;">
+            <p style="font-weight: 600; margin-bottom: 8px; font-size: 14px;">${zone.name}</p>
+            <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+              ${isSelected ? 'Área selecionada atualmente' : 'Clique para filtrar por esta área'}
+            </p>
+            <button 
+              id="select-zone-btn-${zone.id}" 
+              style="
+                width: 100%;
+                padding: 8px 16px;
+                background: ${isSelected ? '#ef4444' : '#14b8a6'};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+              "
+            >
+              ${isSelected ? 'Remover Filtro' : 'Selecionar Área'}
+            </button>
+          </div>
+        `;
+
+        const popup = L.popup({
+          closeButton: true,
+          className: 'zone-popup',
+        })
+          .setLatLng(e.latlng)
+          .setContent(popupContent)
+          .openOn(mapRef.current);
+
+        // Adiciona evento ao botão depois que o popup for adicionado ao DOM
+        setTimeout(() => {
+          const btn = document.getElementById(`select-zone-btn-${zone.id}`);
+          if (btn) {
+            btn.onclick = () => {
+              onZoneClick(isSelected ? null : zone);
+              mapRef.current.closePopup();
+            };
+          }
+        }, 0);
+      });
+
+      // Hover effect
+      polygon.on('mouseover', () => {
+        if (!isSelected) {
+          polygon.setStyle({ fillOpacity: 0.2 });
+        }
+      });
+      polygon.on('mouseout', () => {
+        if (!isSelected) {
+          polygon.setStyle({ fillOpacity: 0.05 });
+        }
+      });
+
+      polygon.addTo(zonesLayerRef.current);
+    });
+  }, [zones, userZone, selectedZone, getZonePolygon, onZoneClick]);
 
   // Marcadores de projetos/produtos/serviços
   useEffect(() => {
@@ -215,11 +280,15 @@ function MapView({
 export default function Dashboard() {
   const location = useLocation();
   const [user, setUser] = useState(null);
-  const [mapCenter, setMapCenter] = useState([-23.5505, -46.6333]); // São Paulo default
-  const [mapZoom, setMapZoom] = useState(14);
+  const [mapCenter, setMapCenter] = useState([-15.7942, -47.8822]); // Centro do Brasil como fallback inicial
+  const [mapZoom, setMapZoom] = useState(4); // Zoom inicial baixo para mostrar o Brasil
   const [mapStyle, setMapStyle] = useState('dark');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedMarker, setSelectedMarker] = useState(null);
+  
+  // Zone selection context
+  const { selectedZone, setSelectedZone, zones: contextZones } = useSelectedZone();
+  const { filterByZone } = useZoneFilter();
   
   // Location states
   const [userLocation, setUserLocation] = useState(null);
@@ -228,6 +297,7 @@ export default function Dashboard() {
   const [showLocationSetup, setShowLocationSetup] = useState(false);
   const [userResidence, setUserResidence] = useState(null);
   const [userZone, setUserZone] = useState(null);
+  const [initialLocationSet, setInitialLocationSet] = useState(false);
 
   // Welcome message after registration
   useEffect(() => {
@@ -247,21 +317,50 @@ export default function Dashboard() {
         const userData = await polysApi.auth.me();
         setUser(userData);
         
-        // Check if user has residence configured
+        // Check if user has residence configured - usa como centro inicial do mapa
         if (userData.residence_lat && userData.residence_lng) {
           setUserResidence({
             lat: userData.residence_lat,
             lng: userData.residence_lng
           });
+          // Define a residência como centro inicial
+          if (!initialLocationSet) {
+            setMapCenter([userData.residence_lat, userData.residence_lng]);
+            setMapZoom(15);
+            setInitialLocationSet(true);
+          }
         }
       } catch (e) {
         polysApi.auth.redirectToLogin();
       }
     };
     loadUser();
-  }, []);
+  }, [initialLocationSet]);
 
-  // Request geolocation on mount
+  // Detectar localização inicial por IP (rápido) antes do GPS
+  useEffect(() => {
+    const detectInitialLocation = async () => {
+      if (initialLocationSet) return;
+      
+      try {
+        const response = await fetch('https://ipapi.co/json/');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.latitude && data.longitude) {
+            setMapCenter([data.latitude, data.longitude]);
+            setMapZoom(12);
+            setInitialLocationSet(true);
+          }
+        }
+      } catch (e) {
+        // Silently fail - GPS will be the fallback
+      }
+    };
+    
+    detectInitialLocation();
+  }, [initialLocationSet]);
+
+  // Request geolocation on mount (GPS preciso, mas mais lento)
   useEffect(() => {
     requestLocation();
   }, []);
@@ -551,6 +650,8 @@ export default function Dashboard() {
                 getZonePolygon={getZonePolygon}
                 markers={getFilteredMarkers()}
                 onMarkerClick={setSelectedMarker}
+                selectedZone={selectedZone}
+                onZoneClick={setSelectedZone}
               />
 
               {/* Legend */}
@@ -580,7 +681,24 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
+                <p className="text-[10px] text-slate-400 mt-2 pt-2 border-t">
+                  Clique em uma área para filtrar
+                </p>
               </div>
+
+              {/* Selected Zone Indicator */}
+              {selectedZone && (
+                <div className="absolute top-4 left-4 bg-teal-600 text-white rounded-lg shadow-lg px-3 py-2 z-[1000] flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  <span className="text-sm font-medium">{selectedZone.name}</span>
+                  <button 
+                    onClick={() => setSelectedZone(null)}
+                    className="ml-1 hover:bg-teal-700 rounded p-0.5"
+                  >
+                    <XIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
               {/* Center on user button */}
               {userLocation && (
@@ -627,7 +745,7 @@ export default function Dashboard() {
                   <span className="text-xs">Abrir Chamado</span>
                 </Button>
               </Link>
-              {user?.user_role === 'administrador' && (
+              {(user?.user_role === 'administrador' || user?.user_role === 'gestor') && (
                 <Link to={createPageUrl('CreateProject')}>
                   <Button className="w-full h-20 flex-col gap-1 bg-teal-600 hover:bg-teal-700">
                     <Plus className="w-5 h-5" />
