@@ -65,6 +65,13 @@ export default function Profile() {
 
   const loadUser = async () => {
     try {
+      // Força buscar do backend (ignora cache) para garantir dados descriptografados
+      // Limpa o cache local primeiro para forçar busca do backend
+      const storage = window.localStorage;
+      if (storage) {
+        storage.removeItem('polys-auth-user-cache');
+      }
+      
       const userData = await polysApi.auth.me();
       setUser(userData);
       setFormData({
@@ -325,8 +332,25 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+          <div className="h-32 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" />
+            <div className="flex-1 space-y-2">
+              <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-48" />
+              <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-32" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6 space-y-4">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="space-y-2">
+              <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-24" />
+              <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-full" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

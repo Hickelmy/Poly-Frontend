@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery } from '@tanstack/react-query';
@@ -30,6 +29,9 @@ import {
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import ProductCard from '../components/products/ProductCard';
+import CreateProductModal from '../components/modals/CreateProductModal';
+import FullScreenLoading from '../components/shared/FullScreenLoading';
+import { ProductCardSkeleton } from '../components/shared/SkeletonLoader';
 
 export default function Store() {
   const [user, setUser] = useState(null);
@@ -39,6 +41,7 @@ export default function Store() {
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('recent');
+  const [createProductModalOpen, setCreateProductModalOpen] = useState(false);
 
   // Zone filter
   const { selectedZone, filterByZone } = useZoneFilter();
@@ -57,10 +60,11 @@ export default function Store() {
     loadUser();
   }, []);
 
-  // Fetch products
+  // Fetch products - otimizado com staleTime
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => polysApi.entities.Product.list('-created_date', 100),
+    staleTime: 2 * 60 * 1000, // 2 minutos - produtos não mudam tão frequentemente
   });
 
   // Filter and sort products (including zone filter)
@@ -129,12 +133,19 @@ export default function Store() {
           </p>
         </div>
         
-        <Link to={createPageUrl('SellerDashboard')}>
-          <Button className="bg-teal-600 hover:bg-teal-700">
-            <ShoppingBag className="w-4 h-4 mr-2" />
-            Vender Produto
-          </Button>
-        </Link>
+        <Button 
+          className="bg-teal-600 hover:bg-teal-700"
+          onClick={() => {
+            if (!user) {
+              toast.error('Faça login para vender produtos');
+              return;
+            }
+            setCreateProductModalOpen(true);
+          }}
+        >
+          <ShoppingBag className="w-4 h-4 mr-2" />
+          Vender Produto
+        </Button>
       </div>
 
       {/* Stats */}
@@ -313,7 +324,7 @@ export default function Store() {
       {isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-            <Card key={i} className="h-80 animate-pulse bg-slate-100 dark:bg-slate-800" />
+            <ProductCardSkeleton key={i} />
           ))}
         </div>
       ) : filteredProducts.length === 0 ? (
@@ -326,12 +337,18 @@ export default function Store() {
             <p className="text-slate-500 mb-4">
               Tente ajustar os filtros ou buscar por outros termos
             </p>
-            <Link to={createPageUrl('SellerDashboard')}>
-              <Button>
-                <ShoppingBag className="w-4 h-4 mr-2" />
-                Seja o primeiro a vender
-              </Button>
-            </Link>
+            <Button
+              onClick={() => {
+                if (!user) {
+                  toast.error('Faça login para vender produtos');
+                  return;
+                }
+                setCreateProductModalOpen(true);
+              }}
+            >
+              <ShoppingBag className="w-4 h-4 mr-2" />
+              Seja o primeiro a vender
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -361,6 +378,19 @@ export default function Store() {
           </AnimatePresence>
         </motion.div>
       )}
+
+      {/* Create Product Modal */}
+      <CreateProductModal
+        open={createProductModalOpen}
+        onClose={() => setCreateProductModalOpen(false)}
+        user={user}
+        onSuccess={() => {
+          // Query invalidation is handled inside the modal
+        }}
+      />
+
+      {/* Full Screen Loading - apenas no carregamento inicial */}
+      <FullScreenLoading isLoading={false} />
     </div>
   );
 }

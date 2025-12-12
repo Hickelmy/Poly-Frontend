@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery } from '@tanstack/react-query';
 import { useZoneFilter } from '@/contexts/SelectedZoneContext';
@@ -23,6 +21,9 @@ import {
 import { toast } from "sonner";
 import ServiceCard from '../components/services/ServiceCard';
 import BookingModal from '../components/modals/BookingModal';
+import CreateServiceModal from '../components/modals/CreateServiceModal';
+import FullScreenLoading from '../components/shared/FullScreenLoading';
+import { ProductCardSkeleton } from '../components/shared/SkeletonLoader';
 
 export default function Services() {
   const [user, setUser] = useState(null);
@@ -32,6 +33,7 @@ export default function Services() {
   const [viewMode, setViewMode] = useState('grid');
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
+  const [createServiceModalOpen, setCreateServiceModalOpen] = useState(false);
 
   // Zone filter
   const { selectedZone, filterByZone } = useZoneFilter();
@@ -48,10 +50,11 @@ export default function Services() {
     loadUser();
   }, []);
 
-  // Fetch services
+  // Fetch services - otimizado com staleTime
   const { data: services = [], isLoading } = useQuery({
     queryKey: ['services'],
     queryFn: () => polysApi.entities.Service.filter({ active: true }, '-created_date', 100),
+    staleTime: 2 * 60 * 1000, // 2 minutos
   });
 
   // Filter and sort services (including zone filter)
@@ -114,12 +117,19 @@ export default function Services() {
           </p>
         </div>
         
-        <Link to={createPageUrl('SellerDashboard')}>
-          <Button className="bg-teal-600 hover:bg-teal-700">
-            <Plus className="w-4 h-4 mr-2" />
-            Oferecer Serviço
-          </Button>
-        </Link>
+        <Button 
+          className="bg-teal-600 hover:bg-teal-700"
+          onClick={() => {
+            if (!user) {
+              toast.error('Faça login para oferecer serviços');
+              return;
+            }
+            setCreateServiceModalOpen(true);
+          }}
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Oferecer Serviço
+        </Button>
       </div>
 
       {/* Stats */}
@@ -223,7 +233,7 @@ export default function Services() {
       {isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <Card key={i} className="h-80 animate-pulse bg-slate-100 dark:bg-slate-800" />
+            <ProductCardSkeleton key={i} />
           ))}
         </div>
       ) : filteredServices.length === 0 ? (
@@ -236,12 +246,18 @@ export default function Services() {
             <p className="text-slate-500 mb-4">
               Tente buscar por outros termos ou categorias
             </p>
-            <Link to={createPageUrl('SellerDashboard')}>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Oferecer seu serviço
-              </Button>
-            </Link>
+            <Button
+              onClick={() => {
+                if (!user) {
+                  toast.error('Faça login para oferecer serviços');
+                  return;
+                }
+                setCreateServiceModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Oferecer seu serviço
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -282,6 +298,19 @@ export default function Services() {
         service={selectedService}
         user={user}
       />
+
+      {/* Create Service Modal */}
+      <CreateServiceModal
+        open={createServiceModalOpen}
+        onClose={() => setCreateServiceModalOpen(false)}
+        user={user}
+        onSuccess={() => {
+          // Query invalidation is handled inside the modal
+        }}
+      />
+
+      {/* Full Screen Loading - apenas no carregamento inicial */}
+      <FullScreenLoading isLoading={false} />
     </div>
   );
 }

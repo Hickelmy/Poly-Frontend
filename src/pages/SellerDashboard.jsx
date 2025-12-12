@@ -50,6 +50,9 @@ import {
 import { toast } from "sonner";
 import StatusBadge from '../components/shared/StatusBadge';
 import KPICard from '../components/shared/KPICard';
+import FullScreenLoading from '../components/shared/FullScreenLoading';
+import { ProductCardSkeleton, TableSkeleton, InlineLoading } from '../components/shared/SkeletonLoader';
+import CurrencyInput from '../components/shared/CurrencyInput';
 
 export default function SellerDashboard() {
   const [user, setUser] = useState(null);
@@ -87,18 +90,21 @@ export default function SellerDashboard() {
   });
 
   // Fetch seller's orders (as seller)
-  const { data: orders = [] } = useQuery({
+  const { data: orders = [], isLoading: loadingOrders } = useQuery({
     queryKey: ['sellerOrders', user?.email],
     queryFn: () => polysApi.entities.Order.filter({ seller_email: user.email }, '-created_date'),
     enabled: !!user?.email,
   });
 
   // Fetch seller's bookings (as provider)
-  const { data: bookings = [] } = useQuery({
+  const { data: bookings = [], isLoading: loadingBookings } = useQuery({
     queryKey: ['sellerBookings', user?.email],
     queryFn: () => polysApi.entities.ServiceBooking.filter({ provider_email: user.email }, '-created_date'),
     enabled: !!user?.email,
   });
+
+  // Combined loading state
+  const isLoading = loadingProducts || loadingServices || loadingOrders || loadingBookings;
 
   // Stats
   const totalProductRevenue = orders
@@ -195,7 +201,11 @@ export default function SellerDashboard() {
             </CardHeader>
             <CardContent>
               {loadingProducts ? (
-                <div className="text-center py-8">Carregando...</div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[1, 2, 3].map(i => (
+                    <ProductCardSkeleton key={i} />
+                  ))}
+                </div>
               ) : products.length === 0 ? (
                 <div className="text-center py-12">
                   <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -237,7 +247,11 @@ export default function SellerDashboard() {
             </CardHeader>
             <CardContent>
               {loadingServices ? (
-                <div className="text-center py-8">Carregando...</div>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[1, 2, 3].map(i => (
+                    <ProductCardSkeleton key={i} />
+                  ))}
+                </div>
               ) : services.length === 0 ? (
                 <div className="text-center py-12">
                   <Wrench className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -278,7 +292,9 @@ export default function SellerDashboard() {
               <CardTitle>Pedidos Recebidos</CardTitle>
             </CardHeader>
             <CardContent>
-              {orders.length === 0 ? (
+              {loadingOrders ? (
+                <TableSkeleton rows={5} columns={7} />
+              ) : orders.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
                   Você ainda não recebeu pedidos
                 </div>
@@ -317,7 +333,9 @@ export default function SellerDashboard() {
               <CardTitle>Agendamentos de Serviço</CardTitle>
             </CardHeader>
             <CardContent>
-              {bookings.length === 0 ? (
+              {loadingBookings ? (
+                <TableSkeleton rows={5} columns={6} />
+              ) : bookings.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
                   Você ainda não recebeu agendamentos
                 </div>
@@ -380,6 +398,9 @@ export default function SellerDashboard() {
           setEditingService(null);
         }}
       />
+
+      {/* Full Screen Loading - apenas no carregamento inicial quando não há dados */}
+      <FullScreenLoading isLoading={isLoading && !user} message="Carregando dados..." />
     </div>
   );
 }
@@ -737,16 +758,11 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Preço *</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
-                <Input
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="pl-10"
-                  placeholder="0,00"
-                />
-              </div>
+              <CurrencyInput
+                value={formData.price}
+                onChange={(value) => setFormData({ ...formData, price: value })}
+                placeholder="0,00"
+              />
             </div>
             <div className="space-y-2">
               <Label>Quantidade</Label>
@@ -967,16 +983,11 @@ function ServiceFormModal({ open, onClose, service, user, onSuccess }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Preço *</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
-                <Input
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="pl-10"
-                  placeholder="0,00"
-                />
-              </div>
+              <CurrencyInput
+                value={formData.price}
+                onChange={(value) => setFormData({ ...formData, price: value })}
+                placeholder="0,00"
+              />
             </div>
             <div className="space-y-2">
               <Label>Cobrança</Label>

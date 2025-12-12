@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import KPICard from '../components/shared/KPICard';
 import ProgressBar from '../components/shared/ProgressBar';
 import StatusBadge from '../components/shared/StatusBadge';
+import FullScreenLoading from '../components/shared/FullScreenLoading';
 
 // Fix Leaflet marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -120,6 +121,20 @@ function MapView({
     mapRef.current = map;
     markersLayerRef.current = L.layerGroup().addTo(map);
     zonesLayerRef.current = L.layerGroup().addTo(map);
+    
+    // Aguardar um pouco para garantir que o mapa está totalmente renderizado
+    setTimeout(() => {
+      // Se já tiver userLocation, adicionar o marcador
+      if (userLocation && userLocation.length === 2) {
+        const [lat, lng] = userLocation;
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          if (!userMarkerRef.current) {
+            userMarkerRef.current = L.marker([lat, lng], { icon: userLocationIcon }).addTo(map);
+            console.log('Marcador de localização adicionado após inicialização do mapa');
+          }
+        }
+      }
+    }, 200);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Atualiza o estilo do mapa
@@ -144,9 +159,24 @@ function MapView({
 
   // Marcador da localização do usuário
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current) {
+      // Se o mapa ainda não estiver pronto, aguardar um pouco
+      const timer = setTimeout(() => {
+        if (mapRef.current && userLocation) {
+          // Tentar novamente após o mapa estar pronto
+          const [lat, lng] = userLocation;
+          if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            if (!userMarkerRef.current) {
+              userMarkerRef.current = L.marker([lat, lng], { icon: userLocationIcon }).addTo(mapRef.current);
+              console.log('Marcador de localização adicionado (retry):', [lat, lng]);
+            }
+          }
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
 
-    if (!userLocation) {
+    if (!userLocation || !Array.isArray(userLocation) || userLocation.length !== 2) {
       if (userMarkerRef.current) {
         mapRef.current.removeLayer(userMarkerRef.current);
         userMarkerRef.current = null;
@@ -154,12 +184,44 @@ function MapView({
       return;
     }
 
+    // Validar coordenadas
+    const [lat, lng] = userLocation;
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      console.error('Coordenadas inválidas para marcador:', lat, lng);
+      if (userMarkerRef.current) {
+        mapRef.current.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
+      return;
+    }
+
+    // Garantir que o formato está correto [lat, lng]
+    const coords = [lat, lng];
+
     if (!userMarkerRef.current) {
-      userMarkerRef.current = L.marker(userLocation, { icon: userLocationIcon }).addTo(
-        mapRef.current,
-      );
+      try {
+        userMarkerRef.current = L.marker(coords, { icon: userLocationIcon }).addTo(
+          mapRef.current,
+        );
+        console.log('Marcador de localização adicionado:', coords);
+      } catch (error) {
+        console.error('Erro ao adicionar marcador:', error);
+      }
     } else {
-      userMarkerRef.current.setLatLng(userLocation);
+      try {
+        userMarkerRef.current.setLatLng(coords);
+        console.log('Marcador de localização atualizado:', coords);
+      } catch (error) {
+        console.error('Erro ao atualizar marcador:', error);
+        // Se falhar, tentar recriar o marcador
+        try {
+          mapRef.current.removeLayer(userMarkerRef.current);
+          userMarkerRef.current = L.marker(coords, { icon: userLocationIcon }).addTo(mapRef.current);
+          console.log('Marcador de localização recriado:', coords);
+        } catch (retryError) {
+          console.error('Erro ao recriar marcador:', retryError);
+        }
+      }
     }
   }, [userLocation]);
 
@@ -282,7 +344,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [mapCenter, setMapCenter] = useState([-15.7942, -47.8822]); // Centro do Brasil como fallback inicial
   const [mapZoom, setMapZoom] = useState(4); // Zoom inicial baixo para mostrar o Brasil
-  const [mapStyle, setMapStyle] = useState('dark');
+  const [mapStyle, setMapStyle] = useState('dark'); // Padrão: Escuro
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedMarker, setSelectedMarker] = useState(null);
   
@@ -378,6 +440,18 @@ export default function Dashboard() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
+        
+        // Validar coordenadas
+        if (isNaN(latitude) || isNaN(longitude) || 
+            latitude < -90 || latitude > 90 || 
+            longitude < -180 || longitude > 180) {
+          console.error('Coordenadas GPS inválidas:', latitude, longitude);
+          setLocationError('Coordenadas inválidas obtidas do GPS.');
+          setLoadingLocation(false);
+          return;
+        }
+        
+        console.log('Localização GPS obtida no Dashboard:', latitude, longitude);
         setUserLocation([latitude, longitude]);
         setMapCenter([latitude, longitude]);
         setMapZoom(16);
@@ -444,40 +518,48 @@ export default function Dashboard() {
     return inside;
   };
 
-  // Fetch data
-  const { data: projects = [] } = useQuery({
+  // Fetch data - otimizado com staleTime maior para dados que não mudam frequentemente
+  const { data: projects = [], isLoading: loadingProjects } = useQuery({
     queryKey: ['projects'],
     queryFn: () => polysApi.entities.Project.list('-created_date', 50),
+    staleTime: 2 * 60 * 1000, // 2 minutos - projetos não mudam tão frequentemente
   });
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ['products'],
     queryFn: () => polysApi.entities.Product.filter({ active: true }, '-created_date', 50),
+    staleTime: 2 * 60 * 1000, // 2 minutos
   });
 
-  const { data: services = [] } = useQuery({
+  const { data: services = [], isLoading: loadingServices } = useQuery({
     queryKey: ['services'],
     queryFn: () => polysApi.entities.Service.filter({ active: true }, '-created_date', 50),
+    staleTime: 2 * 60 * 1000, // 2 minutos
   });
 
-  const { data: notifications = [] } = useQuery({
+  const { data: notifications = [], isLoading: loadingNotifications } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: () => polysApi.entities.Notification.filter({ read: false }, '-created_date', 10),
     enabled: !!user,
+    staleTime: 30 * 1000, // 30 segundos - notificações podem mudar mais frequentemente
   });
 
-  const { data: myPayments = [] } = useQuery({
+  const { data: myPayments = [], isLoading: loadingPayments } = useQuery({
     queryKey: ['myPayments', user?.email],
     queryFn: () => polysApi.entities.ProjectPayment.filter({ user_email: user.email, status: 'confirmed' }, '-created_date', 50),
     enabled: !!user?.email,
+    staleTime: 5 * 60 * 1000, // 5 minutos - pagamentos não mudam após confirmados
   });
+
+  // Combined loading state - apenas para carregamento inicial (quando não há dados ainda)
+  const isInitialLoading = loadingLocation && !userLocation && !projects.length && !products.length && !services.length;
 
   // Calculate stats
   const activeProjects = projects.filter(p => ['voting', 'funding'].includes(p.status));
   const totalDonated = myPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const votingProjects = projects.filter(p => p.status === 'voting');
 
-  // Map styles
+  // Map styles - usando o padrão do StandardMap
   const mapTiles = {
     street: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -629,9 +711,9 @@ export default function Dashboard() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="dark">Escuro</SelectItem>
                       <SelectItem value="street">Ruas</SelectItem>
                       <SelectItem value="satellite">Satélite</SelectItem>
-                      <SelectItem value="dark">Escuro</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -861,6 +943,9 @@ export default function Dashboard() {
           });
         }}
       />
+
+      {/* Full Screen Loading - apenas no carregamento inicial */}
+      <FullScreenLoading isLoading={isInitialLoading} message="Carregando dados..." />
     </div>
   );
 }

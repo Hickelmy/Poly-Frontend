@@ -571,10 +571,26 @@ const auth = {
     return sanitizeUser(mapped);
   },
 
-  async register({ full_name, email, password, role }) {
+  async register({ full_name, email, password, role, phone, cep, state, city, neighborhood, street, houseNumber }) {
+    const payload = {
+      name: full_name,
+      email,
+      password,
+      role,
+    };
+
+    // Adiciona campos de endereço se fornecidos (já vêm criptografados)
+    if (phone) payload.phone = phone;
+    if (cep) payload.cep = cep;
+    if (state) payload.state = state;
+    if (city) payload.city = city;
+    if (neighborhood) payload.neighborhood = neighborhood;
+    if (street) payload.street = street;
+    if (houseNumber) payload.houseNumber = houseNumber;
+
     const data = await apiRequest('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name: full_name, email, password, role }),
+      body: JSON.stringify(payload),
     });
 
     // Opcional: já fazer login após registrar
@@ -601,19 +617,35 @@ const auth = {
     const storage = getStorage();
     if (!storage) throw new Error('Ambiente sem storage');
 
-    // Tenta carregar do backend
+    // SEMPRE busca do backend para garantir dados atualizados e descriptografados
+    // Não usa cache para evitar dados criptografados antigos
     try {
       const data = await apiRequest('/users/me', {
         method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
       });
+      
+      // O backend já descriptografa os dados antes de enviar
       const mapped = mapBackendUserToLocal(data);
+      
+      // Debug: verificar se os dados estão descriptografados
+      console.log('Dados recebidos do backend (deve estar descriptografado):', {
+        phone: mapped.phone?.substring(0, 20) + '...',
+        cep: mapped.cep?.substring(0, 20) + '...',
+        street: mapped.street?.substring(0, 20) + '...',
+        neighborhood: mapped.neighborhood?.substring(0, 20) + '...',
+      });
 
+      // Atualiza o cache local com dados descriptografados do backend
       const db = loadDb();
       const index = db.users.findIndex((u) => u.id === mapped.id);
       if (index === -1) {
         db.users.push({ ...mapped });
       } else {
-        db.users[index] = { ...db.users[index], ...mapped };
+        // Substitui completamente para garantir dados atualizados e descriptografados
+        db.users[index] = { ...mapped };
       }
       saveDb(db);
 
@@ -651,25 +683,43 @@ const auth = {
     }
 
     const current = db.users[index];
-    const updatedLocal = { ...current, ...data };
+    const userEmail = current.email || '';
+    
+    // Mapeia campos do frontend para o formato esperado pela criptografia
+    const dataToEncrypt = { ...data };
+    
+    // Mapeia campos PIX do formato frontend (pix_random) para o formato backend (pixKeyRandom)
+    if (data.pix_random !== undefined) dataToEncrypt.pixKeyRandom = data.pix_random;
+    if (data.pix_phone !== undefined) dataToEncrypt.pixKeyPhone = data.pix_phone;
+    if (data.pix_email !== undefined) dataToEncrypt.pixKeyEmail = data.pix_email;
+    if (data.pix_cpf !== undefined) dataToEncrypt.pixKeyCpf = data.pix_cpf;
+    
+    // Mapeia house_number para houseNumber
+    if (data.house_number !== undefined) dataToEncrypt.houseNumber = data.house_number;
+    
+    // Criptografa dados sensíveis antes de enviar ao backend
+    const { encryptObject, SENSITIVE_FIELDS } = await import('../utils/encryption');
+    const encryptedData = await encryptObject(dataToEncrypt, SENSITIVE_FIELDS.USER, userEmail);
 
     // Atualiza campos compatíveis também no backend (nome, role, avatar, banner)
     const backendPayload = {};
-    if (data.full_name) backendPayload.name = data.full_name;
-    if (data.user_role) backendPayload.role = data.user_role;
-    if (data.avatar_url) backendPayload.avatarUrl = data.avatar_url;
-    if (data.banner_url) backendPayload.bannerUrl = data.banner_url;
-    if (data.pix_random !== undefined) backendPayload.pixKeyRandom = data.pix_random;
-    if (data.pix_phone !== undefined) backendPayload.pixKeyPhone = data.pix_phone;
-    if (data.pix_email !== undefined) backendPayload.pixKeyEmail = data.pix_email;
-    if (data.pix_cpf !== undefined) backendPayload.pixKeyCpf = data.pix_cpf;
-    if (data.phone !== undefined) backendPayload.phone = data.phone;
-    if (data.cep !== undefined) backendPayload.cep = data.cep;
-    if (data.state !== undefined) backendPayload.state = data.state;
-    if (data.city !== undefined) backendPayload.city = data.city;
-    if (data.neighborhood !== undefined) backendPayload.neighborhood = data.neighborhood;
-    if (data.street !== undefined) backendPayload.street = data.street;
-    if (data.house_number !== undefined) backendPayload.houseNumber = data.house_number;
+    if (encryptedData.full_name) backendPayload.name = encryptedData.full_name;
+    if (encryptedData.user_role) backendPayload.role = encryptedData.user_role;
+    if (encryptedData.avatar_url) backendPayload.avatarUrl = encryptedData.avatar_url;
+    if (encryptedData.banner_url) backendPayload.bannerUrl = encryptedData.banner_url;
+    
+    // Campos PIX já vêm criptografados com os nomes corretos (pixKeyRandom, etc.)
+    if (encryptedData.pixKeyRandom !== undefined) backendPayload.pixKeyRandom = encryptedData.pixKeyRandom;
+    if (encryptedData.pixKeyPhone !== undefined) backendPayload.pixKeyPhone = encryptedData.pixKeyPhone;
+    if (encryptedData.pixKeyEmail !== undefined) backendPayload.pixKeyEmail = encryptedData.pixKeyEmail;
+    if (encryptedData.pixKeyCpf !== undefined) backendPayload.pixKeyCpf = encryptedData.pixKeyCpf;
+    if (encryptedData.phone !== undefined) backendPayload.phone = encryptedData.phone;
+    if (encryptedData.cep !== undefined) backendPayload.cep = encryptedData.cep;
+    if (encryptedData.state !== undefined) backendPayload.state = encryptedData.state;
+    if (encryptedData.city !== undefined) backendPayload.city = encryptedData.city;
+    if (encryptedData.neighborhood !== undefined) backendPayload.neighborhood = encryptedData.neighborhood;
+    if (encryptedData.street !== undefined) backendPayload.street = encryptedData.street;
+    if (encryptedData.house_number !== undefined) backendPayload.houseNumber = encryptedData.house_number;
 
     if (Object.keys(backendPayload).length > 0) {
       try {
@@ -682,11 +732,30 @@ const auth = {
       }
     }
 
-    db.users[index] = updatedLocal;
-    saveDb(db);
-    storage.setItem(USER_CACHE_KEY, JSON.stringify(updatedLocal));
-
-    return sanitizeUser(updatedLocal);
+    // IMPORTANTE: Buscar dados atualizados do backend (que já vêm descriptografados)
+    // Isso garante que o cache local sempre tenha dados descriptografados para exibição
+    try {
+      const updatedUserData = await apiRequest('/users/me', {
+        method: 'GET',
+      });
+      const mapped = mapBackendUserToLocal(updatedUserData);
+      
+      // Atualizar cache local com dados descriptografados do backend
+      db.users[index] = { ...db.users[index], ...mapped };
+      saveDb(db);
+      storage.setItem(USER_CACHE_KEY, JSON.stringify(mapped));
+      
+      return sanitizeUser(mapped);
+    } catch (e) {
+      console.error('Erro ao buscar dados atualizados do backend, usando dados locais', e);
+      // Fallback: usar dados locais (mas sem criptografia para exibição)
+      // Os dados sensíveis devem ser descriptografados do que foi enviado
+      const updatedLocal = { ...current, ...data }; // Usar dados originais (não criptografados) para exibição
+      db.users[index] = updatedLocal;
+      saveDb(db);
+      storage.setItem(USER_CACHE_KEY, JSON.stringify(updatedLocal));
+      return sanitizeUser(updatedLocal);
+    }
   },
 
   redirectToLogin(targetUrl) {
@@ -858,6 +927,12 @@ const paymentGateway = {
 
   async checkStatus(paymentId) {
     return apiRequest(`/payment-gateway/status/${paymentId}`, { method: 'GET' });
+  },
+  async createMercadoPagoPayment(data) {
+    return apiRequest('/payment-gateway/create-mercadopago', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 };
 

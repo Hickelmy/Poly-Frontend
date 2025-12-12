@@ -311,8 +311,9 @@ export default function LocationSetupModal({ open, onClose, user, onSuccess }) {
                   className="h-full w-full"
                   style={{ background: '#f1f5f9' }}
                 >
+                  {/* Padrão: Escuro (mesmo padrão de todos os mapas) */}
                   <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   />
                   <MapCenterController center={userLocation} zoom={16} />

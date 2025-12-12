@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import StatusBadge from '../components/shared/StatusBadge';
 import { jsPDF } from 'jspdf';
+import { ListSkeleton, InlineLoading } from '../components/shared/SkeletonLoader';
 
 export default function MyOrders() {
   const [user, setUser] = useState(null);
@@ -221,7 +222,7 @@ export default function MyOrders() {
             </CardHeader>
             <CardContent>
               {loadingOrders ? (
-                <div className="text-center py-8">Carregando...</div>
+                <ListSkeleton items={5} />
               ) : orders.length === 0 ? (
                 <div className="text-center py-12">
                   <Package className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -268,7 +269,7 @@ export default function MyOrders() {
             </CardHeader>
             <CardContent>
               {loadingBookings ? (
-                <div className="text-center py-8">Carregando...</div>
+                <ListSkeleton items={5} />
               ) : bookings.length === 0 ? (
                 <div className="text-center py-12">
                   <Wrench className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -316,7 +317,7 @@ export default function MyOrders() {
             </CardHeader>
             <CardContent>
               {loadingDonations ? (
-                <div className="text-center py-8">Carregando...</div>
+                <ListSkeleton items={5} />
               ) : donations.length === 0 ? (
                 <div className="text-center py-12">
                   <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />

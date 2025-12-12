@@ -562,7 +562,8 @@ function DialogMap({
       const center = mapCenter || [-15.7942, -47.8822]; // Centro do Brasil como fallback
       const map = L.map(containerRef.current).setView(center, mapCenter ? 14 : 4);
       
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Padrão: Escuro (mesmo padrão de todos os mapas)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map);
 
@@ -972,7 +973,8 @@ function ZoneCardMap({ zone, getZonePolygon }) {
         attributionControl: false
       }).setView(center, 14);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Padrão: Escuro (mesmo padrão de todos os mapas)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         attribution: '',
       }).addTo(map);
 

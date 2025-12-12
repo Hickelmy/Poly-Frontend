@@ -48,6 +48,8 @@ import FinancialReport from "./FinancialReport";
 
 import News from "./News";
 
+import PaymentSuccess from "./PaymentSuccess";
+
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
@@ -180,6 +182,8 @@ function PagesContent() {
                 <Route path="/financialreport" element={<FinancialReport />} />
 
                 <Route path="/News" element={<News />} />
+
+                <Route path="/payment/success" element={<PaymentSuccess />} />
                 <Route path="/news" element={<News />} />
                 
             </Routes>

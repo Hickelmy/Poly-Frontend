@@ -31,6 +31,8 @@ import { toast } from "sonner";
 import ProjectCard from '../components/projects/ProjectCard';
 import DonationModal from '../components/modals/DonationModal';
 import CreateProjectModal from '../components/modals/CreateProjectModal';
+import FullScreenLoading from '../components/shared/FullScreenLoading';
+import { ProjectCardSkeleton } from '../components/shared/SkeletonLoader';
 
 export default function Projects() {
   const [user, setUser] = useState(null);
@@ -60,10 +62,11 @@ export default function Projects() {
     loadUser();
   }, []);
 
-  // Fetch projects
+  // Fetch projects - otimizado com staleTime
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: () => polysApi.entities.Project.list('-created_date', 100),
+    staleTime: 2 * 60 * 1000, // 2 minutos
   });
 
   // Fetch user votes
@@ -308,7 +311,7 @@ export default function Projects() {
       {isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(i => (
-            <Card key={i} className="h-96 animate-pulse bg-slate-100 dark:bg-slate-800" />
+            <ProjectCardSkeleton key={i} />
           ))}
         </div>
       ) : filteredProjects.length === 0 ? (
@@ -434,6 +437,9 @@ export default function Projects() {
         onClose={() => setCreateProjectModalOpen(false)}
         user={user}
       />
+
+      {/* Full Screen Loading - apenas no carregamento inicial */}
+      <FullScreenLoading isLoading={false} />
     </div>
   );
 }

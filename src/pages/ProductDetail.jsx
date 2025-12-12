@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Package, ShoppingCart, User } from 'lucide-react';
+import CheckoutModal from '@/components/modals/CheckoutModal';
 
 const conditionLabels = {
   novo: 'Novo',
@@ -18,6 +19,7 @@ const conditionLabels = {
 
 export default function ProductDetail() {
   const [user, setUser] = useState(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const productId = urlParams.get('id');
@@ -66,7 +68,7 @@ export default function ProductDetail() {
       toast.error('Produto indisponível');
       return;
     }
-    toast.success('Fluxo de compra será implementado em breve.');
+    setCheckoutOpen(true);
   };
 
   if (!productId) {
@@ -131,14 +133,17 @@ export default function ProductDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Imagem principal */}
         <Card className="lg:col-span-2 border-0 shadow-sm overflow-hidden">
-          <div className="relative h-80 lg:h-96">
+          <div className="relative w-full aspect-square lg:aspect-[4/3] min-h-[400px] lg:min-h-[600px]">
             <img
               src={
                 product.images?.[0] ||
-                'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop'
+                'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&h=900&fit=crop&q=90'
               }
               alt={product.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-slate-50 dark:bg-slate-900"
+              loading="eager"
+              fetchPriority="high"
+              style={{ imageRendering: 'high-quality' }}
             />
           </div>
         </Card>
@@ -199,6 +204,14 @@ export default function ProductDetail() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Checkout Modal */}
+      <CheckoutModal
+        open={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        product={product}
+        user={user}
+      />
     </div>
   );
 }

@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
-import { Map, Mail, Lock, Eye, EyeOff, User, Loader2, ArrowLeft } from 'lucide-react';
+import { Map, Mail, Lock, Eye, EyeOff, User, Loader2, ArrowLeft, MapPin } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
+import AddressPicker from "@/components/address/AddressPicker";
+import { encryptObject, SENSITIVE_FIELDS } from "@/utils/encryption";
 
 const getPasswordStrength = (password) => {
   if (!password) {
@@ -63,6 +65,18 @@ export default function Register() {
     password: '',
     confirm_password: ''
   });
+  const [address, setAddress] = useState({
+    street: '',
+    house_number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    cep: '',
+    latitude: null,
+    longitude: null,
+    address: '',
+  });
+  const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -70,7 +84,7 @@ export default function Register() {
     e.preventDefault();
     
     if (!formData.full_name || !formData.email || !formData.password) {
-      toast.error('Preencha todos os campos');
+      toast.error('Preencha todos os campos obrigatórios');
       return;
     }
     
@@ -84,6 +98,17 @@ export default function Register() {
       return;
     }
 
+    // Validação do endereço (obrigatório)
+    if (!address.street || !address.house_number || !address.city || !address.state) {
+      toast.error('Preencha todos os campos do endereço (rua, número, cidade e estado são obrigatórios)');
+      return;
+    }
+
+    if (!phone) {
+      toast.error('O telefone é obrigatório');
+      return;
+    }
+
     setLoading(true);
     try {
       const settings = await polysApi.settings.get().catch(() => null);
@@ -92,10 +117,33 @@ export default function Register() {
         return;
       }
 
+      // Prepara dados do endereço (obrigatório)
+      // Criptografa dados sensíveis do endereço antes de enviar
+      const addressData = await encryptObject(
+        {
+          phone: phone,
+          cep: address.cep || '',
+          street: address.street,
+          houseNumber: address.house_number,
+          neighborhood: address.neighborhood || '',
+          city: address.city,
+          state: address.state,
+        },
+        SENSITIVE_FIELDS.ADDRESS,
+        formData.email // Usa o email como chave de criptografia
+      );
+
       await polysApi.auth.register({
         full_name: formData.full_name,
         email: formData.email,
         password: formData.password,
+        phone: addressData.phone,
+        cep: addressData.cep,
+        state: addressData.state,
+        city: addressData.city,
+        neighborhood: addressData.neighborhood,
+        street: addressData.street,
+        houseNumber: addressData.houseNumber,
       });
       toast.success('Conta criada com sucesso!');
       navigate(createPageUrl('Dashboard'), {
@@ -197,6 +245,53 @@ export default function Register() {
                     value={formData.confirm_password}
                     onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
                     className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* Seção de Telefone e Endereço (Obrigatórios) */}
+              <div className="pt-4 border-t">
+                {/* Campo de telefone */}
+                <div className="space-y-2 mb-4">
+                  <Label htmlFor="phone">
+                    Telefone <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="phone"
+                    placeholder="(00) 00000-0000"
+                    value={phone}
+                    onChange={(e) => {
+                      // Formata telefone
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
+                      let formatted = digits;
+                      if (digits.length > 2) {
+                        formatted = `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+                      }
+                      if (digits.length > 7) {
+                        formatted = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+                      }
+                      setPhone(formatted);
+                    }}
+                    required
+                  />
+                </div>
+
+                {/* Seção de Endereço */}
+                <div className="mb-4">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Endereço <span className="text-red-500">*</span>
+                  </Label>
+                  <p className="text-xs text-slate-500 mt-1">
+                    O endereço é obrigatório para facilitar entregas. Você pode alterá-lo depois no seu perfil.
+                  </p>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <AddressPicker
+                    value={address}
+                    onChange={setAddress}
+                    user={null}
                   />
                 </div>
               </div>

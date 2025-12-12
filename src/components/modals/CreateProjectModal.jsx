@@ -23,6 +23,7 @@ import { Calendar as CalendarIcon, Plus, Minus, Trash2, Upload, Loader2, X } fro
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import LocationPicker from "@/components/LocationPicker";
+import CurrencyInput from '../shared/CurrencyInput';
 
 const CATEGORY_OPTIONS = [
   { value: 'seguranca', label: 'Segurança' },
@@ -161,6 +162,11 @@ export default function CreateProjectModal({ open, onClose, user }) {
     }));
   };
 
+  const handleExpenseCostChange = (value) => {
+    // CurrencyInput retorna número diretamente
+    setExpenseDraft((prev) => ({ ...prev, cost: value }));
+  };
+
   const handleEditExpense = (id, field, value) => {
     setExpenses((prev) =>
       prev.map((exp) => {
@@ -173,12 +179,21 @@ export default function CreateProjectModal({ open, onClose, user }) {
         }
 
         if (field === 'cost') {
-          const cleaned = String(value).replace(/[^0-9.,]/g, '');
-          return { ...exp, cost: cleaned };
+          // CurrencyInput retorna número, mas mantemos compatibilidade
+          return { ...exp, cost: typeof value === 'number' ? value : String(value).replace(/[^0-9.,]/g, '') };
         }
 
         return { ...exp, [field]: value };
       }),
+    );
+  };
+
+  const handleEditExpenseCost = (id, value) => {
+    setExpenses((prev) =>
+      prev.map((exp) => {
+        if (exp.id !== id) return exp;
+        return { ...exp, cost: value };
+      })
     );
   };
 
@@ -216,11 +231,14 @@ export default function CreateProjectModal({ open, onClose, user }) {
       return;
     }
 
-    const costNumber = Number(
-      String(expenseDraft.cost)
-        .replace(/\./g, '')
-        .replace(',', '.')
-    );
+    // CurrencyInput já retorna número, mas mantemos compatibilidade com strings
+    const costNumber = typeof expenseDraft.cost === 'number' 
+      ? expenseDraft.cost 
+      : Number(
+          String(expenseDraft.cost)
+            .replace(/\./g, '')
+            .replace(',', '.')
+        );
 
     if (Number.isNaN(costNumber) || costNumber <= 0) {
       toast.error('Informe um custo válido.');
@@ -522,18 +540,12 @@ export default function CreateProjectModal({ open, onClose, user }) {
 
               <div className="space-y-1">
                 <Label>Custo (R$)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">
-                    R$
-                  </span>
-                  <Input
-                    value={expenseDraft.cost}
-                    onChange={handleExpenseChange('cost')}
-                    placeholder="0,00"
-                    inputMode="decimal"
-                    className="pl-8"
-                  />
-                </div>
+                <CurrencyInput
+                  value={expenseDraft.cost}
+                  onChange={handleExpenseCostChange}
+                  placeholder="0,00"
+                  className="text-sm"
+                />
               </div>
 
               <div className="flex flex-col md:flex-row gap-3">
@@ -624,12 +636,10 @@ export default function CreateProjectModal({ open, onClose, user }) {
 
                         <div className="space-y-1">
                           <Label className="text-[11px] text-slate-500">Custo (R$)</Label>
-                          <Input
+                          <CurrencyInput
                             value={exp.cost}
-                            inputMode="decimal"
-                            onChange={(e) =>
-                              handleEditExpense(exp.id, 'cost', e.target.value)
-                            }
+                            onChange={(value) => handleEditExpenseCost(exp.id, value)}
+                            className="text-xs"
                           />
                         </div>
 

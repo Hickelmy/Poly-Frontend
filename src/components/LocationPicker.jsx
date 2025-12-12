@@ -71,7 +71,15 @@ export default function LocationPicker({ value, onChange, className }) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             const { latitude, longitude } = position.coords;
-            await setUserLocationFromCoords(latitude, longitude);
+            // Validar coordenadas do GPS
+            if (!isNaN(latitude) && !isNaN(longitude) && 
+                latitude >= -90 && latitude <= 90 && 
+                longitude >= -180 && longitude <= 180) {
+              console.log('Localização GPS obtida:', latitude, longitude);
+              await setUserLocationFromCoords(latitude, longitude);
+            } else {
+              console.error('Coordenadas GPS inválidas:', latitude, longitude);
+            }
             setDetectingLocation(false);
           },
           async () => {
@@ -103,9 +111,17 @@ export default function LocationPicker({ value, onChange, className }) {
       const data = await response.json();
       
       if (data.latitude && data.longitude) {
-        setUserCity(data.city);
-        setUserCountry(data.country_name || 'Brasil');
-        await setUserLocationFromCoords(data.latitude, data.longitude);
+        // Validar coordenadas antes de usar
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
+        
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          setUserCity(data.city);
+          setUserCountry(data.country_name || 'Brasil');
+          await setUserLocationFromCoords(lat, lng);
+        } else {
+          console.error('Coordenadas inválidas do IP:', lat, lng);
+        }
       }
     } catch (error) {
       console.error('Erro ao detectar localização por IP:', error);
@@ -114,8 +130,39 @@ export default function LocationPicker({ value, onChange, className }) {
 
   // Definir localização do usuário a partir de coordenadas
   const setUserLocationFromCoords = async (lat, lng) => {
+    // Validar coordenadas (latitude deve estar entre -90 e 90, longitude entre -180 e 180)
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      console.error('Coordenadas inválidas:', lat, lng);
+      return;
+    }
+
     // Atualizar o centro do mapa
     setMapCenter([lat, lng]);
+    
+    // Atualizar mapa imediatamente se já estiver pronto
+    if (mapRef.current && mapReady) {
+      // Usar flyTo para animação suave
+      mapRef.current.flyTo([lat, lng], 15, {
+        animate: true,
+        duration: 1.0
+      });
+      
+      // Adicionar ou atualizar marcador
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lng]);
+      } else {
+        const marker = L.marker([lat, lng], {
+          icon: createMarkerIcon(),
+          draggable: true,
+        }).addTo(mapRef.current);
+        markerRef.current = marker;
+
+        marker.on('dragend', async (e) => {
+          const { lat: newLat, lng: newLng } = e.target.getLatLng();
+          await reverseGeocode(newLat, newLng);
+        });
+      }
+    }
     
     // Fazer geocodificação reversa para obter endereço completo
     const addressData = await reverseGeocode(lat, lng, true);
@@ -125,27 +172,6 @@ export default function LocationPicker({ value, onChange, className }) {
       const addressObj = addressData.address || {};
       if (addressObj.city) setUserCity(addressObj.city);
       if (addressObj.country) setUserCountry(addressObj.country);
-
-      // Atualizar mapa se já estiver pronto
-      if (mapRef.current && mapReady) {
-        mapRef.current.setView([lat, lng], 13);
-        
-        // Adicionar ou atualizar marcador
-        if (markerRef.current) {
-          markerRef.current.setLatLng([lat, lng]);
-        } else {
-          const marker = L.marker([lat, lng], {
-            icon: createMarkerIcon(),
-            draggable: true,
-          }).addTo(mapRef.current);
-          markerRef.current = marker;
-
-          marker.on('dragend', async (e) => {
-            const { lat: newLat, lng: newLng } = e.target.getLatLng();
-            await reverseGeocode(newLat, newLng);
-          });
-        }
-      }
     }
   };
 
@@ -154,13 +180,25 @@ export default function LocationPicker({ value, onChange, className }) {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = L.map(mapContainerRef.current).setView(mapCenter, 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Padrão: Escuro (mesmo padrão de todos os mapas)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
     }).addTo(map);
 
     mapRef.current = map;
-    setMapReady(true);
+    
+    // Aguardar um pouco para garantir que o mapa está totalmente renderizado
+    setTimeout(() => {
+      setMapReady(true);
+      // Se já tiver coordenadas detectadas, atualizar o mapa
+      if (mapCenter && mapCenter !== defaultCenter) {
+        map.flyTo(mapCenter, 15, {
+          animate: true,
+          duration: 0.5
+        });
+      }
+    }, 100);
 
     // Adicionar marcador inicial se houver coordenadas
     if (value?.latitude && value?.longitude) {
@@ -214,7 +252,18 @@ export default function LocationPicker({ value, onChange, className }) {
       : (mapCenter && mapCenter !== defaultCenter ? mapCenter : null);
 
     if (coords) {
-      mapRef.current.setView(coords, 13);
+      // Validar coordenadas
+      const [lat, lng] = coords;
+      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        console.error('Coordenadas inválidas no useEffect:', lat, lng);
+        return;
+      }
+
+      // Usar flyTo para atualização suave
+      mapRef.current.flyTo(coords, 15, {
+        animate: true,
+        duration: 0.5
+      });
 
       if (markerRef.current) {
         markerRef.current.setLatLng(coords);
