@@ -7,8 +7,9 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Package, ShoppingCart, User } from 'lucide-react';
+import { ArrowLeft, Package, ShoppingCart, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import CheckoutModal from '@/components/modals/CheckoutModal';
+import { cn } from '@/lib/utils';
 
 const conditionLabels = {
   novo: 'Novo',
@@ -20,9 +21,12 @@ const conditionLabels = {
 export default function ProductDetail() {
   const [user, setUser] = useState(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const urlParams = new URLSearchParams(window.location.search);
   const productId = urlParams.get('id');
+  const paymentStatusParam = urlParams.get('payment_status');
 
   useEffect(() => {
     const loadUser = async () => {
@@ -37,6 +41,34 @@ export default function ProductDetail() {
     };
     loadUser();
   }, []);
+
+  // Verifica se há status de pagamento na URL e abre o checkout
+  useEffect(() => {
+    console.log('ProductDetail - Verificando parâmetros da URL:', {
+      paymentStatusParam,
+      productId,
+      fullUrl: window.location.href,
+      searchParams: window.location.search,
+    });
+    
+    if (paymentStatusParam) {
+      console.log('ProductDetail - Status de pagamento detectado:', paymentStatusParam);
+      setPaymentStatus(paymentStatusParam);
+      setCheckoutOpen(true);
+      
+      // Limpa a URL removendo os parâmetros de pagamento
+      const newUrl = window.location.pathname + (productId ? `?id=${productId}` : '');
+      window.history.replaceState({}, '', newUrl);
+      
+      // Mostra toast de agradecimento
+      if (paymentStatusParam === 'approved') {
+        toast.success('Obrigado pela sua compra! 🎉', {
+          description: 'Seu pedido foi confirmado e será processado em breve.',
+          duration: 5000,
+        });
+      }
+    }
+  }, [paymentStatusParam, productId]);
 
   const {
     data: product,
@@ -131,21 +163,14 @@ export default function ProductDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Imagem principal */}
+        {/* Carrossel de Imagens */}
         <Card className="lg:col-span-2 border-0 shadow-sm overflow-hidden">
-          <div className="relative w-full aspect-square lg:aspect-[4/3] min-h-[400px] lg:min-h-[600px]">
-            <img
-              src={
-                product.images?.[0] ||
-                'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&h=900&fit=crop&q=90'
-              }
-              alt={product.title}
-              className="w-full h-full object-contain bg-slate-50 dark:bg-slate-900"
-              loading="eager"
-              fetchPriority="high"
-              style={{ imageRendering: 'high-quality' }}
-            />
-          </div>
+          <ProductImageCarousel 
+            images={product.images || []}
+            productTitle={product.title}
+            currentIndex={currentImageIndex}
+            onIndexChange={setCurrentImageIndex}
+          />
         </Card>
 
         {/* Painel lateral */}
@@ -192,26 +217,185 @@ export default function ProductDetail() {
             </Button>
           </CardContent>
         </Card>
-      </div>
 
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-6 space-y-3">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Descrição do produto
-          </h2>
-          <p className="text-slate-600 dark:text-slate-300 whitespace-pre-line">
-            {product.description || 'Sem descrição informada.'}
-          </p>
-        </CardContent>
-      </Card>
+        {/* Descrição alinhada com a largura do carrossel */}
+        <Card className="border-0 shadow-sm lg:col-span-2">
+          <CardContent className="p-6 space-y-3">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              Descrição do produto
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 whitespace-pre-line">
+              {product.description || 'Sem descrição informada.'}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Checkout Modal */}
       <CheckoutModal
         open={checkoutOpen}
-        onClose={() => setCheckoutOpen(false)}
+        onClose={() => {
+          setCheckoutOpen(false);
+          setPaymentStatus(null);
+        }}
         product={product}
         user={user}
+        paymentStatus={paymentStatus}
       />
+    </div>
+  );
+}
+
+// Componente de Carrossel de Imagens
+function ProductImageCarousel({ images, productTitle, currentIndex, onIndexChange }) {
+  const defaultImage = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&h=900&fit=crop&q=90';
+  const displayImages = images.length > 0 ? images : [defaultImage];
+  const hasMultipleImages = displayImages.length > 1;
+
+  const goToPrevious = () => {
+    onIndexChange((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
+  };
+
+  const goToNext = () => {
+    onIndexChange((prev) => (prev === displayImages.length - 1 ? 0 : prev + 1));
+  };
+
+  const goToImage = (index) => {
+    onIndexChange(index);
+  };
+
+  // Navegação por teclado
+  useEffect(() => {
+    if (!hasMultipleImages) return;
+
+    const handleKeyPress = (e) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        onIndexChange((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        onIndexChange((prev) => (prev === displayImages.length - 1 ? 0 : prev + 1));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [hasMultipleImages, displayImages.length, onIndexChange]);
+
+  return (
+    <div className="relative w-full group">
+      {/* Imagem Principal */}
+      <div className="relative w-full max-w-xl mx-auto aspect-[4/3] sm:aspect-[3/2] bg-slate-50 dark:bg-slate-900 rounded-lg overflow-hidden">
+        <img
+          src={displayImages[currentIndex]}
+          alt={`${productTitle} - Imagem ${currentIndex + 1}`}
+          className="w-full h-full max-h-[360px] sm:max-h-[420px] lg:max-h-[480px] object-contain transition-opacity duration-300"
+          loading={currentIndex === 0 ? "eager" : "lazy"}
+          fetchpriority={currentIndex === 0 ? "high" : "low"}
+        />
+
+        {/* Botões de Navegação Lateral */}
+        {hasMultipleImages && (
+          <>
+            <button
+              onClick={goToPrevious}
+              className={cn(
+                "absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-10",
+                "p-2 sm:p-2.5 rounded-full bg-white/90 dark:bg-slate-800/90",
+                "hover:bg-white dark:hover:bg-slate-700",
+                "shadow-lg transition-all",
+                "flex items-center justify-center",
+                "opacity-80 hover:opacity-100 active:scale-95"
+              )}
+              aria-label="Imagem anterior"
+            >
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900 dark:text-white" />
+            </button>
+            <button
+              onClick={goToNext}
+              className={cn(
+                "absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-10",
+                "p-2 sm:p-2.5 rounded-full bg-white/90 dark:bg-slate-800/90",
+                "hover:bg-white dark:hover:bg-slate-700",
+                "shadow-lg transition-all",
+                "flex items-center justify-center",
+                "opacity-80 hover:opacity-100 active:scale-95"
+              )}
+              aria-label="Próxima imagem"
+            >
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900 dark:text-white" />
+            </button>
+          </>
+        )}
+
+        {/* Indicador de posição (topo direito) */}
+        {hasMultipleImages && (
+          <div className="absolute top-2 right-2 z-10 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white text-xs font-medium">
+            {currentIndex + 1} / {displayImages.length}
+          </div>
+        )}
+      </div>
+
+      {/* Miniaturas na parte inferior */}
+      {hasMultipleImages && (
+        <div className="mt-3 relative">
+          <style>{`
+            .product-thumbnails::-webkit-scrollbar {
+              height: 4px;
+            }
+            .product-thumbnails::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .product-thumbnails::-webkit-scrollbar-thumb {
+              background: rgba(148, 163, 184, 0.3);
+              border-radius: 2px;
+            }
+            .product-thumbnails::-webkit-scrollbar-thumb:hover {
+              background: rgba(148, 163, 184, 0.5);
+            }
+            @media (max-width: 640px) {
+              .product-thumbnails::-webkit-scrollbar {
+                display: none;
+              }
+            }
+          `}</style>
+          <div 
+            className="product-thumbnails flex gap-2 overflow-x-auto pb-2 -mx-1 px-1"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(148, 163, 184, 0.3) transparent',
+            }}
+          >
+            {displayImages.map((image, index) => (
+              <button
+                key={index}
+                onClick={() => goToImage(index)}
+                className={cn(
+                  "relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden",
+                  "border-2 transition-all",
+                  "hover:opacity-100 hover:scale-105",
+                  "focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2",
+                  currentIndex === index
+                    ? "border-teal-500 dark:border-teal-400 opacity-100 scale-105"
+                    : "border-transparent opacity-60"
+                )}
+                aria-label={`Ver imagem ${index + 1}`}
+                aria-current={currentIndex === index ? "true" : "false"}
+              >
+                <img
+                  src={image}
+                  alt={`${productTitle} - Miniatura ${index + 1}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                {currentIndex === index && (
+                  <div className="absolute inset-0 bg-teal-500/20 ring-2 ring-teal-500/50" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

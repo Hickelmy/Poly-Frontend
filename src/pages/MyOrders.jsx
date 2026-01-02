@@ -25,6 +25,7 @@ import {
 import StatusBadge from '../components/shared/StatusBadge';
 import { jsPDF } from 'jspdf';
 import { ListSkeleton, InlineLoading } from '../components/shared/SkeletonLoader';
+import { toast } from 'sonner';
 
 export default function MyOrders() {
   const [user, setUser] = useState(null);
@@ -397,6 +398,99 @@ export default function MyOrders() {
                       <div><span className="text-slate-500">Total:</span> <strong className="text-teal-600">{formatCurrency(selectedItem.total_amount)}</strong></div>
                     </div>
                     <p className="mt-2 text-sm"><span className="text-slate-500">Prestador:</span> {selectedItem.provider_email}</p>
+                    
+                    {/* Código do Serviço */}
+                    {selectedItem.status === 'accepted' && selectedItem.service_code && (
+                      <div className="mt-4 p-4 rounded-lg bg-teal-50 dark:bg-teal-900/20 border-2 border-teal-300 dark:border-teal-700">
+                        <p className="text-sm font-semibold text-teal-900 dark:text-teal-200 mb-2">
+                          Código de Confirmação do Serviço:
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 text-center">
+                            <p className="text-3xl font-bold text-teal-600 dark:text-teal-400 tracking-wider">
+                              {selectedItem.service_code}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(selectedItem.service_code);
+                              toast.success('Código copiado!');
+                            }}
+                          >
+                            Copiar
+                          </Button>
+                        </div>
+                        <p className="text-xs text-teal-700 dark:text-teal-300 mt-2">
+                          Quando o prestador de serviço chegar, ele vai pedir este código. Forneça o código para que o serviço possa ser iniciado.
+                        </p>
+                        {selectedItem.code_verified && (
+                          <div className="mt-3 p-2 rounded bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700">
+                            <p className="text-xs text-green-700 dark:text-green-300 text-center">
+                              ✅ Serviço iniciado em {selectedItem.started_at ? format(new Date(selectedItem.started_at), "dd/MM 'às' HH:mm", { locale: ptBR }) : 'agora'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tempo Trabalhado e Valor Final */}
+                    {selectedItem.status === 'completed' && (selectedItem.actual_worked_hours || selectedItem.actual_worked_minutes) && (
+                      <div className="mt-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white mb-2">
+                          Tempo Real Trabalhado:
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          {selectedItem.actual_worked_hours || 0} {selectedItem.actual_worked_hours === 1 ? 'hora' : 'horas'}
+                          {selectedItem.actual_worked_minutes > 0 && ` e ${selectedItem.actual_worked_minutes} min`}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Área de Pagamento */}
+                    {selectedItem.status === 'completed' && selectedItem.payment_status === 'pending' && (
+                      <div className="mt-4 p-4 rounded-lg bg-teal-50 dark:bg-teal-900/20 border-2 border-teal-300 dark:border-teal-700">
+                        <h3 className="font-semibold text-lg mb-3 text-slate-900 dark:text-white">
+                          Pagamento do Serviço
+                        </h3>
+                        <div className="space-y-3">
+                          {selectedItem.final_amount ? (
+                            <>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-600 dark:text-slate-400">Valor Estimado:</span>
+                                <span className="text-sm text-slate-500 line-through">{formatCurrency(selectedItem.total_amount)}</span>
+                              </div>
+                              <div className="flex justify-between items-center pt-2 border-t border-teal-200 dark:border-teal-700">
+                                <span className="text-slate-600 dark:text-slate-400">Valor Final:</span>
+                                <span className="font-bold text-lg text-teal-700 dark:text-teal-400">{formatCurrency(selectedItem.final_amount)}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-600 dark:text-slate-400">Valor do Serviço:</span>
+                              <span className="font-bold text-lg text-teal-700 dark:text-teal-400">{formatCurrency(selectedItem.total_amount)}</span>
+                            </div>
+                          )}
+                          <Button 
+                            className="w-full bg-teal-600 hover:bg-teal-700 mt-3"
+                            onClick={() => {
+                              toast.info('Funcionalidade de pagamento em desenvolvimento');
+                            }}
+                          >
+                            Pagar Agora
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedItem.payment_status === 'paid' && (
+                      <div className="mt-4 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          ✓ Pagamento realizado com sucesso
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
                 

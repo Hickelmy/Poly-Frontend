@@ -54,11 +54,58 @@ export default function News() {
   const isManager = currentUser?.role === 'GESTOR' || currentUser?.role === 'MANAGER';
   const canCreate = isAdmin || isManager;
 
-  // Buscar notícias
-  const { data: news = [], isLoading } = useQuery({
-    queryKey: ['news', selectedZone?.id],
-    queryFn: () => polysApi.news.list({ zoneId: selectedZone?.id }),
+  // Buscar notícias - busca todas e filtra por proximidade depois
+  const { data: allNews = [], isLoading } = useQuery({
+    queryKey: ['news'],
+    queryFn: () => polysApi.news.list(),
   });
+
+  // Obter localização do usuário
+  const [userLocation, setUserLocation] = useState(null);
+  
+  useEffect(() => {
+    const loadLocation = async () => {
+      try {
+        const userData = await polysApi.auth.me();
+        if (userData?.residence_lat && userData?.residence_lng) {
+          setUserLocation({
+            lat: userData.residence_lat,
+            lng: userData.residence_lng
+          });
+        }
+      } catch (e) {
+        // Usuário não autenticado ou sem residence
+      }
+    };
+    loadLocation();
+  }, []);
+
+  // Se não tem localização, tenta obter via geolocation
+  useEffect(() => {
+    if (userLocation || !navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+      },
+      () => {},
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
+  }, [userLocation]);
+
+  // Filtrar notícias por proximidade ou zona
+  const news = filterByProximity(
+    allNews,
+    userLocation,
+    5,
+    'zone_id',
+    'lat',
+    'lng',
+    selectedZone
+  );
 
   // Buscar comentários
   const { data: comments = [], isLoading: loadingComments } = useQuery({

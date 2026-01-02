@@ -50,6 +50,16 @@ import News from "./News";
 
 import PaymentSuccess from "./PaymentSuccess";
 
+import About from "./About";
+
+import CompanyNews from "./CompanyNews";
+
+import PrivacyTerms from "./PrivacyTerms";
+
+import Accessibility from "./Accessibility";
+
+import Sustainability from "./Sustainability";
+
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
@@ -101,6 +111,16 @@ const PAGES = {
     FinancialReport: FinancialReport,
 
     News: News,
+
+    About: About,
+
+    CompanyNews: CompanyNews,
+
+    PrivacyTerms: PrivacyTerms,
+
+    Accessibility: Accessibility,
+
+    Sustainability: Sustainability,
     
 }
 
@@ -185,6 +205,18 @@ function PagesContent() {
 
                 <Route path="/payment/success" element={<PaymentSuccess />} />
                 <Route path="/news" element={<News />} />
+
+                {/* Páginas institucionais */}
+                <Route path="/About" element={<About />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/CompanyNews" element={<CompanyNews />} />
+                <Route path="/companynews" element={<CompanyNews />} />
+                <Route path="/PrivacyTerms" element={<PrivacyTerms />} />
+                <Route path="/privacyterms" element={<PrivacyTerms />} />
+                <Route path="/Accessibility" element={<Accessibility />} />
+                <Route path="/accessibility" element={<Accessibility />} />
+                <Route path="/Sustainability" element={<Sustainability />} />
+                <Route path="/sustainability" element={<Sustainability />} />
                 
             </Routes>
         </Layout>

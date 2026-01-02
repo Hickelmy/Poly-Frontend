@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { polysApi } from '@/api/polysClient';
 import { useQuery } from '@tanstack/react-query';
-import { useZoneFilter } from '@/contexts/SelectedZoneContext';
+import { useSelectedZone } from '@/contexts/SelectedZoneContext';
+import { useProximityFilter } from '@/hooks/useProximityFilter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Filter, Grid3X3, List, Wrench, Star,
@@ -27,6 +28,7 @@ import { ProductCardSkeleton } from '../components/shared/SkeletonLoader';
 
 export default function Services() {
   const [user, setUser] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('rating');
@@ -35,20 +37,48 @@ export default function Services() {
   const [selectedService, setSelectedService] = useState(null);
   const [createServiceModalOpen, setCreateServiceModalOpen] = useState(false);
 
-  // Zone filter
-  const { selectedZone, filterByZone } = useZoneFilter();
+  // Zone context (para condomínios privados)
+  const { selectedZone } = useSelectedZone();
 
   useEffect(() => {
     const loadUser = async () => {
       try {
         const userData = await polysApi.auth.me();
         setUser(userData);
+        
+        // Se o usuário tem residence_lat/lng, usa essas coordenadas
+        if (userData.residence_lat && userData.residence_lng) {
+          setUserLocation({
+            lat: userData.residence_lat,
+            lng: userData.residence_lng
+          });
+        }
       } catch (e) {
         // Not logged in
       }
     };
     loadUser();
   }, []);
+
+  // Obter localização atual do usuário (se não tiver residence configurado)
+  useEffect(() => {
+    if (userLocation) return;
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn('Não foi possível obter localização:', error);
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      );
+    }
+  }, [userLocation]);
 
   // Fetch services - otimizado com staleTime
   const { data: services = [], isLoading } = useQuery({
@@ -57,8 +87,18 @@ export default function Services() {
     staleTime: 2 * 60 * 1000, // 2 minutos
   });
 
-  // Filter and sort services (including zone filter)
-  const filteredServices = filterByZone(services, 'zone_id')
+  // Filter by proximity (ou zona para condomínios privados)
+  const proximityFiltered = useProximityFilter(
+    services,
+    userLocation,
+    5, // 5km de raio
+    'zone_id',
+    'lat',
+    'lng'
+  );
+
+  // Filter and sort services
+  const filteredServices = proximityFiltered
     .filter(service => {
       const matchesSearch = service.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            service.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -217,13 +257,21 @@ export default function Services() {
             </div>
           </div>
 
-          {/* Active Zone Filter */}
-          {selectedZone && (
+          {/* Active Filters */}
+          {(selectedZone || userLocation) && (
             <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
-              <Badge className="gap-1 bg-teal-600">
-                <MapPin className="w-3 h-3" />
-                {selectedZone.name}
-              </Badge>
+              {selectedZone && (
+                <Badge className="gap-1 bg-teal-600">
+                  <MapPin className="w-3 h-3" />
+                  Condomínio: {selectedZone.name}
+                </Badge>
+              )}
+              {userLocation && !selectedZone && (
+                <Badge className="gap-1 bg-blue-600">
+                  <MapPin className="w-3 h-3" />
+                  Próximos de você (5km)
+                </Badge>
+              )}
             </div>
           )}
         </CardContent>

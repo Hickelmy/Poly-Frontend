@@ -9,11 +9,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { MapPin, Package, Truck, CheckCircle2, Loader2, Plus, Minus, CreditCard } from 'lucide-react';
+import { MapPin, Package, Truck, CheckCircle2, Loader2, Plus, Minus, CreditCard, AlertTriangle } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import AddressSelectionModal from "./AddressSelectionModal";
 import { Input } from "@/components/ui/input";
+import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const STEPS = [
   { id: 1, label: 'Entrega', name: 'delivery' },
@@ -305,6 +316,21 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
         });
       }
 
+      // Log para debug
+      console.log('Enviando pagamento:', {
+        productPrice: product.price,
+        quantity: quantity,
+        total: total,
+        shippingCost: 0,
+      });
+
+      // URL de retorno: volta para a página do produto com status de pagamento
+      // Usa createPageUrl para garantir a rota correta
+      const productDetailUrl = createPageUrl('ProductDetail');
+      const returnUrl = `${window.location.origin}${productDetailUrl}?id=${product.id}&payment_status=approved`;
+      
+      console.log('URL de retorno configurada:', returnUrl);
+
       const result = await polysApi.paymentGateway.createMercadoPagoPayment({
         amount: total,
         product_id: product.id,
@@ -312,8 +338,10 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
         quantity: quantity,
         delivery_method: deliveryMethod,
         delivery_address: deliveryAddress,
-        return_url: `${window.location.origin}/payment/success`,
+        return_url: returnUrl,
       });
+      
+      console.log('Resposta do Mercado Pago:', result);
 
       if (result.success && result.payment_url) {
         // Redireciona para o checkout do Mercado Pago
@@ -323,7 +351,18 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
       }
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
-      toast.error('Erro ao processar pagamento. Tente novamente.');
+      
+      // Mensagem de erro mais específica
+      let errorMessage = 'Erro ao processar pagamento. Tente novamente.';
+      if (error.message?.includes('Token do Mercado Pago não configurado')) {
+        errorMessage = 'Token do Mercado Pago não está configurado. Por favor, configure em Configurações > API Tokens.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage, {
+        duration: 5000,
+      });
       setLoading(false);
     }
   };
@@ -476,13 +515,14 @@ function PurchaseSummary({ product, deliveryMethod, shippingCost, quantity = 1 }
   );
 }
 
-export default function CheckoutModal({ open, onClose, product, user }) {
+export default function CheckoutModal({ open, onClose, product, user, paymentStatus }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [deliveryMethod, setDeliveryMethod] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const handleNext = () => {
     if (currentStep < STEPS.length) {
@@ -497,12 +537,27 @@ export default function CheckoutModal({ open, onClose, product, user }) {
   };
 
   const handleClose = () => {
+    // Se estiver no primeiro passo, fecha direto
+    if (currentStep === 1) {
+      resetAndClose();
+    } else {
+      // Se estiver em passos avançados, pede confirmação
+      setShowExitConfirm(true);
+    }
+  };
+
+  const resetAndClose = () => {
     setCurrentStep(1);
     setDeliveryMethod(null);
     setSelectedAddress(null);
     setShowAddressModal(false);
     setQuantity(1);
+    setShowExitConfirm(false);
     onClose();
+  };
+
+  const handleConfirmExit = () => {
+    resetAndClose();
   };
 
   // Reset quantity when product changes or modal opens
@@ -511,6 +566,20 @@ export default function CheckoutModal({ open, onClose, product, user }) {
       setQuantity(1);
     }
   }, [open, product?.id]);
+
+  // Se o pagamento foi aprovado, avança para a etapa de confirmação
+  useEffect(() => {
+    console.log('CheckoutModal - Verificando status de pagamento:', {
+      open,
+      paymentStatus,
+      currentStep,
+    });
+    
+    if (open && paymentStatus === 'approved') {
+      console.log('CheckoutModal - Avançando para etapa de confirmação (step 3)');
+      setCurrentStep(3); // Vai direto para confirmação
+    }
+  }, [open, paymentStatus]);
 
   const formatCurrency = (value) =>
     new Intl.NumberFormat('pt-BR', {
@@ -521,11 +590,31 @@ export default function CheckoutModal({ open, onClose, product, user }) {
   const shippingCost = 0; // Por enquanto sempre grátis
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Finalizar Compra</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(isOpen) => {
+        // Impede fechamento ao clicar fora ou pressionar ESC
+        if (!isOpen && open) {
+          handleClose();
+        }
+      }}>
+        <DialogContent 
+          className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            handleClose();
+          }}
+          onPointerDownOutside={(e) => {
+            e.preventDefault();
+            handleClose();
+          }}
+          onInteractOutside={(e) => {
+            e.preventDefault();
+            handleClose();
+          }}
+        >
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>Finalizar Compra</DialogTitle>
+          </DialogHeader>
 
         {/* Stepper */}
         <div className="flex-shrink-0 mb-6">
@@ -608,13 +697,25 @@ export default function CheckoutModal({ open, onClose, product, user }) {
                   <div className="text-center py-8">
                     <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                      Pedido realizado com sucesso!
+                      Pedido realizado com sucesso! 🎉
                     </h3>
-                    <p className="text-slate-600 dark:text-slate-300">
+                    <p className="text-slate-600 dark:text-slate-300 mb-4">
+                      Obrigado pela sua compra! Seu pedido foi confirmado e será processado em breve.
+                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
                       Você receberá um email com os detalhes do pedido.
                     </p>
                   </div>
-                  <div className="flex justify-end pt-4 border-t">
+                  <div className="flex justify-end pt-4 border-t gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        handleClose();
+                        window.location.href = createPageUrl('MyOrders');
+                      }}
+                    >
+                      Ver Meus Pedidos
+                    </Button>
                     <Button
                       onClick={handleClose}
                       className="bg-teal-600 hover:bg-teal-700"
@@ -639,6 +740,33 @@ export default function CheckoutModal({ open, onClose, product, user }) {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Dialog de confirmação de saída */}
+    <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-500" />
+            Deseja realmente sair?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Se você sair agora, todas as informações do pedido serão perdidas e você precisará começar novamente.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setShowExitConfirm(false)}>
+            Continuar Compra
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleConfirmExit}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            Sim, Desistir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useZoneFilter } from '@/contexts/SelectedZoneContext';
+import { useSelectedZone } from '@/contexts/SelectedZoneContext';
+import { useProximityFilter } from '@/hooks/useProximityFilter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Filter, Plus, Grid3X3, List, ChevronDown,
@@ -44,9 +45,11 @@ export default function Projects() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [userVotes, setUserVotes] = useState([]);
   const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [activeTab, setActiveTab] = useState('active'); // 'active' ou 'voting'
 
-  // Zone filter
-  const { selectedZone, filterByZone } = useZoneFilter();
+  // Zone context (para condomínios privados)
+  const { selectedZone } = useSelectedZone();
 
   const queryClient = useQueryClient();
 
@@ -55,12 +58,40 @@ export default function Projects() {
       try {
         const userData = await polysApi.auth.me();
         setUser(userData);
+        
+        // Se o usuário tem residence_lat/lng, usa essas coordenadas
+        if (userData.residence_lat && userData.residence_lng) {
+          setUserLocation({
+            lat: userData.residence_lat,
+            lng: userData.residence_lng
+          });
+        }
       } catch (e) {
         // Not logged in
       }
     };
     loadUser();
   }, []);
+
+  // Obter localização atual do usuário (se não tiver residence configurado)
+  useEffect(() => {
+    if (userLocation) return;
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn('Não foi possível obter localização:', error);
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      );
+    }
+  }, [userLocation]);
 
   // Fetch projects - otimizado com staleTime
   const { data: projects = [], isLoading } = useQuery({
@@ -102,11 +133,15 @@ export default function Projects() {
       toast.success('Voto registrado com sucesso!');
     },
     onError: (error) => {
-      const msg = error?.message || '';
+      const msg = error?.message || error?.response?.data?.message || '';
       if (msg.includes('já votou')) {
         toast.info('Você já votou neste projeto.');
+      } else if (msg.includes('próprio projeto')) {
+        toast.info('Você não pode votar no seu próprio projeto.');
       } else {
-        toast.error('Erro ao registrar voto');
+        toast.error('Erro ao registrar voto', {
+          description: msg || 'Tente novamente.',
+        });
       }
     },
   });
@@ -119,6 +154,13 @@ export default function Projects() {
       toast.error('Faça login para votar');
       return;
     }
+    
+    // Verificar se é o criador do projeto
+    if (project.owner_email === user.email || project.owner_id === user.id) {
+      toast.info('Você não pode votar no seu próprio projeto');
+      return;
+    }
+    
     if (userVotes.includes(project.id)) {
       toast.info('Você já votou neste projeto');
       return;
@@ -136,8 +178,32 @@ export default function Projects() {
     setDonationModalOpen(true);
   };
 
-  // Filter projects (including zone filter)
-  const filteredProjects = filterByZone(projects, 'zone_id').filter(project => {
+  // Filter by proximity (ou zona para condomínios privados)
+  const proximityFiltered = useProximityFilter(
+    projects,
+    userLocation,
+    5, // 5km de raio
+    'zone_id',
+    'lat',
+    'lng'
+  );
+
+  // Separar projetos em ativos e em votação
+  // Projetos ativos: status funding ou superior (funding, funded, in_progress, completed)
+  const activeProjects = proximityFiltered.filter(project => {
+    return ['funding', 'funded', 'in_progress', 'completed'].includes(project.status);
+  });
+  
+  // Projetos em votação: status proposed ou voting
+  const votingProjects = proximityFiltered.filter(project => {
+    return ['proposed', 'voting'].includes(project.status);
+  });
+
+  // Selecionar lista baseada na tab ativa
+  const projectsList = activeTab === 'active' ? activeProjects : votingProjects;
+
+  // Filter projects (aplicado na lista selecionada)
+  const filteredProjects = projectsList.filter(project => {
     const matchesSearch = project.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          project.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
@@ -184,7 +250,7 @@ export default function Projects() {
           </p>
         </div>
         
-        {(user?.user_role === 'administrador' || user?.user_role === 'gestor') && (
+        {user && (
           <Button 
             className="bg-teal-600 hover:bg-teal-700"
             onClick={() => setCreateProjectModalOpen(true)}
@@ -245,69 +311,81 @@ export default function Projects() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <Input
-                placeholder="Buscar projetos..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <div className="flex flex-wrap gap-3">
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-44">
-                  <SelectValue placeholder="Categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="active">
+            Projetos Ativos ({activeProjects.length})
+          </TabsTrigger>
+          <TabsTrigger value="voting">
+            Projetos em Votação ({votingProjects.length})
+          </TabsTrigger>
+        </TabsList>
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map(status => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <TabsContent value="active" className="mt-6 space-y-6">
+          {/* Filters */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    placeholder="Buscar projetos..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                <div className="flex flex-wrap gap-3">
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="Categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-              <div className="flex rounded-lg border">
-                <Button
-                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  onClick={() => setViewMode('grid')}
-                >
-                  <Grid3X3 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  onClick={() => setViewMode('list')}
-                >
-                  <List className="w-4 h-4" />
-                </Button>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-36">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statuses.map(status => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex rounded-lg border">
+                    <Button
+                      variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => setViewMode('grid')}
+                    >
+                      <Grid3X3 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => setViewMode('list')}
+                    >
+                      <List className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {/* Projects Grid */}
+          {/* Projects Grid */}
       {isLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(i => (
@@ -349,12 +427,128 @@ export default function Projects() {
                   onVote={handleOpenVoteModal}
                   onDonate={handleDonate}
                   userVoted={userVotes.includes(project.id)}
+                  currentUser={user}
                 />
               </motion.div>
             ))}
           </AnimatePresence>
         </motion.div>
       )}
+        </TabsContent>
+
+        <TabsContent value="voting" className="mt-6 space-y-6">
+          {/* Filters */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    placeholder="Buscar projetos..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                <div className="flex flex-wrap gap-3">
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-44">
+                      <SelectValue placeholder="Categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-36">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statuses.map(status => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex rounded-lg border">
+                    <Button
+                      variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => setViewMode('grid')}
+                    >
+                      <Grid3X3 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => setViewMode('list')}
+                    >
+                      <List className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Projects Grid */}
+          {isLoading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <ProjectCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-12 text-center">
+                <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                  Nenhum projeto em votação encontrado
+                </h3>
+                <p className="text-slate-500 mb-4">
+                  Tente ajustar os filtros ou buscar por outros termos
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <motion.div 
+              className={viewMode === 'grid' 
+                ? "grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                : "space-y-4"
+              }
+              layout
+            >
+              <AnimatePresence mode="popLayout">
+                {filteredProjects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ProjectCard
+                      project={project}
+                      onVote={handleOpenVoteModal}
+                      onDonate={handleDonate}
+                      userVoted={userVotes.includes(project.id)}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Vote Modal */}
       {votingProject && (
@@ -390,6 +584,7 @@ export default function Projects() {
                   onVote={() => {}}
                   onDonate={null}
                   userVoted={userVotes.includes(votingProject.id)}
+                  currentUser={user}
                 />
               </div>
 

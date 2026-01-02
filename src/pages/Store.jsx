@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery } from '@tanstack/react-query';
-import { useZoneFilter } from '@/contexts/SelectedZoneContext';
+import { useSelectedZone } from '@/contexts/SelectedZoneContext';
+import { useProximityFilter } from '@/hooks/useProximityFilter';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, Filter, Grid3X3, List, ShoppingBag, Package,
@@ -35,6 +36,7 @@ import { ProductCardSkeleton } from '../components/shared/SkeletonLoader';
 
 export default function Store() {
   const [user, setUser] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [conditionFilter, setConditionFilter] = useState('all');
@@ -43,8 +45,8 @@ export default function Store() {
   const [sortBy, setSortBy] = useState('recent');
   const [createProductModalOpen, setCreateProductModalOpen] = useState(false);
 
-  // Zone filter
-  const { selectedZone, filterByZone } = useZoneFilter();
+  // Zone context (para condomínios privados)
+  const { selectedZone } = useSelectedZone();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -53,12 +55,41 @@ export default function Store() {
         if (!isAuth) return;
         const userData = await polysApi.auth.me();
         setUser(userData);
+        
+        // Se o usuário tem residence_lat/lng, usa essas coordenadas
+        if (userData.residence_lat && userData.residence_lng) {
+          setUserLocation({
+            lat: userData.residence_lat,
+            lng: userData.residence_lng
+          });
+        }
       } catch (e) {
         // Not logged in
       }
     };
     loadUser();
   }, []);
+
+  // Obter localização atual do usuário (se não tiver residence configurado)
+  useEffect(() => {
+    if (userLocation) return; // Já tem localização
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn('Não foi possível obter localização:', error);
+          // Continua sem localização - mostra todos os produtos
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      );
+    }
+  }, [userLocation]);
 
   // Fetch products - otimizado com staleTime
   const { data: products = [], isLoading } = useQuery({
@@ -67,8 +98,18 @@ export default function Store() {
     staleTime: 2 * 60 * 1000, // 2 minutos - produtos não mudam tão frequentemente
   });
 
-  // Filter and sort products (including zone filter)
-  const filteredProducts = filterByZone(products, 'zone_id')
+  // Filter by proximity (ou zona para condomínios privados)
+  const proximityFiltered = useProximityFilter(
+    products,
+    userLocation,
+    5, // 5km de raio
+    'zone_id',
+    'lat',
+    'lng'
+  );
+
+  // Filter and sort products
+  const filteredProducts = proximityFiltered
     .filter(product => {
       const matchesSearch = product.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -294,7 +335,13 @@ export default function Store() {
               {selectedZone && (
                 <Badge className="gap-1 bg-teal-600">
                   <MapPin className="w-3 h-3" />
-                  {selectedZone.name}
+                  Condomínio: {selectedZone.name}
+                </Badge>
+              )}
+              {userLocation && !selectedZone && (
+                <Badge className="gap-1 bg-blue-600">
+                  <MapPin className="w-3 h-3" />
+                  Próximos de você (5km)
                 </Badge>
               )}
               {categoryFilter !== 'all' && (

@@ -34,6 +34,7 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const bannerInputRef = useRef(null);
+  const lastSearchedCepRef = useRef('');
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -58,6 +59,7 @@ export default function Profile() {
     email: '',
     cpf: '',
   });
+  const [loadingCep, setLoadingCep] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -74,11 +76,13 @@ export default function Profile() {
       
       const userData = await polysApi.auth.me();
       setUser(userData);
+      const userCep = userData.cep || '';
+      const cepDigits = userCep.replace(/\D/g, '');
       setFormData({
         full_name: userData.full_name || '',
         phone: userData.phone || '',
         bio: userData.bio || '',
-        cep: userData.cep || '',
+        cep: userCep,
         state: userData.state || '',
         city: userData.city || '',
         neighborhood: userData.neighborhood || '',
@@ -89,6 +93,10 @@ export default function Profile() {
         pix_email: userData.pix_email || '',
         pix_cpf: userData.pix_cpf || '',
       });
+      // Atualiza a referência do último CEP buscado
+      if (cepDigits.length === 8) {
+        lastSearchedCepRef.current = cepDigits;
+      }
     } catch (e) {
       polysApi.auth.redirectToLogin();
     }
@@ -190,28 +198,80 @@ export default function Profile() {
     polysApi.auth.logout('/');
   };
 
-  const handleCepChange = (e) => {
-    const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+  const handleCepChange = async (e) => {
+    const inputValue = e.target.value;
+    const digits = inputValue.replace(/\D/g, '').slice(0, 8);
     const masked = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
-    setFormData({ ...formData, cep: masked });
+    
+    // Atualiza o estado do CEP
+    setFormData((prev) => ({ ...prev, cep: masked }));
+    
+    // Se o CEP não está completo, limpa os campos de endereço
+    if (digits.length !== 8) {
+      setFormData((prev) => ({
+        ...prev,
+        state: '',
+        city: '',
+        neighborhood: '',
+        street: '',
+      }));
+      lastSearchedCepRef.current = '';
+      return;
+    }
+    
+    // Busca automática quando o CEP estiver completo (8 dígitos) e for diferente do último buscado
+    if (digits.length === 8 && digits !== lastSearchedCepRef.current) {
+      // Limpa os campos antes de buscar
+      setFormData((prev) => ({
+        ...prev,
+        state: '',
+        city: '',
+        neighborhood: '',
+        street: '',
+      }));
+      
+      await fetchCepData(digits);
+    }
+  };
+
+  const fetchCepData = async (cepDigits) => {
+    if (!cepDigits || cepDigits.length !== 8) return;
+    
+    // Atualiza a referência do último CEP buscado
+    lastSearchedCepRef.current = cepDigits;
+    
+    setLoadingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+      const data = await res.json();
+      
+      if (data.erro) {
+        toast.error('CEP não encontrado. Verifique o CEP digitado.');
+        setLoadingCep(false);
+        return;
+      }
+      
+      setFormData((prev) => ({
+        ...prev,
+        state: data.uf || '',
+        city: data.localidade || '',
+        neighborhood: data.bairro || '',
+        street: data.logradouro || '',
+      }));
+      
+      toast.success('Endereço preenchido automaticamente!');
+    } catch (err) {
+      console.error('Erro ao buscar CEP', err);
+      toast.error('Erro ao buscar CEP. Tente novamente.');
+    } finally {
+      setLoadingCep(false);
+    }
   };
 
   const handleCepBlur = async () => {
     const cepDigits = formData.cep.replace(/\D/g, '');
-    if (cepDigits.length !== 8) return;
-    try {
-      const res = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
-      const data = await res.json();
-      if (data.erro) return;
-      setFormData((prev) => ({
-        ...prev,
-        state: data.uf || prev.state,
-        city: data.localidade || prev.city,
-        neighborhood: data.bairro || prev.neighborhood,
-        street: data.logradouro || prev.street,
-      }));
-    } catch (err) {
-      console.error('Erro ao buscar CEP', err);
+    if (cepDigits.length === 8 && !loadingCep) {
+      await fetchCepData(cepDigits);
     }
   };
 
@@ -520,10 +580,17 @@ export default function Profile() {
                       value={formData.cep}
                       onChange={handleCepChange}
                       onBlur={handleCepBlur}
-                      className="pl-10"
+                      className="pl-10 pr-10"
                       placeholder="00000-000"
+                      disabled={loadingCep}
                     />
+                    {loadingCep && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
+                    )}
                   </div>
+                  <p className="text-xs text-slate-500">
+                    Digite o CEP para preencher automaticamente o endereço
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="state">Estado</Label>

@@ -28,10 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import Footer from "@/components/shared/Footer";
 
 export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false;
     const saved = window.localStorage.getItem('polys-theme');
@@ -46,10 +48,54 @@ export default function Layout({ children, currentPageName }) {
   // Zone selection context
   const { selectedZone, setSelectedZone, zones, loading: zonesLoading } = useSelectedZone();
 
+  // Public pages without sidebar
+  const publicPages = ['Landing', 'AdminRequestForm', 'AdminCompleteRegister', 'Login', 'Register', 'About', 'CompanyNews', 'PrivacyTerms', 'Accessibility', 'Sustainability'];
+  const isPublicPage = publicPages.includes(currentPageName);
+
+  // Verificar autenticação ANTES de renderizar qualquer coisa
   useEffect(() => {
-    loadUser();
-    loadNotifications();
-    loadAppSettings();
+    const checkAuthAndLoad = async () => {
+      // Se for página pública, não precisa verificar autenticação
+      if (isPublicPage) {
+        setCheckingAuth(false);
+        await loadUser();
+        await loadNotifications();
+        await loadAppSettings();
+        return;
+      }
+
+      // Para páginas privadas, verificar autenticação primeiro
+      setCheckingAuth(true);
+      try {
+        const isAuth = await polysApi.auth.isAuthenticated();
+        if (!isAuth) {
+          // Não autenticado - redirecionar imediatamente
+          const currentUrl = window.location.pathname + window.location.search;
+          polysApi.auth.redirectToLogin(currentUrl);
+          return;
+        }
+
+        // Verificar se o token é válido
+        try {
+          const userData = await polysApi.auth.me();
+          setUser(userData);
+          setCheckingAuth(false);
+          await loadNotifications();
+          await loadAppSettings();
+        } catch (error) {
+          // Token inválido ou expirado - redirecionar para login
+          const currentUrl = window.location.pathname + window.location.search;
+          polysApi.auth.redirectToLogin(currentUrl);
+        }
+      } catch (error) {
+        // Erro na verificação - redirecionar para login
+        const currentUrl = window.location.pathname + window.location.search;
+        polysApi.auth.redirectToLogin(currentUrl);
+      }
+    };
+
+    checkAuthAndLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPageName]);
 
   useEffect(() => {
@@ -65,11 +111,15 @@ export default function Layout({ children, currentPageName }) {
   const loadUser = async () => {
     try {
       const isAuth = await polysApi.auth.isAuthenticated();
-      if (!isAuth) return;
+      if (!isAuth) {
+        setUser(null);
+        return;
+      }
       const userData = await polysApi.auth.me();
       setUser(userData);
     } catch (e) {
       // Not logged in
+      setUser(null);
     }
   };
 
@@ -103,13 +153,24 @@ export default function Layout({ children, currentPageName }) {
     polysApi.auth.logout('/');
   };
 
-  // Public pages without sidebar
-  const publicPages = ['Landing', 'AdminRequestForm', 'AdminCompleteRegister', 'Login', 'Register'];
-  const isPublicPage = publicPages.includes(currentPageName);
+  // Mostrar loading enquanto verifica autenticação para páginas privadas
+  if (!isPublicPage && checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-slate-600 dark:text-slate-400">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isPublicPage) {
+    // Para páginas públicas, o darkMode é gerenciado pelo PublicNavbar
+    // O Footer detecta automaticamente através da classe dark no document
+    const isDark = document.documentElement.classList.contains('dark');
     return (
-      <div className={cn("min-h-screen", darkMode ? "dark bg-slate-950" : "bg-white")}>
+      <div className={cn("min-h-screen", isDark ? "dark bg-slate-950" : "bg-white")}>
         <style>{`
           :root {
             --primary: 168 85% 35%;
@@ -124,6 +185,7 @@ export default function Layout({ children, currentPageName }) {
           }
         `}</style>
         {children}
+        <Footer darkMode={isDark} />
       </div>
     );
   }
@@ -459,6 +521,7 @@ export default function Layout({ children, currentPageName }) {
             children
           )}
         </main>
+
       </div>
     </div>
   );

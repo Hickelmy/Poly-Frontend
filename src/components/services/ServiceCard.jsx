@@ -78,27 +78,68 @@ export default function ServiceCard({ service, onBook }) {
           {service.description}
         </p>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">
-              {service.price_type === 'orcamento' 
-                ? 'Sob orçamento'
-                : formatCurrency(service.price)
-              }
-            </p>
-            {service.price_type !== 'orcamento' && (
-              <span className="text-xs text-slate-400">
-                {priceTypeLabels[service.price_type]}
-              </span>
+        {/* Availability Summary */}
+        {service.availability_schedule && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <Calendar className="w-4 h-4" />
+            <span>
+              {(() => {
+                const schedule = service.availability_schedule;
+                const availableDays = Object.entries(schedule || {})
+                  .filter(([_, day]) => day?.available && day?.timeSlots?.length > 0)
+                  .map(([dayKey]) => {
+                    const dayMap = {
+                      monday: 'Seg',
+                      tuesday: 'Ter',
+                      wednesday: 'Qua',
+                      thursday: 'Qui',
+                      friday: 'Sex',
+                      saturday: 'Sáb',
+                      sunday: 'Dom'
+                    };
+                    return dayMap[dayKey] || dayKey;
+                  });
+                if (availableDays.length === 0) return 'Disponibilidade não configurada';
+                if (availableDays.length === 7) return 'Disponível todos os dias';
+                return `Disponível: ${availableDays.join(', ')}`;
+              })()}
+            </span>
+          </div>
+        )}
+
+        {/* Preços Disponíveis */}
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-2 items-center">
+            {service.price_per_hour && (
+              <Badge variant="outline" className="bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800">
+                <Clock className="w-3 h-3 mr-1" />
+                {formatCurrency(service.price_per_hour)}/hora
+              </Badge>
+            )}
+            {service.price_per_day && (
+              <Badge variant="outline" className="bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800">
+                <Calendar className="w-3 h-3 mr-1" />
+                {formatCurrency(service.price_per_day)}/dia
+              </Badge>
+            )}
+            {service.price_per_service && (
+              <Badge variant="outline" className="bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800">
+                {formatCurrency(service.price_per_service)} serviço completo
+              </Badge>
+            )}
+            {!service.price_per_hour && !service.price_per_day && !service.price_per_service && (
+              <Badge variant="outline" className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                Sob orçamento
+              </Badge>
             )}
           </div>
-          
-          {service.reviews_count > 0 && (
-            <span className="text-sm text-slate-500">
-              {service.reviews_count} avaliações
-            </span>
-          )}
         </div>
+
+        {service.reviews_count > 0 && (
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            {service.reviews_count} avaliações
+          </div>
+        )}
       </CardContent>
 
       <CardFooter className="p-5 pt-0 flex gap-2">

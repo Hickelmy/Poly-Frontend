@@ -159,17 +159,46 @@ export default function ServiceDetail() {
         {/* Painel lateral */}
         <Card className="border-0 shadow-sm">
           <CardContent className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-                {service.price_type === 'orcamento'
-                  ? 'Sob orçamento'
-                  : formatCurrency(service.price)}
-              </p>
-              {service.price_type !== 'orcamento' && (
-                <span className="text-xs text-slate-400">
-                  {priceTypeLabels[service.price_type]}
-                </span>
-              )}
+            {/* Preços Disponíveis */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Preços Disponíveis</h3>
+              <div className="flex flex-col gap-2">
+                {service.price_per_hour && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      <span className="text-sm text-slate-700 dark:text-slate-300">Por Hora</span>
+                    </div>
+                    <span className="text-lg font-bold text-teal-600 dark:text-teal-400">
+                      {formatCurrency(service.price_per_hour)}
+                    </span>
+                  </div>
+                )}
+                {service.price_per_day && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                      <span className="text-sm text-slate-700 dark:text-slate-300">Por Dia</span>
+                    </div>
+                    <span className="text-lg font-bold text-teal-600 dark:text-teal-400">
+                      {formatCurrency(service.price_per_day)}
+                    </span>
+                  </div>
+                )}
+                {service.price_per_service && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800">
+                    <span className="text-sm text-slate-700 dark:text-slate-300">Serviço Completo</span>
+                    <span className="text-lg font-bold text-teal-600 dark:text-teal-400">
+                      {formatCurrency(service.price_per_service)}
+                    </span>
+                  </div>
+                )}
+                {!service.price_per_hour && !service.price_per_day && !service.price_per_service && (
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">Sob orçamento</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">

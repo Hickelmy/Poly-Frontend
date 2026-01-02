@@ -21,7 +21,7 @@ const categoryIcons = {
   outro: "📌"
 };
 
-export default function ProjectCard({ project, onVote, onDonate, userVoted }) {
+export default function ProjectCard({ project, onVote, onDonate, userVoted, currentUser }) {
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -33,6 +33,15 @@ export default function ProjectCard({ project, onVote, onDonate, userVoted }) {
   const canDonate = ['funding', 'funded', 'in_progress', 'completed'].includes(
     project.status,
   );
+  
+  // Verificar se o usuário atual é o criador do projeto
+  const isOwner = currentUser && (
+    project.owner_email === currentUser.email || 
+    project.owner_id === currentUser.id
+  );
+  
+  // Não pode votar se for o owner ou já votou
+  const cannotVote = isOwner || userVoted;
   const upVotes = project.up_votes_count ?? project.votes_count ?? 0;
   const downVotes = project.down_votes_count ?? 0;
   const totalVotes = upVotes + downVotes;
@@ -180,17 +189,18 @@ export default function ProjectCard({ project, onVote, onDonate, userVoted }) {
       <CardFooter className="p-5 pt-0 flex gap-2">
         {canVote && (
           <Button
-            variant={userVoted ? "secondary" : "outline"}
+            variant={cannotVote ? "secondary" : "outline"}
             size="sm"
             className={cn(
               "flex-1",
-              userVoted && "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400"
+              cannotVote && "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
             )}
             onClick={() => onVote && onVote(project)}
-            disabled={userVoted}
+            disabled={cannotVote}
+            title={isOwner ? "Você não pode votar no seu próprio projeto" : userVoted ? "Você já votou neste projeto" : "Votar no projeto"}
           >
             <Vote className="w-4 h-4 mr-1.5" />
-            {userVoted ? 'Votado' : 'Votar'}
+            {isOwner ? 'Seu projeto' : userVoted ? 'Votado' : 'Votar'}
           </Button>
         )}
         

@@ -51,9 +51,39 @@ const EXPENSE_TYPE_OPTIONS = [
   { value: 'outros', label: 'Outros' },
 ];
 
+/**
+ * Calcula os votos mínimos necessários baseado no valor do projeto.
+ * Fórmula progressiva para evitar fraudes:
+ * - Até R$ 2.000: 10 votos (padrão)
+ * - De R$ 2.000 a R$ 10.000: 10 + ((valor - 2000) / 500) votos (1 voto a cada R$ 500)
+ * - De R$ 10.000 a R$ 50.000: 26 + ((valor - 10000) / 1000) votos (1 voto a cada R$ 1.000)
+ * - Acima de R$ 50.000: 66 + ((valor - 50000) / 2000) votos (1 voto a cada R$ 2.000)
+ */
+function calculateMinVotes(amount) {
+  if (!amount || amount <= 0) return 10;
+  
+  const value = typeof amount === 'number' ? amount : parseFloat(amount);
+  
+  if (value <= 2000) {
+    return 10;
+  } else if (value <= 10000) {
+    // De 2000 a 10000: 10 votos base + 1 voto a cada 500 reais
+    return Math.ceil(10 + (value - 2000) / 500);
+  } else if (value <= 50000) {
+    // De 10000 a 50000: 26 votos base + 1 voto a cada 1000 reais
+    return Math.ceil(26 + (value - 10000) / 1000);
+  } else {
+    // Acima de 50000: 66 votos base + 1 voto a cada 2000 reais
+    return Math.ceil(66 + (value - 50000) / 2000);
+  }
+}
+
 export default function CreateProjectModal({ open, onClose, user }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
+  
+  // Verificar se usuário é admin/gestor
+  const isAdminOrGestor = user?.user_role === 'administrador' || user?.user_role === 'gestor';
   const [fundingDate, setFundingDate] = useState(null);
   const [evidences, setEvidences] = useState([]);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
@@ -70,7 +100,6 @@ export default function CreateProjectModal({ open, onClose, user }) {
     description: '',
     category: '',
     target_amount: '',
-    min_votes: '10',
     funding_deadline: '',
     status: 'proposed',
   });
@@ -123,7 +152,6 @@ export default function CreateProjectModal({ open, onClose, user }) {
         description: '',
         category: '',
         target_amount: '',
-        min_votes: '10',
         funding_deadline: '',
         status: 'proposed',
       });
@@ -304,52 +332,85 @@ export default function CreateProjectModal({ open, onClose, user }) {
     e.preventDefault();
 
     if (!user) {
-      toast.error('Faça login como administrador ou gestor para criar projetos.');
+      toast.error('Faça login para criar projetos.');
       return;
     }
 
-    if (user.user_role !== 'administrador' && user.user_role !== 'gestor') {
-      toast.error('Apenas administradores e gestores podem criar projetos.');
+    // Verificar se usuário é admin/gestor
+    const isAdminOrGestor = user.user_role === 'administrador' || user.user_role === 'gestor';
+
+    // Validações com feedback visual
+    if (!formData.title?.trim()) {
+      toast.error('Título obrigatório', {
+        description: 'Preencha o título do projeto.',
+      });
       return;
     }
 
-    if (!formData.title || !formData.category) {
-      toast.error('Preencha pelo menos título e categoria.');
+    if (!formData.category) {
+      toast.error('Categoria obrigatória', {
+        description: 'Selecione uma categoria para o projeto.',
+      });
       return;
     }
 
     if (!location.address || !location.latitude || !location.longitude) {
-      toast.error('Selecione a localização do problema.');
+      toast.error('Localização obrigatória', {
+        description: 'Selecione a localização do problema no mapa.',
+      });
       return;
     }
 
-    const minVotesNumber = Number(formData.min_votes || 0);
-    if (!Number.isFinite(minVotesNumber) || minVotesNumber < 5) {
-      toast.error('Os votos mínimos devem ser pelo menos 5.');
+    // Validar despesas
+    if (!expenses || expenses.length === 0) {
+      toast.error('Despesas obrigatórias', {
+        description: 'Adicione pelo menos uma despesa ao projeto.',
+      });
       return;
     }
+
+    // Normalizar e calcular total das despesas
+    const normalizedExpenses = expenses.map((e) => ({
+      ...e,
+      cost: parseExpenseCost(e),
+      quantity: parseExpenseQuantity(e),
+    }));
+
+    const expensesTotal = normalizedExpenses.reduce(
+      (sum, e) => sum + e.cost * e.quantity,
+      0,
+    );
+
+    // Validar valor total
+    if (expensesTotal <= 0) {
+      toast.error('Valor inválido', {
+        description: 'O valor total das despesas deve ser maior que zero.',
+      });
+      return;
+    }
+
+    // Calcular votos mínimos automaticamente baseado no valor
+    const minVotesNumber = calculateMinVotes(expensesTotal);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (fundingDate && fundingDate < today) {
-      toast.error('Prazo de arrecadação não pode ser anterior a hoje.');
+      toast.error('Data inválida', {
+        description: 'Prazo de arrecadação não pode ser anterior a hoje.',
+      });
       return;
     }
 
     setSaving(true);
     try {
-      const normalizedExpenses = expenses.map((e) => ({
-        ...e,
-        cost: parseExpenseCost(e),
-        quantity: parseExpenseQuantity(e),
-      }));
-
-      const expensesTotal = normalizedExpenses.reduce(
-        (sum, e) => sum + e.cost * e.quantity,
-        0,
-      );
 
       const zoneId = findZoneIdForLocation(location.latitude, location.longitude);
+
+      // Se usuário comum, sempre cria com status 'proposed'
+      // Se admin/gestor, pode escolher o status
+      const projectStatus = isAdminOrGestor 
+        ? (formData.status || 'proposed')
+        : 'proposed';
 
       const payload = {
         title: formData.title,
@@ -361,7 +422,7 @@ export default function CreateProjectModal({ open, onClose, user }) {
         min_votes: minVotesNumber,
         votes_count: 0,
         funding_deadline: fundingDate ? fundingDate.toISOString() : null,
-        status: formData.status || 'proposed',
+        status: projectStatus,
         owner_id: user.id,
         owner_email: user.email,
         location_address: location.address,
@@ -377,12 +438,29 @@ export default function CreateProjectModal({ open, onClose, user }) {
 
       await polysApi.entities.Project.create(payload);
 
-      toast.success('Projeto criado com sucesso!');
+      toast.success('Projeto criado com sucesso!', {
+        description: `"${formData.title}" foi criado e precisa de ${minVotesNumber} votos para iniciar a arrecadação.`,
+        duration: 5000,
+      });
+      
       queryClient.invalidateQueries(['projects']);
       onClose();
     } catch (err) {
-      console.error(err);
-      toast.error(err.message || 'Erro ao criar projeto');
+      console.error('Erro ao criar projeto:', err);
+      
+      // Mensagens de erro mais específicas
+      let errorMessage = 'Erro ao criar projeto. Tente novamente.';
+      
+      if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
+      toast.error('Erro ao criar projeto', {
+        description: errorMessage,
+        duration: 5000,
+      });
     } finally {
       setSaving(false);
     }
@@ -453,11 +531,18 @@ export default function CreateProjectModal({ open, onClose, user }) {
                 <span>{uploadingEvidence ? 'Enviando...' : 'Carregar imagem'}</span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept=".png,.jpg,.jpeg,.webp,.gif"
                   className="hidden"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
+
+                    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+                    if (!allowedTypes.includes(file.type)) {
+                      toast.error('Formato de imagem não suportado. Use JPG, JPEG, PNG, WEBP ou GIF.');
+                      e.target.value = '';
+                      return;
+                    }
 
                     setUploadingEvidence(true);
                     try {
@@ -692,25 +777,37 @@ export default function CreateProjectModal({ open, onClose, user }) {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label>Status inicial</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Status inicial - apenas para admin/gestor */}
+            {isAdminOrGestor && (
+              <div className="space-y-2">
+                <Label>Status inicial</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
+          
+          {/* Aviso para usuários comuns */}
+          {!isAdminOrGestor && (
+            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>Atenção:</strong> Seu projeto será criado como "Proposto" e precisará ser aprovado pela comunidade através de votação antes de seguir para arrecadação.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
@@ -735,13 +832,21 @@ export default function CreateProjectModal({ open, onClose, user }) {
             </div>
 
             <div className="space-y-2">
-              <Label>Votos mínimos</Label>
-              <Input
-                type="number"
-                min="5"
-                value={formData.min_votes}
-                onChange={handleChange('min_votes')}
-              />
+              <Label>Votos mínimos necessários</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+                  📊
+                </span>
+                <Input
+                  type="text"
+                  value={calculateMinVotes(totalExpenses)}
+                  readOnly
+                  className="pl-9 bg-slate-100 dark:bg-slate-800 cursor-default font-semibold"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Calculado automaticamente baseado no valor do projeto para garantir justiça e evitar fraudes.
+              </p>
             </div>
 
             <div className="space-y-2">

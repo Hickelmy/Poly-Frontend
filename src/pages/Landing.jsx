@@ -590,60 +590,6 @@ export default function Landing() {
           </Button>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className={`py-16 px-6 text-white ${
-        darkMode ? 'bg-slate-950' : 'bg-slate-900'
-      }`}>
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-12 mb-12">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
-                  <Map className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xl font-bold">POLYS</span>
-              </div>
-              <p className="text-slate-400">
-                Transformando comunidades através da colaboração e transparência.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Plataforma</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Como Funciona</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Preços</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">FAQ</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Suporte</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Central de Ajuda</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Contato</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Status</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Termos de Uso</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Privacidade</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Cookies</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className={`pt-8 border-t text-center ${
-            darkMode ? 'border-slate-800 text-slate-500' : 'border-slate-800 text-slate-500'
-          }`}>
-            <p>© 2025 POLYS. Todos os direitos reservados.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

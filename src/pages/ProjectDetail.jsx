@@ -95,11 +95,15 @@ export default function ProjectDetail() {
       toast.success('Voto registrado com sucesso!');
     },
     onError: (error) => {
-      const msg = error?.message || '';
+      const msg = error?.message || error?.response?.data?.message || '';
       if (msg.includes('já votou')) {
         toast.info('Você já votou neste projeto.');
+      } else if (msg.includes('próprio projeto')) {
+        toast.info('Você não pode votar no seu próprio projeto.');
       } else {
-        toast.error('Erro ao registrar voto');
+        toast.error('Erro ao registrar voto', {
+          description: msg || 'Tente novamente.',
+        });
       }
     },
   });
@@ -109,6 +113,13 @@ export default function ProjectDetail() {
       toast.error('Faça login para votar');
       return;
     }
+    
+    // Verificar se é o criador do projeto
+    if (project.owner_email === user.email || project.owner_id === user.id) {
+      toast.info('Você não pode votar no seu próprio projeto');
+      return;
+    }
+    
     if (hasVoted) {
       toast.info('Você já votou neste projeto');
       return;
@@ -149,6 +160,12 @@ export default function ProjectDetail() {
   const canVote = project && ['proposed', 'voting'].includes(project.status);
   const canDonate = project && ['funding', 'funded', 'in_progress', 'completed'].includes(
     project.status,
+  );
+
+  // Verificar se o usuário atual é o criador do projeto
+  const isOwner = user && project && (
+    project.owner_email === user.email || 
+    project.owner_id === user.id
   );
 
   const upVotes = project?.up_votes_count ?? project?.votes_count ?? 0;
@@ -381,31 +398,39 @@ export default function ProjectDetail() {
                 
                 {canVote && (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button
-                        className="w-full h-11 bg-emerald-600 hover:bg-emerald-700"
-                        disabled={hasVoted || voteMutation.isPending}
-                        onClick={() => handleVote('up')}
-                      >
-                        👍 Gostei
-                      </Button>
-                      <Button
-                        className="w-full h-11 bg-rose-600 hover:bg-rose-700"
-                        disabled={hasVoted || voteMutation.isPending}
-                        onClick={() => handleVote('down')}
-                      >
-                        👎 Não gostei
-                      </Button>
-                    </div>
-                    {hasVoted && (
-                      <Button
-                        variant="outline"
-                        className="w-full h-9 text-xs"
-                        disabled={undoVoteMutation.isPending}
-                        onClick={() => undoVoteMutation.mutate()}
-                      >
-                        Desfazer meu voto
-                      </Button>
+                    {isOwner ? (
+                      <div className="p-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-center text-sm text-slate-600 dark:text-slate-400">
+                        Você não pode votar no seu próprio projeto
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Button
+                            className="w-full h-11 bg-emerald-600 hover:bg-emerald-700"
+                            disabled={hasVoted || voteMutation.isPending}
+                            onClick={() => handleVote('up')}
+                          >
+                            👍 Gostei
+                          </Button>
+                          <Button
+                            className="w-full h-11 bg-rose-600 hover:bg-rose-700"
+                            disabled={hasVoted || voteMutation.isPending}
+                            onClick={() => handleVote('down')}
+                          >
+                            👎 Não gostei
+                          </Button>
+                        </div>
+                        {hasVoted && (
+                          <Button
+                            variant="outline"
+                            className="w-full h-9 text-xs"
+                            disabled={undoVoteMutation.isPending}
+                            onClick={() => undoVoteMutation.mutate()}
+                          >
+                            Desfazer meu voto
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

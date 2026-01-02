@@ -463,6 +463,55 @@ function makeEntityApi(entityName) {
     };
   }
 
+  if (entityName === 'ServiceBooking') {
+    return {
+      async list(sortField = '-created_date', limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        return apiRequest(`/service-bookings?${params.toString()}`, { method: 'GET' });
+      },
+
+      async filter(where = {}, sortField, limit) {
+        const params = new URLSearchParams();
+        if (sortField) params.set('sort', sortField);
+        if (typeof limit === 'number') params.set('limit', String(limit));
+        Object.entries(where).forEach(([key, value]) => {
+          if (value === undefined || value === null) return;
+          params.set(key, String(value));
+        });
+        return apiRequest(`/service-bookings?${params.toString()}`, { method: 'GET' });
+      },
+
+      async create(data) {
+        return apiRequest('/service-bookings', {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async update(id, data) {
+        return apiRequest(`/service-bookings/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async verifyCode(id, data) {
+        return apiRequest(`/service-bookings/${id}/verify-code`, {
+          method: 'POST',
+          body: JSON.stringify(data),
+        });
+      },
+
+      async delete(id) {
+        return apiRequest(`/service-bookings/${id}`, {
+          method: 'DELETE',
+        });
+      },
+    };
+  }
+
   // Outras entidades continuam usando o "banco" local
   const collection = entityCollections[entityName];
   if (!collection) {

@@ -447,11 +447,18 @@ export default function CreateProject() {
                   <span>{uploadingEvidence ? 'Enviando...' : 'Carregar imagem'}</span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept=".png,.jpg,.jpeg,.webp,.gif"
                     className="hidden"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
+
+                      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+                      if (!allowedTypes.includes(file.type)) {
+                        toast.error('Formato de imagem não suportado. Use JPG, JPEG, PNG, WEBP ou GIF.');
+                        e.target.value = '';
+                        return;
+                      }
 
                       setUploadingEvidence(true);
                       try {

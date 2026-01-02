@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useQuery } from '@tanstack/react-query';
-import { useSelectedZone, useZoneFilter } from '@/contexts/SelectedZoneContext';
+import { useSelectedZone } from '@/contexts/SelectedZoneContext';
+import { filterByProximity } from '@/hooks/useProximityFilter';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -348,9 +349,8 @@ export default function Dashboard() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedMarker, setSelectedMarker] = useState(null);
   
-  // Zone selection context
+  // Zone selection context (apenas para condomínios privados)
   const { selectedZone, setSelectedZone, zones: contextZones } = useSelectedZone();
-  const { filterByZone } = useZoneFilter();
   
   // Location states
   const [userLocation, setUserLocation] = useState(null);
@@ -566,12 +566,27 @@ export default function Dashboard() {
     dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
   };
 
-  // Filter markers by category
+  // Converte userLocation para formato {lat, lng}
+  const userLocationObj = userLocation ? {
+    lat: Array.isArray(userLocation) ? userLocation[0] : userLocation.lat,
+    lng: Array.isArray(userLocation) ? userLocation[1] : userLocation.lng
+  } : null;
+
+  // Filter markers by category and proximity
   const getFilteredMarkers = () => {
     let markers = [];
     
     if (selectedCategory === 'all' || selectedCategory === 'projects') {
-      markers = [...markers, ...projects.filter(p => p.lat && p.lng).map(p => ({
+      const filteredProjects = filterByProximity(
+        projects,
+        userLocationObj,
+        5, // 5km
+        'zone_id',
+        'lat',
+        'lng',
+        selectedZone
+      );
+      markers = [...markers, ...filteredProjects.filter(p => p.lat && p.lng).map(p => ({
         ...p,
         type: 'project',
         icon: projectIcon
@@ -579,7 +594,16 @@ export default function Dashboard() {
     }
     
     if (selectedCategory === 'all' || selectedCategory === 'products') {
-      markers = [...markers, ...products.filter(p => p.lat && p.lng).map(p => ({
+      const filteredProducts = filterByProximity(
+        products,
+        userLocationObj,
+        5, // 5km
+        'zone_id',
+        'lat',
+        'lng',
+        selectedZone
+      );
+      markers = [...markers, ...filteredProducts.filter(p => p.lat && p.lng).map(p => ({
         ...p,
         type: 'product',
         icon: productIcon
@@ -587,7 +611,16 @@ export default function Dashboard() {
     }
     
     if (selectedCategory === 'all' || selectedCategory === 'services') {
-      markers = [...markers, ...services.filter(s => s.lat && s.lng).map(s => ({
+      const filteredServices = filterByProximity(
+        services,
+        userLocationObj,
+        5, // 5km
+        'zone_id',
+        'lat',
+        'lng',
+        selectedZone
+      );
+      markers = [...markers, ...filteredServices.filter(s => s.lat && s.lng).map(s => ({
         ...s,
         type: 'service',
         icon: serviceIcon
