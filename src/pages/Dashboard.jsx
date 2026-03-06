@@ -403,22 +403,13 @@ export default function Dashboard() {
   useEffect(() => {
     const detectInitialLocation = async () => {
       if (initialLocationSet) return;
-      
-      try {
-        const response = await fetch('https://ipapi.co/json/');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.latitude && data.longitude) {
-            setMapCenter([data.latitude, data.longitude]);
-            setMapZoom(12);
-            setInitialLocationSet(true);
-          }
-        }
-      } catch (e) {
-        // Silently fail - GPS will be the fallback
+      const loc = await import('@/utils/geolocation').then((m) => m.getLocationByIP());
+      if (loc && loc.latitude && loc.longitude) {
+        setMapCenter([loc.latitude, loc.longitude]);
+        setMapZoom(12);
+        setInitialLocationSet(true);
       }
     };
-    
     detectInitialLocation();
   }, [initialLocationSet]);
 

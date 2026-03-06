@@ -49,6 +49,7 @@ import FinancialReport from "./FinancialReport";
 import News from "./News";
 
 import PaymentSuccess from "./PaymentSuccess";
+import PaymentCancel from "./PaymentCancel";
 
 import About from "./About";
 
@@ -204,6 +205,7 @@ function PagesContent() {
                 <Route path="/News" element={<News />} />
 
                 <Route path="/payment/success" element={<PaymentSuccess />} />
+                <Route path="/payment/cancel" element={<PaymentCancel />} />
                 <Route path="/news" element={<News />} />
 
                 {/* Páginas institucionais */}

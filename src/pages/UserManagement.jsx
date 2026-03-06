@@ -76,7 +76,7 @@ export default function UserManagement() {
     const loadUser = async () => {
       try {
         const userData = await polysApi.auth.me();
-        if (userData.user_role !== 'gestor') {
+        if (!['gestor', 'administrador'].includes(userData.user_role)) {
           toast.error('Acesso negado');
           window.history.back();
           return;

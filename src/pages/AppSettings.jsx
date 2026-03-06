@@ -32,7 +32,6 @@ import {
 const API_PROVIDERS = [
   { id: 'abacate_pay', name: 'Abacate Pay', description: 'Gateway de pagamento PIX', icon: '🥑' },
   { id: 'stripe', name: 'Stripe', description: 'Pagamentos internacionais', icon: '💳' },
-  { id: 'mercado_pago', name: 'Mercado Pago', description: 'Pagamentos América Latina', icon: '🛒' },
   { id: 'pagseguro', name: 'PagSeguro', description: 'Gateway brasileiro', icon: '🔐' },
   { id: 'custom', name: 'Outro', description: 'Provedor personalizado', icon: '🔧' },
 ];

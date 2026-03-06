@@ -1088,34 +1088,18 @@ export default function ZoneManagement() {
             setLocationLoading(false);
           },
           async () => {
-            // 2. Se falhar, tenta IP geolocation
-            try {
-              const response = await fetch('https://ipapi.co/json/', { timeout: 5000 });
-              if (response.ok) {
-                const data = await response.json();
-                if (data.latitude && data.longitude) {
-                  setMapCenter([data.latitude, data.longitude]);
-    }
-              }
-            } catch (e) {
-              // Silently fail
+            const loc = await import('@/utils/geolocation').then((m) => m.getLocationByIP());
+            if (loc?.latitude != null && loc?.longitude != null) {
+              setMapCenter([loc.latitude, loc.longitude]);
             }
             setLocationLoading(false);
           },
           { timeout: 5000, enableHighAccuracy: false }
         );
       } else {
-        // 3. Se não tiver geolocalização, tenta IP
-        try {
-          const response = await fetch('https://ipapi.co/json/', { timeout: 5000 });
-          if (response.ok) {
-            const data = await response.json();
-            if (data.latitude && data.longitude) {
-              setMapCenter([data.latitude, data.longitude]);
-            }
-          }
-        } catch (e) {
-          // Silently fail
+        const loc = await import('@/utils/geolocation').then((m) => m.getLocationByIP());
+        if (loc?.latitude != null && loc?.longitude != null) {
+          setMapCenter([loc.latitude, loc.longitude]);
         }
         setLocationLoading(false);
       }

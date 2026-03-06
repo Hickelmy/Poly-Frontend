@@ -12,11 +12,12 @@ export default function PaymentSuccess() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const paymentId = searchParams.get('payment_id');
+  const sessionId = searchParams.get('session_id'); // Stripe Checkout Session ID
   const status = searchParams.get('status');
 
   useEffect(() => {
-    // Verifica se o pagamento foi aprovado
-    if (status === 'approved' || paymentId) {
+    // Verifica se o pagamento foi aprovado (Stripe ou outros gateways)
+    if (status === 'approved' || paymentId || sessionId) {
       // Mostra toast de agradecimento
       toast.success('Obrigado pela sua compra! 🎉', {
         description: 'Seu pedido foi confirmado e será processado em breve.',
@@ -32,7 +33,7 @@ export default function PaymentSuccess() {
       });
     }
     setLoading(false);
-  }, [status, paymentId]);
+  }, [status, paymentId, sessionId]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
@@ -45,7 +46,7 @@ export default function PaymentSuccess() {
               </div>
               <p className="text-slate-600 dark:text-slate-300">Processando...</p>
             </div>
-          ) : status === 'approved' || paymentId ? (
+          ) : status === 'approved' || paymentId || sessionId ? (
             <>
               <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />

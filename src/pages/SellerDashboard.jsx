@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { 
   Package, Plus, ShoppingBag, TrendingUp, Wallet, Eye,
   Edit, Trash2, MoreVertical, Upload, X, Loader2, Wrench, MapPin,
-  Truck, User, Calendar, Clock, DollarSign, FileText, Home
+  Truck, User, Calendar, Clock, DollarSign, FileText, Home, ImageOff
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -572,13 +572,20 @@ function ProductCard({ product, onEdit, onDelete }) {
   
   return (
     <Card className="overflow-hidden">
-      <div className="relative h-32">
+      <div className="relative h-32 bg-slate-200 dark:bg-slate-700">
+        {product.images?.[0] ? (
         <img 
-          src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=150&fit=crop"}
+            src={product.images[0]}
           alt={product.title}
           className="w-full h-full object-cover"
         />
-        {product.quantity_available <= 0 && (
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+            <ImageOff className="w-8 h-8 mb-1" />
+            <span className="text-xs font-medium">No image</span>
+          </div>
+        )}
+        {product.quantityAvailable <= 0 && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
             <Badge className="bg-red-500">Sem Estoque</Badge>
           </div>
@@ -607,7 +614,7 @@ function ProductCard({ product, onEdit, onDelete }) {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-lg font-bold text-teal-600">{formatCurrency(product.price)}</span>
-          <Badge variant="secondary">{product.quantity_available} un.</Badge>
+          <Badge variant="secondary">{product.quantityAvailable} un.</Badge>
         </div>
       </CardContent>
     </Card>
@@ -626,12 +633,19 @@ function ServiceCard({ service, onEdit, onDelete }) {
   
   return (
     <Card className="overflow-hidden">
-      <div className="relative h-32">
+      <div className="relative h-32 bg-slate-200 dark:bg-slate-700">
+        {service.images?.[0] ? (
         <img 
-          src={service.images?.[0] || "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&h=150&fit=crop"}
+            src={service.images[0]}
           alt={service.title}
           className="w-full h-full object-cover"
         />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+            <ImageOff className="w-8 h-8 mb-1" />
+            <span className="text-xs font-medium">No image</span>
+          </div>
+        )}
         <Badge className={`absolute top-2 right-2 ${service.active ? 'bg-green-500' : 'bg-slate-500'}`}>
           {service.active ? 'Ativo' : 'Inativo'}
         </Badge>
@@ -921,13 +935,13 @@ function ProductFormModal({ open, onClose, product, user, onSuccess }) {
     setSaving(true);
     try {
       const data = {
-        ...formData,
+        title: formData.title,
+        description: formData.description,
         price: parseFloat(formData.price),
-        quantity_available: parseInt(formData.quantity_available),
-        seller_id: user.id,
-        seller_email: user.email,
-        seller_name: user.full_name,
-        zone_id: null, // Não usa mais zone_id
+        quantityAvailable: parseInt(formData.quantity_available),
+        category: formData.category,
+        condition: formData.condition,
+        images: formData.images,
         lat: formData.lat,
         lng: formData.lng,
         active: true

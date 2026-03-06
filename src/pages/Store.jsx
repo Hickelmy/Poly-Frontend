@@ -94,7 +94,7 @@ export default function Store() {
   // Fetch products - otimizado com staleTime
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products'],
-    queryFn: () => polysApi.entities.Product.list('-created_date', 100),
+    queryFn: () => polysApi.entities.Product.list('-createdAt', 100),
     staleTime: 2 * 60 * 1000, // 2 minutos - produtos não mudam tão frequentemente
   });
 
@@ -103,7 +103,7 @@ export default function Store() {
     products,
     userLocation,
     5, // 5km de raio
-    'zone_id',
+    'zoneId',
     'lat',
     'lng'
   );
@@ -123,7 +123,7 @@ export default function Store() {
         case 'price_asc': return (a.price || 0) - (b.price || 0);
         case 'price_desc': return (b.price || 0) - (a.price || 0);
         case 'recent': 
-        default: return new Date(b.created_date) - new Date(a.created_date);
+        default: return new Date(b.createdAt || b.created_date || 0) - new Date(a.createdAt || a.created_date || 0);
       }
     });
 
@@ -151,7 +151,7 @@ export default function Store() {
       toast.error('Faça login para comprar');
       return;
     }
-    if (product.quantity_available <= 0) {
+    if (product.quantityAvailable <= 0) {
       toast.error('Produto indisponível');
       return;
     }
@@ -159,7 +159,7 @@ export default function Store() {
     window.location.href = `${createPageUrl('ProductDetail')}?id=${product.id}`;
   };
 
-  const availableCount = products.filter(p => p.quantity_available > 0 && p.active).length;
+  const availableCount = products.filter(p => (p.quantityAvailable || p.quantity_available || 0) > 0 && p.active).length;
 
   return (
     <div className="space-y-6">

@@ -35,6 +35,7 @@ export default function Profile() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const bannerInputRef = useRef(null);
   const lastSearchedCepRef = useRef('');
+  const initialFormDataRef = useRef(null);
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -78,7 +79,7 @@ export default function Profile() {
       setUser(userData);
       const userCep = userData.cep || '';
       const cepDigits = userCep.replace(/\D/g, '');
-      setFormData({
+      const newFormData = {
         full_name: userData.full_name || '',
         phone: userData.phone || '',
         bio: userData.bio || '',
@@ -92,7 +93,9 @@ export default function Profile() {
         pix_phone: userData.pix_phone || '',
         pix_email: userData.pix_email || '',
         pix_cpf: userData.pix_cpf || '',
-      });
+      };
+      setFormData(newFormData);
+      initialFormDataRef.current = { ...newFormData };
       // Atualiza a referência do último CEP buscado
       if (cepDigits.length === 8) {
         lastSearchedCepRef.current = cepDigits;
@@ -381,7 +384,23 @@ export default function Profile() {
         return;
       }
 
-      await polysApi.auth.updateMe(formData);
+      // Envia apenas campos alterados (otimização)
+      const initial = initialFormDataRef.current || {};
+      const changedFields = {};
+      const fields = ['full_name', 'phone', 'bio', 'cep', 'state', 'city', 'neighborhood', 'street', 'house_number', 'pix_random', 'pix_phone', 'pix_email', 'pix_cpf'];
+      for (const key of fields) {
+        const current = String(formData[key] ?? '');
+        const prev = String(initial[key] ?? '');
+        if (current !== prev) {
+          changedFields[key] = formData[key];
+        }
+      }
+      if (Object.keys(changedFields).length === 0) {
+        toast.success('Nenhuma alteração para salvar.');
+        setSaving(false);
+        return;
+      }
+      await polysApi.auth.updateMe(changedFields);
       toast.success('Perfil atualizado com sucesso!');
       loadUser();
     } catch (e) {

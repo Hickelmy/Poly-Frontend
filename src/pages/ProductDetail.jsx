@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Package, ShoppingCart, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Package, ShoppingCart, User, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import CheckoutModal from '@/components/modals/CheckoutModal';
 import { cn } from '@/lib/utils';
 
@@ -96,7 +96,7 @@ export default function ProductDetail() {
       polysApi.auth.redirectToLogin(window.location.pathname + window.location.search);
       return;
     }
-    if (!product || product.quantity_available <= 0) {
+    if (!product || product.quantityAvailable <= 0) {
       toast.error('Produto indisponível');
       return;
     }
@@ -181,7 +181,7 @@ export default function ProductDetail() {
                 {formatCurrency(product.price)}
               </p>
               <span className="text-xs text-slate-400">
-                /{product.unit_type || 'unidade'}
+                /{product.unitType || 'unidade'}
               </span>
             </div>
 
@@ -198,19 +198,19 @@ export default function ProductDetail() {
 
             <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               <Package className="w-4 h-4" />
-              <span>{product.quantity_available} em estoque</span>
+              <span>{product.quantityAvailable} em estoque</span>
             </div>
 
             <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               <User className="w-4 h-4" />
-              <span>Vendido por {product.seller_name || 'Vendedor'}</span>
+              <span>Vendido por {product.sellerName || 'Vendedor'}</span>
             </div>
 
             <Button
               className="w-full bg-teal-600 hover:bg-teal-700 text-white"
               size="lg"
               onClick={handleBuy}
-              disabled={!product.active || product.quantity_available <= 0}
+              disabled={!product.active || product.quantityAvailable <= 0}
             >
               <ShoppingCart className="w-4 h-4 mr-2" />
               Comprar
@@ -248,9 +248,9 @@ export default function ProductDetail() {
 
 // Componente de Carrossel de Imagens
 function ProductImageCarousel({ images, productTitle, currentIndex, onIndexChange }) {
-  const defaultImage = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&h=900&fit=crop&q=90';
-  const displayImages = images.length > 0 ? images : [defaultImage];
+  const displayImages = images.length > 0 ? images : [];
   const hasMultipleImages = displayImages.length > 1;
+  const hasNoImages = displayImages.length === 0;
 
   const goToPrevious = () => {
     onIndexChange((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
@@ -285,14 +285,21 @@ function ProductImageCarousel({ images, productTitle, currentIndex, onIndexChang
   return (
     <div className="relative w-full group">
       {/* Imagem Principal */}
-      <div className="relative w-full max-w-xl mx-auto aspect-[4/3] sm:aspect-[3/2] bg-slate-50 dark:bg-slate-900 rounded-lg overflow-hidden">
-        <img
-          src={displayImages[currentIndex]}
-          alt={`${productTitle} - Imagem ${currentIndex + 1}`}
-          className="w-full h-full max-h-[360px] sm:max-h-[420px] lg:max-h-[480px] object-contain transition-opacity duration-300"
-          loading={currentIndex === 0 ? "eager" : "lazy"}
-          fetchpriority={currentIndex === 0 ? "high" : "low"}
-        />
+      <div className="relative w-full max-w-xl mx-auto aspect-[4/3] sm:aspect-[3/2] bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
+        {hasNoImages ? (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+            <ImageOff className="w-16 h-16 mb-3" />
+            <span className="text-base font-medium">No image</span>
+          </div>
+        ) : (
+          <img
+            src={displayImages[currentIndex]}
+            alt={`${productTitle} - Imagem ${currentIndex + 1}`}
+            className="w-full h-full max-h-[360px] sm:max-h-[420px] lg:max-h-[480px] object-contain transition-opacity duration-300"
+            loading={currentIndex === 0 ? "eager" : "lazy"}
+            fetchpriority={currentIndex === 0 ? "high" : "low"}
+          />
+        )}
 
         {/* Botões de Navegação Lateral */}
         {hasMultipleImages && (
