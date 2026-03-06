@@ -67,8 +67,24 @@ export default function DonationModal({ open, onClose, project, user }) {
       }
     },
     onError: (error) => {
+      // Verifica se o usuário é gestor ou administrador
+      const userRole = user?.user_role || user?.role || 'usuario';
+      const isManagerOrAdmin = ['gestor', 'administrador', 'manager', 'admin', 'administrator'].includes(userRole?.toLowerCase() || '');
+      
+      let errorDescription = 'Tente novamente.';
+      if (error.message?.includes('Token do Abacate Pay não configurado') || error.message?.includes('configure o token')) {
+        // Só mostra mensagem sobre token não configurado para managers/gerentes
+        if (isManagerOrAdmin) {
+          errorDescription = 'Configure o token do Abacate Pay em Configurações > API Tokens.';
+        } else {
+          errorDescription = 'Entre em contato com o suporte.';
+        }
+      } else if (error.message) {
+        errorDescription = error.message;
+      }
+      
       toast.error('Erro ao gerar PIX', {
-        description: error.message || 'Tente novamente ou configure o token do Abacate Pay em Configurações',
+        description: errorDescription,
       });
     },
   });

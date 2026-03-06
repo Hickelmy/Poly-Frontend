@@ -113,13 +113,11 @@ export default function AddressPicker({ value, onChange, user }) {
             break;
           case error.POSITION_UNAVAILABLE:
             toast.error('Localização indisponível. Tentando localização por IP...');
-            // Tentar localização por IP como fallback
             try {
-              const response = await fetch('https://ipapi.co/json/');
-              const data = await response.json();
-              if (data.latitude && data.longitude) {
-                const lat = parseFloat(data.latitude);
-                const lng = parseFloat(data.longitude);
+              const loc = await import('@/utils/geolocation').then((m) => m.getLocationByIP());
+              if (loc?.latitude != null && loc?.longitude != null) {
+                const lat = loc.latitude;
+                const lng = loc.longitude;
                 if (!isNaN(lat) && !isNaN(lng)) {
                   // Usar localização por IP
                   const response2 = await fetch(
@@ -153,19 +151,17 @@ export default function AddressPicker({ value, onChange, user }) {
                 }
               }
             } catch (ipError) {
-              console.error('Erro ao buscar localização por IP:', ipError);
+              // Silently fail - não logar para evitar poluir o console
             }
             toast.error('Localização indisponível. Preencha o endereço manualmente.');
             break;
           case error.TIMEOUT:
             toast.warning('Tempo esgotado. Tentando localização aproximada...');
-            // Tentar localização por IP como fallback
             try {
-              const response = await fetch('https://ipapi.co/json/');
-              const data = await response.json();
-              if (data.latitude && data.longitude) {
-                const lat = parseFloat(data.latitude);
-                const lng = parseFloat(data.longitude);
+              const loc = await import('@/utils/geolocation').then((m) => m.getLocationByIP());
+              if (loc?.latitude != null && loc?.longitude != null) {
+                const lat = loc.latitude;
+                const lng = loc.longitude;
                 if (!isNaN(lat) && !isNaN(lng)) {
                   // Usar localização por IP
                   const response2 = await fetch(
@@ -199,7 +195,7 @@ export default function AddressPicker({ value, onChange, user }) {
                 }
               }
             } catch (ipError) {
-              console.error('Erro ao buscar localização por IP:', ipError);
+              // Silently fail - não logar para evitar poluir o console
             }
             toast.error('Tempo esgotado. Preencha o endereço manualmente.');
             break;

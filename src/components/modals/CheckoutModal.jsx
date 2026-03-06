@@ -216,7 +216,7 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
                         
                         <div className="space-y-2">
                           <p className="text-sm text-slate-600 dark:text-slate-300">
-                            {product.seller_name || 'Vendedor'}
+                            {product.sellerName || 'Vendedor'}
                           </p>
                           {product.location_address && (
                             <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -331,31 +331,38 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
       
       console.log('URL de retorno configurada:', returnUrl);
 
-      const result = await polysApi.paymentGateway.createMercadoPagoPayment({
+      const result = await polysApi.paymentGateway.createStripePayment({
         amount: total,
         product_id: product.id,
         product_title: product.title,
         quantity: quantity,
-        delivery_method: deliveryMethod,
-        delivery_address: deliveryAddress,
-        return_url: returnUrl,
+        currency: 'brl',
       });
       
-      console.log('Resposta do Mercado Pago:', result);
+      console.log('Resposta do Stripe:', result);
 
-      if (result.success && result.payment_url) {
-        // Redireciona para o checkout do Mercado Pago
-        window.location.href = result.payment_url;
+      if (result.success && result.checkout_url) {
+        // Redireciona para o checkout hospedado do Stripe
+        window.location.href = result.checkout_url;
       } else {
         throw new Error('Erro ao criar pagamento');
       }
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
       
+      // Verifica se o usuário é gestor ou administrador
+      const userRole = user?.user_role || user?.role || 'usuario';
+      const isManagerOrAdmin = ['gestor', 'administrador', 'manager', 'admin', 'administrator'].includes(userRole.toLowerCase());
+      
       // Mensagem de erro mais específica
       let errorMessage = 'Erro ao processar pagamento. Tente novamente.';
-      if (error.message?.includes('Token do Mercado Pago não configurado')) {
-        errorMessage = 'Token do Mercado Pago não está configurado. Por favor, configure em Configurações > API Tokens.';
+      if (error.message?.includes('Token do Stripe não configurado')) {
+        // Só mostra mensagem sobre token não configurado para managers/gerentes
+        if (isManagerOrAdmin) {
+          errorMessage = 'Token do Stripe não está configurado. Por favor, configure em Configurações > API Tokens.';
+        } else {
+          errorMessage = 'Erro ao processar pagamento. Entre em contato com o suporte.';
+        }
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -380,7 +387,7 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
           Pagamento
         </h3>
         <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">
-          Você será redirecionado para o checkout seguro do Mercado Pago para finalizar o pagamento.
+          Você será redirecionado para o checkout seguro do Stripe para finalizar o pagamento.
         </p>
 
         <Card className="border-2 border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/20">
@@ -389,7 +396,7 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
               <CreditCard className="w-6 h-6 text-teal-600 dark:text-teal-400" />
               <div>
                 <p className="font-semibold text-slate-900 dark:text-white">
-                  Mercado Pago
+                  Stripe
                 </p>
                 <p className="text-sm text-slate-600 dark:text-slate-300">
                   Pagamento seguro e rápido
@@ -499,7 +506,7 @@ function PurchaseSummary({ product, deliveryMethod, shippingCost, quantity = 1 }
                   {product.title}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {formatCurrency(product.price)} / {product.unit_type || 'unidade'}
+                  {formatCurrency(product.price)} / {product.unitType || 'unidade'}
                   {quantity > 1 && (
                     <span className="ml-2 font-medium">
                       × {quantity}

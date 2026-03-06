@@ -105,26 +105,11 @@ export default function LocationPicker({ value, onChange, className }) {
 
   // Detectar localização por IP
   const detectLocationByIP = async () => {
-    try {
-      // Usar ipapi.co (gratuito, sem necessidade de API key para uso básico)
-      const response = await fetch('https://ipapi.co/json/');
-      const data = await response.json();
-      
-      if (data.latitude && data.longitude) {
-        // Validar coordenadas antes de usar
-        const lat = parseFloat(data.latitude);
-        const lng = parseFloat(data.longitude);
-        
-        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-          setUserCity(data.city);
-          setUserCountry(data.country_name || 'Brasil');
-          await setUserLocationFromCoords(lat, lng);
-        } else {
-          console.error('Coordenadas inválidas do IP:', lat, lng);
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao detectar localização por IP:', error);
+    const loc = await import('@/utils/geolocation').then((m) => m.getLocationByIP());
+    if (loc && loc.latitude != null && loc.longitude != null) {
+      setUserCity(loc.city);
+      setUserCountry(loc.country || 'Brasil');
+      await setUserLocationFromCoords(loc.latitude, loc.longitude);
     }
   };
 

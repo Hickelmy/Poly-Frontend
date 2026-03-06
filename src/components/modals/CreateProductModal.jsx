@@ -207,7 +207,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         title: product.title || '',
         description: product.description || '',
         price: product.price?.toString() || '',
-        quantity_available: product.quantity_available?.toString() || '1',
+        quantity_available: product.quantityAvailable?.toString() || '1',
         category: product.category || '',
         condition: product.condition || 'novo',
         images: product.images || [],
@@ -280,24 +280,36 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
 
     setSaving(true);
     try {
-      const data = {
-        ...formData,
+      const fullData = {
+        title: formData.title,
+        description: formData.description,
         price: parseFloat(formData.price),
-        quantity_available: parseInt(formData.quantity_available),
-        seller_id: user.id,
-        seller_email: user.email,
-        seller_name: user.full_name,
-        zone_id: null, // Não usa mais zone_id
+        quantityAvailable: parseInt(formData.quantity_available),
+        category: formData.category,
+        condition: formData.condition,
+        images: formData.images,
         lat: formData.lat,
         lng: formData.lng,
         active: true
       };
 
       if (product) {
-        await polysApi.entities.Product.update(product.id, data);
+        // Envia apenas campos alterados (PATCH parcial)
+        const changed = {};
+        if (fullData.title !== (product.title || '')) changed.title = fullData.title;
+        if (fullData.description !== (product.description || '')) changed.description = fullData.description;
+        if (fullData.price !== (product.price ?? 0)) changed.price = fullData.price;
+        if (fullData.quantityAvailable !== (product.quantityAvailable ?? 0)) changed.quantityAvailable = fullData.quantityAvailable;
+        if (fullData.category !== (product.category || '')) changed.category = fullData.category;
+        if (fullData.condition !== (product.condition || '')) changed.condition = fullData.condition;
+        if (JSON.stringify(fullData.images || []) !== JSON.stringify(product.images || [])) changed.images = fullData.images;
+        if (fullData.lat !== (product.lat ?? null)) changed.lat = fullData.lat;
+        if (fullData.lng !== (product.lng ?? null)) changed.lng = fullData.lng;
+        const payload = Object.keys(changed).length > 0 ? changed : fullData;
+        await polysApi.entities.Product.update(product.id, payload);
         toast.success('Produto atualizado');
       } else {
-        await polysApi.entities.Product.create(data);
+        await polysApi.entities.Product.create(fullData);
         toast.success('Produto criado');
       }
       

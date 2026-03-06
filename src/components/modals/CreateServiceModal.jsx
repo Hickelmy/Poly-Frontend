@@ -279,7 +279,7 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
 
     setSaving(true);
     try {
-      const data = {
+      const fullData = {
         ...formData,
         price_per_hour: formData.price_per_hour ? parseFloat(formData.price_per_hour) : null,
         price_per_day: formData.price_per_day ? parseFloat(formData.price_per_day) : null,
@@ -287,7 +287,7 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
         provider_id: user.id,
         provider_email: user.email,
         provider_name: user.full_name,
-        zone_id: null, // Não usa mais zone_id para serviços gerais
+        zone_id: null,
         lat: formData.lat,
         lng: formData.lng,
         active: true,
@@ -295,10 +295,28 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
       };
 
       if (service) {
-        await polysApi.entities.Service.update(service.id, data);
+        // Envia apenas campos alterados (PATCH parcial)
+        const changed = {};
+        const prevPriceHour = service.price_per_hour ?? service.pricePerHour ?? null;
+        const prevPriceDay = service.price_per_day ?? service.pricePerDay ?? null;
+        const prevPriceService = service.price_per_service ?? service.pricePerService ?? null;
+        const prevServiceType = (service.service_type ?? service.serviceType) || '';
+        const prevAvailability = service.availability_schedule ?? null;
+        if (fullData.title !== (service.title || '')) changed.title = fullData.title;
+        if (fullData.description !== (service.description || '')) changed.description = fullData.description;
+        if (fullData.price_per_hour !== prevPriceHour) changed.price_per_hour = fullData.price_per_hour;
+        if (fullData.price_per_day !== prevPriceDay) changed.price_per_day = fullData.price_per_day;
+        if (fullData.price_per_service !== prevPriceService) changed.price_per_service = fullData.price_per_service;
+        if (fullData.service_type !== prevServiceType) changed.service_type = fullData.service_type;
+        if (JSON.stringify(fullData.images || []) !== JSON.stringify(service.images || [])) changed.images = fullData.images;
+        if (fullData.lat !== (service.lat != null ? service.lat : null)) changed.lat = fullData.lat;
+        if (fullData.lng !== (service.lng != null ? service.lng : null)) changed.lng = fullData.lng;
+        if (JSON.stringify(fullData.availability_schedule) !== JSON.stringify(prevAvailability)) changed.availability_schedule = fullData.availability_schedule;
+        const payload = Object.keys(changed).length > 0 ? changed : fullData;
+        await polysApi.entities.Service.update(service.id, payload);
         toast.success('Serviço atualizado');
       } else {
-        await polysApi.entities.Service.create(data);
+        await polysApi.entities.Service.create(fullData);
         toast.success('Serviço criado');
       }
       

@@ -4,7 +4,7 @@ import { createPageUrl } from '../../utils';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, Clock, Calendar, User } from 'lucide-react';
+import { Star, Clock, Calendar, User, ImageOff } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const serviceTypeLabels = {
@@ -37,13 +37,23 @@ export default function ServiceCard({ service, onBook }) {
 
   return (
     <Card className="overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 group bg-white dark:bg-slate-900">
-      <div className="relative h-48 overflow-hidden">
+      <div className="relative h-48 overflow-hidden bg-slate-200 dark:bg-slate-700">
+        {service.images?.[0] ? (
+          <>
         <img 
-          src={service.images?.[0] || "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&h=300&fit=crop"}
+              src={service.images[0]}
           alt={service.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          </>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 relative">
+            <ImageOff className="w-12 h-12 mb-2" />
+            <span className="text-sm font-medium">No image</span>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          </div>
+        )}
         
         {/* Service Type Badge */}
         <div className="absolute top-4 left-4">
