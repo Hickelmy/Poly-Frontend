@@ -4,10 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --mode development --port 5173",
+    "staging": "vite --mode staging --port 8081",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build:dev": "vite build --mode development",
+    "build:staging": "vite build --mode staging",
+    "build:prod": "vite build --mode production",
+    "preview": "vite preview",
+    "preview:staging": "vite preview --port 8081",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",
@@ -43,6 +48,7 @@
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.5.2",
+    "firebase": "^12.10.0",
     "framer-motion": "^12.4.7",
     "input-otp": "^1.4.2",
     "jspdf": "^3.0.4",

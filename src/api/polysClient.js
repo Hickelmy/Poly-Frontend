@@ -5,6 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const DB_KEY = 'polys-local-db-v1';
 const AUTH_KEY = 'polys-auth-user-id';
 const TOKEN_KEY = 'polys-auth-token';
+const REFRESH_TOKEN_KEY = 'polys-refresh-token';
 const USER_CACHE_KEY = 'polys-auth-user-cache';
 
 function getStorage() {
@@ -99,6 +100,7 @@ function mapBackendUserToLocal(user) {
   if (normalizedRole === 'user') normalizedRole = 'usuario';
   if (normalizedRole === 'admin' || normalizedRole === 'administrator') normalizedRole = 'administrador';
   if (normalizedRole === 'manager') normalizedRole = 'gestor';
+  if (normalizedRole === 'support') normalizedRole = 'suporte';
   return {
     id: user.id,
     full_name: user.full_name || user.name || user.email,
@@ -122,9 +124,38 @@ function mapBackendUserToLocal(user) {
   };
 }
 
+let isRefreshing = false;
+let refreshPromise = null;
+
+async function tryRefreshToken() {
+  const storage = getStorage();
+  const refreshToken = storage?.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) return false;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    if (data.access_token && data.refresh_token) {
+      storage.setItem(TOKEN_KEY, data.access_token);
+      storage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function apiRequest(path, options = {}) {
   const storage = getStorage();
-  const token = storage?.getItem(TOKEN_KEY);
+  let token = storage?.getItem(TOKEN_KEY);
 
   const headers = {
     'Content-Type': 'application/json',
@@ -135,10 +166,34 @@ async function apiRequest(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  let res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
   });
+
+  // Auto-refresh on 401
+  if (res.status === 401 && storage?.getItem(REFRESH_TOKEN_KEY) && !path.includes('/auth/refresh')) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = tryRefreshToken().finally(() => {
+        isRefreshing = false;
+        refreshPromise = null;
+      });
+    }
+
+    const refreshed = await (refreshPromise || tryRefreshToken());
+
+    if (refreshed) {
+      token = storage.getItem(TOKEN_KEY);
+      headers.Authorization = `Bearer ${token}`;
+      res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+    } else {
+      storage.removeItem(TOKEN_KEY);
+      storage.removeItem(REFRESH_TOKEN_KEY);
+      storage.removeItem(AUTH_KEY);
+      storage.removeItem(USER_CACHE_KEY);
+    }
+  }
 
   let data = null;
   try {
@@ -585,14 +640,40 @@ function clearAllLocalData() {
     storage.removeItem(DB_KEY);
     storage.removeItem(AUTH_KEY);
     storage.removeItem(TOKEN_KEY);
+    storage.removeItem(REFRESH_TOKEN_KEY);
     storage.removeItem(USER_CACHE_KEY);
-    // Limpa também o selected zone do contexto
     storage.removeItem('polys-selected-zone');
-    console.log('✅ Todos os dados locais do Polys foram limpos');
   }
 }
 
 const auth = {
+  async loginWithGoogle(idToken) {
+    const data = await apiRequest('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify({ idToken }),
+    });
+
+    const mapped = mapBackendUserToLocal(data.user);
+
+    const db = loadDb();
+    const index = db.users.findIndex((u) => u.id === mapped.id);
+    if (index === -1) {
+      db.users.push({ ...mapped });
+    } else {
+      db.users[index] = { ...db.users[index], ...mapped };
+    }
+    saveDb(db);
+
+    const storage = getStorage();
+    if (storage) {
+      storage.setItem(AUTH_KEY, mapped.id);
+      storage.setItem(TOKEN_KEY, data.access_token);
+      if (data.refresh_token) storage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
+      storage.setItem(USER_CACHE_KEY, JSON.stringify(mapped));
+    }
+    return sanitizeUser(mapped);
+  },
+
   async login({ email, password }) {
     const data = await apiRequest('/auth/login', {
       method: 'POST',
@@ -615,6 +696,7 @@ const auth = {
     if (storage) {
       storage.setItem(AUTH_KEY, mapped.id);
       storage.setItem(TOKEN_KEY, data.access_token);
+      if (data.refresh_token) storage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
       storage.setItem(USER_CACHE_KEY, JSON.stringify(mapped));
     }
     return sanitizeUser(mapped);
@@ -650,11 +732,25 @@ const auth = {
 
   async logout(redirectTo) {
     const storage = getStorage();
+    const refreshToken = storage?.getItem(REFRESH_TOKEN_KEY);
+
+    // Revoga o refresh token no servidor
+    if (refreshToken) {
+      try {
+        await apiRequest('/auth/logout', {
+          method: 'POST',
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      } catch {
+        // ignora erro de logout no servidor
+      }
+    }
+
     if (storage) {
       storage.removeItem(AUTH_KEY);
       storage.removeItem(TOKEN_KEY);
+      storage.removeItem(REFRESH_TOKEN_KEY);
       storage.removeItem(USER_CACHE_KEY);
-      // Limpa também os dados locais mockados para evitar cache de dados antigos
       storage.removeItem(DB_KEY);
     }
     if (redirectTo && typeof window !== 'undefined') {
@@ -679,13 +775,15 @@ const auth = {
       // O backend já descriptografa os dados antes de enviar
       const mapped = mapBackendUserToLocal(data);
       
-      // Debug: verificar se os dados estão descriptografados
-      console.log('Dados recebidos do backend (deve estar descriptografado):', {
-        phone: mapped.phone?.substring(0, 20) + '...',
-        cep: mapped.cep?.substring(0, 20) + '...',
-        street: mapped.street?.substring(0, 20) + '...',
-        neighborhood: mapped.neighborhood?.substring(0, 20) + '...',
-      });
+      // Debug apenas em desenvolvimento
+      if (import.meta.env.DEV) {
+        console.log('Dados recebidos do backend (deve estar descriptografado):', {
+          phone: mapped.phone?.substring(0, 20) + '...',
+          cep: mapped.cep?.substring(0, 20) + '...',
+          street: mapped.street?.substring(0, 20) + '...',
+          neighborhood: mapped.neighborhood?.substring(0, 20) + '...',
+        });
+      }
 
       // Atualiza o cache local com dados descriptografados do backend
       const db = loadDb();
@@ -768,17 +866,22 @@ const auth = {
     if (encryptedData.city !== undefined) backendPayload.city = encryptedData.city;
     if (encryptedData.neighborhood !== undefined) backendPayload.neighborhood = encryptedData.neighborhood;
     if (encryptedData.street !== undefined) backendPayload.street = encryptedData.street;
-    if (encryptedData.house_number !== undefined) backendPayload.houseNumber = encryptedData.house_number;
+    // houseNumber: usar o valor criptografado (encryptedData.houseNumber), não house_number
+    if (encryptedData.houseNumber !== undefined) backendPayload.houseNumber = encryptedData.houseNumber;
 
-    if (Object.keys(backendPayload).length > 0) {
-      try {
-        await apiRequest(`/users/${userId}`, {
-          method: 'PATCH',
-          body: JSON.stringify(backendPayload),
-        });
-      } catch (e) {
-        console.error('Erro ao atualizar usuário no backend', e);
-      }
+    if (Object.keys(backendPayload).length === 0) {
+      // Nada para atualizar - retorna usuário atual sem chamar API
+      return sanitizeUser(current);
+    }
+
+    try {
+      await apiRequest(`/users/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(backendPayload),
+      });
+    } catch (e) {
+      console.error('Erro ao atualizar usuário no backend', e);
+      throw e;
     }
 
     // IMPORTANTE: Buscar dados atualizados do backend (que já vêm descriptografados)
@@ -977,8 +1080,8 @@ const paymentGateway = {
   async checkStatus(paymentId) {
     return apiRequest(`/payment-gateway/status/${paymentId}`, { method: 'GET' });
   },
-  async createMercadoPagoPayment(data) {
-    return apiRequest('/payment-gateway/create-mercadopago', {
+  async createStripePayment(data) {
+    return apiRequest('/payment-gateway/create-stripe', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1081,6 +1184,64 @@ const users = {
   },
 };
 
+// Feature Flags API
+const featureFlags = {
+  async list(category) {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    return apiRequest(`/feature-flags?${params.toString()}`, { method: 'GET' });
+  },
+
+  async get(key) {
+    return apiRequest(`/feature-flags/${key}`, { method: 'GET' });
+  },
+
+  async create(data) {
+    return apiRequest('/feature-flags', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async update(id, data) {
+    return apiRequest(`/feature-flags/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async toggle(key, enabled) {
+    return apiRequest(`/feature-flags/${key}/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    });
+  },
+
+  async delete(id) {
+    return apiRequest(`/feature-flags/${id}`, { method: 'DELETE' });
+  },
+
+  async evaluate(context = {}) {
+    const params = new URLSearchParams();
+    if (context.zoneId) params.set('zoneId', context.zoneId);
+    if (context.city) params.set('city', context.city);
+    if (context.state) params.set('state', context.state);
+    if (context.userId) params.set('userId', context.userId);
+    if (context.userRole) params.set('userRole', context.userRole);
+    return apiRequest(`/feature-flags/evaluate?${params.toString()}`, { method: 'GET' });
+  },
+
+  async check(key, context = {}) {
+    const params = new URLSearchParams();
+    if (context.zoneId) params.set('zoneId', context.zoneId);
+    if (context.city) params.set('city', context.city);
+    if (context.state) params.set('state', context.state);
+    if (context.userId) params.set('userId', context.userId);
+    if (context.userRole) params.set('userRole', context.userRole);
+    return apiRequest(`/feature-flags/check/${key}?${params.toString()}`, { method: 'GET' });
+  },
+};
+
 export const polysApi = {
   auth,
   settings,
@@ -1089,7 +1250,8 @@ export const polysApi = {
   integrations,
   news,
   users,
-  clearAllLocalData, // Função para limpar todos os dados locais
+  featureFlags,
+  clearAllLocalData,
   entities: Object.keys(entityCollections).reduce((acc, name) => {
     acc[name] = makeEntityApi(name);
     return acc;
