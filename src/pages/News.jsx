@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ import { ptBR } from 'date-fns/locale';
 
 export default function News() {
   const queryClient = useQueryClient();
-  const { selectedZone } = useSelectedZone();
+  const { selectedZone, setSelectedZone, zones, clearSelectedZone } = useSelectedZone();
   const [selectedNews, setSelectedNews] = useState(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
@@ -42,6 +42,7 @@ export default function News() {
     imageUrl: '',
     isPublished: true,
     isPinned: false,
+    zoneId: null, // null = global (todos), ou ID da zona
   });
 
   // Buscar usuário atual
@@ -52,7 +53,7 @@ export default function News() {
 
   const isAdmin = currentUser?.role === 'ADMIN';
   const isManager = currentUser?.role === 'GESTOR' || currentUser?.role === 'MANAGER';
-  const canCreate = isAdmin || isManager;
+  const canCreate = !!currentUser; // Qualquer usuário logado pode criar notícia
 
   // Buscar notícias - busca todas e filtra por proximidade depois
   const { data: allNews = [], isLoading } = useQuery({
@@ -96,16 +97,13 @@ export default function News() {
     );
   }, [userLocation]);
 
-  // Filtrar notícias por proximidade ou zona
-  const news = filterByProximity(
-    allNews,
-    userLocation,
-    5,
-    'zone_id',
-    'lat',
-    'lng',
-    selectedZone
-  );
+  // Filtrar notícias por zona: sem zona selecionada = mostra todas; com zona = só global + essa zona
+  const news = selectedZone
+    ? allNews.filter((item) => {
+        const zoneId = item.zoneId ?? item.zone_id;
+        return !zoneId || zoneId === selectedZone.id;
+      })
+    : allNews;
 
   // Buscar comentários
   const { data: comments = [], isLoading: loadingComments } = useQuery({
@@ -120,7 +118,7 @@ export default function News() {
     onSuccess: () => {
       queryClient.invalidateQueries(['news']);
       setIsCreateDialogOpen(false);
-      setFormData({ title: '', content: '', summary: '', imageUrl: '', isPublished: true, isPinned: false });
+      setFormData({ title: '', content: '', summary: '', imageUrl: '', isPublished: true, isPinned: false, zoneId: null });
       toast.success('Notícia publicada com sucesso!');
     },
     onError: () => toast.error('Erro ao publicar notícia'),
@@ -185,7 +183,7 @@ export default function News() {
     e.preventDefault();
     createNewsMutation.mutate({
       ...formData,
-      zoneId: selectedZone?.id,
+      zoneId: formData.zoneId || undefined,
     });
   };
 
@@ -236,7 +234,10 @@ export default function News() {
         </div>
 
         {canCreate && (
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+            setIsCreateDialogOpen(open);
+            if (!open) setFormData(prev => ({ ...prev, zoneId: null }));
+          }}>
             <DialogTrigger asChild>
               <Button className="gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700">
                 <Plus className="h-4 w-4" />
@@ -248,6 +249,36 @@ export default function News() {
                 <DialogTitle>Publicar Notícia</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateNews} className="space-y-4">
+                <div>
+                  <Label>Onde publicar</Label>
+                  <Select
+                    value={formData.zoneId ?? 'global'}
+                    onValueChange={(v) => setFormData({ ...formData, zoneId: v === 'global' ? null : v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a zona" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="global">
+                        <span className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-slate-400" />
+                          Global (visível para todos)
+                        </span>
+                      </SelectItem>
+                      {zones?.map((z) => (
+                        <SelectItem key={z.id} value={z.id}>
+                          <span className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-teal-500" />
+                            {z.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Só aparecem zonas que você participa. Global = visível para todos.
+                  </p>
+                </div>
                 <div>
                   <Label>Título</Label>
                   <Input
@@ -292,13 +323,15 @@ export default function News() {
                       />
                       <Label>Publicar</Label>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={formData.isPinned}
-                        onCheckedChange={(v) => setFormData({ ...formData, isPinned: v })}
-                      />
-                      <Label>Fixar no topo</Label>
-                    </div>
+                    {(isAdmin || isManager) && (
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={formData.isPinned}
+                          onCheckedChange={(v) => setFormData({ ...formData, isPinned: v })}
+                        />
+                        <Label>Fixar no topo</Label>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
@@ -315,9 +348,9 @@ export default function News() {
         )}
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
-        <div className="relative">
+      {/* Filtros: zona + busca */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             value={searchTerm}
@@ -326,6 +359,39 @@ export default function News() {
             className="pl-10"
           />
         </div>
+        {zones?.length > 0 && (
+          <Select
+            value={selectedZone?.id ?? 'all'}
+            onValueChange={(v) => {
+              if (v === 'all') {
+                clearSelectedZone?.();
+              } else {
+                const z = zones.find((z) => z.id === v);
+                if (z) setSelectedZone?.(z);
+              }
+            }}
+          >
+            <SelectTrigger className="min-w-[180px]">
+              <SelectValue placeholder="Filtrar por zona" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <span className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-slate-400" />
+                  Todas as zonas
+                </span>
+              </SelectItem>
+              {zones.map((z) => (
+                <SelectItem key={z.id} value={z.id}>
+                  <span className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-teal-500" />
+                    {z.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* News List */}
