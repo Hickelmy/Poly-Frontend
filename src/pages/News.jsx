@@ -262,129 +262,129 @@ export default function News() {
                 Nova Notícia
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90dvh] flex flex-col">
               <DialogHeader>
                 <DialogTitle>Publicar Notícia</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreateNews} className="space-y-4">
-                <div>
-                  <Label>Onde publicar</Label>
-                  <Select
-                    value={formData.zoneId ?? 'global'}
-                    onValueChange={(v) => setFormData({ ...formData, zoneId: v === 'global' ? null : v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a zona" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="global">
-                        <span className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-slate-400" />
-                          Global (visível para todos)
-                        </span>
-                      </SelectItem>
-                      {zones?.map((z) => (
-                        <SelectItem key={z.id} value={z.id}>
+              <form onSubmit={handleCreateNews} className="flex flex-col flex-1 min-h-0 gap-4">
+                <div className="overflow-y-auto flex-1 space-y-4 pr-1">
+                  <div>
+                    <Label>Onde publicar</Label>
+                    <Select
+                      value={formData.zoneId ?? 'global'}
+                      onValueChange={(v) => setFormData({ ...formData, zoneId: v === 'global' ? null : v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a zona" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="global">
                           <span className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-teal-500" />
-                            {z.name}
+                            <MapPin className="h-4 w-4 text-slate-400" />
+                            Global (visível para todos)
                           </span>
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Só aparecem zonas que você participa. Global = visível para todos.
-                  </p>
-                </div>
-                <div>
-                  <Label>Título</Label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Título da notícia..."
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Resumo (opcional)</Label>
-                  <Input
-                    value={formData.summary}
-                    onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
-                    placeholder="Breve resumo..."
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label>Imagem (opcional)</Label>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setImageMode('upload')}
-                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${imageMode === 'upload' ? 'bg-teal-100 text-teal-700 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        <Upload className="h-3 w-3" /> Upload
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setImageMode('url')}
-                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${imageMode === 'url' ? 'bg-teal-100 text-teal-700 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
-                      >
-                        <Link className="h-3 w-3" /> URL
-                      </button>
-                    </div>
+                        {zones?.map((z) => (
+                          <SelectItem key={z.id} value={z.id}>
+                            <span className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-teal-500" />
+                              {z.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Só aparecem zonas que você participa. Global = visível para todos.
+                    </p>
                   </div>
-
-                  {imageMode === 'upload' ? (
-                    <div
-                      onClick={() => imageInputRef.current?.click()}
-                      className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50 transition-colors"
-                    >
-                      <input
-                        ref={imageInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageFile}
-                      />
-                      {formData.imageUrl && formData.imageUrl.startsWith('data:') ? (
-                        <div className="relative">
-                          <img src={formData.imageUrl} alt="preview" className="mx-auto max-h-32 rounded object-cover" />
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, imageUrl: '' })); }}
-                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-0.5"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-slate-400">
-                          <Upload className="h-6 w-6 mx-auto mb-1" />
-                          <p className="text-sm">Toque para selecionar uma imagem</p>
-                          <p className="text-xs">JPEG, PNG, WebP — máx. 5MB</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
+                  <div>
+                    <Label>Título</Label>
                     <Input
-                      value={formData.imageUrl.startsWith('data:') ? '' : formData.imageUrl}
-                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                      placeholder="https://..."
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Título da notícia..."
+                      required
                     />
-                  )}
-                </div>
-                <div>
-                  <Label>Conteúdo</Label>
-                  <Textarea
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    placeholder="Escreva o conteúdo da notícia..."
-                    rows={8}
-                    required
-                  />
-                </div>
-                <div className="flex items-center justify-between">
+                  </div>
+                  <div>
+                    <Label>Resumo (opcional)</Label>
+                    <Input
+                      value={formData.summary}
+                      onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                      placeholder="Breve resumo..."
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label>Imagem (opcional)</Label>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setImageMode('upload')}
+                          className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${imageMode === 'upload' ? 'bg-teal-100 text-teal-700 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          <Upload className="h-3 w-3" /> Upload
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setImageMode('url')}
+                          className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${imageMode === 'url' ? 'bg-teal-100 text-teal-700 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          <Link className="h-3 w-3" /> URL
+                        </button>
+                      </div>
+                    </div>
+
+                    {imageMode === 'upload' ? (
+                      <div
+                        onClick={() => imageInputRef.current?.click()}
+                        className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50 transition-colors"
+                      >
+                        <input
+                          ref={imageInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageFile}
+                        />
+                        {formData.imageUrl && formData.imageUrl.startsWith('data:') ? (
+                          <div className="relative">
+                            <img src={formData.imageUrl} alt="preview" className="mx-auto max-h-32 rounded object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, imageUrl: '' })); }}
+                              className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-0.5"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-slate-400">
+                            <Upload className="h-6 w-6 mx-auto mb-1" />
+                            <p className="text-sm">Toque para selecionar uma imagem</p>
+                            <p className="text-xs">JPEG, PNG, WebP — máx. 5MB</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <Input
+                        value={formData.imageUrl.startsWith('data:') ? '' : formData.imageUrl}
+                        onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                        placeholder="https://..."
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <Label>Conteúdo</Label>
+                    <Textarea
+                      value={formData.content}
+                      onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                      placeholder="Escreva o conteúdo da notícia..."
+                      rows={6}
+                      required
+                    />
+                  </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Switch
@@ -404,7 +404,7 @@ export default function News() {
                     )}
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="border-t pt-4 shrink-0">
                   <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                     Cancelar
                   </Button>
@@ -595,10 +595,10 @@ export default function News() {
 
       {/* News Detail Dialog */}
       <Dialog open={!!selectedNews && !isReportDialogOpen} onOpenChange={(open) => !open && setSelectedNews(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
+        <DialogContent className="max-w-2xl max-h-[90dvh] flex flex-col">
           {selectedNews && (
             <>
-              <DialogHeader>
+              <DialogHeader className="shrink-0">
                 <div className="flex items-center gap-3 mb-2">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={selectedNews.author?.avatarUrl} />
@@ -614,7 +614,7 @@ export default function News() {
                 <DialogTitle className="text-xl">{selectedNews.title}</DialogTitle>
               </DialogHeader>
 
-              <ScrollArea className="max-h-[50vh]">
+              <ScrollArea className="flex-1 min-h-0">
                 {selectedNews.imageUrl && (
                   <img
                     src={selectedNews.imageUrl}
@@ -684,7 +684,7 @@ export default function News() {
               </ScrollArea>
 
               {/* Actions */}
-              <div className="flex items-center justify-between pt-4 border-t">
+              <div className="flex items-center justify-between pt-4 border-t shrink-0">
                 <div className="flex items-center gap-2">
                   <Button
                     variant={selectedNews.isLikedByMe ? 'default' : 'outline'}
