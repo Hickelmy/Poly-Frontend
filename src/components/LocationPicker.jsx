@@ -75,7 +75,6 @@ export default function LocationPicker({ value, onChange, className }) {
             if (!isNaN(latitude) && !isNaN(longitude) && 
                 latitude >= -90 && latitude <= 90 && 
                 longitude >= -180 && longitude <= 180) {
-              console.log('Localização GPS obtida:', latitude, longitude);
               await setUserLocationFromCoords(latitude, longitude);
             } else {
               console.error('Coordenadas GPS inválidas:', latitude, longitude);

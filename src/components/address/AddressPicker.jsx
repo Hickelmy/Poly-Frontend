@@ -57,7 +57,6 @@ export default function AddressPicker({ value, onChange, user }) {
           return;
         }
         
-        console.log('Localização obtida:', latitude, longitude);
         
         try {
           // Reverse geocoding usando Nominatim (OpenStreetMap)
@@ -297,7 +296,6 @@ export default function AddressPicker({ value, onChange, user }) {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Botão "Usar minha localização" clicado');
                   getCurrentLocation();
                 }}
                 disabled={loadingLocation}

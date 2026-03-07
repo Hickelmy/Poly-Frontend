@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,10 +15,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { polysApi } from '@/api/polysClient';
 import { useSelectedZone } from '@/contexts/SelectedZoneContext';
-import { 
-  Heart, MessageCircle, Share2, Flag, MoreHorizontal, 
+import {
+  Heart, MessageCircle, Share2, Flag, MoreHorizontal,
   Plus, Send, Trash2, Edit, Pin, Clock, MapPin,
-  Newspaper, Search, Filter
+  Newspaper, Search, Filter, Upload, Link, X
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -44,6 +44,24 @@ export default function News() {
     isPinned: false,
     zoneId: null, // null = global (todos), ou ID da zona
   });
+  const [imageMode, setImageMode] = useState('upload'); // 'upload' | 'url'
+  const imageInputRef = useRef(null);
+
+  function handleImageFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione um arquivo de imagem válido');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => setFormData(prev => ({ ...prev, imageUrl: ev.target.result }));
+    reader.readAsDataURL(file);
+  }
 
   // Buscar usuário atual
   const { data: currentUser } = useQuery({
@@ -297,12 +315,64 @@ export default function News() {
                   />
                 </div>
                 <div>
-                  <Label>URL da Imagem (opcional)</Label>
-                  <Input
-                    value={formData.imageUrl}
-                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                    placeholder="https://..."
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <Label>Imagem (opcional)</Label>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setImageMode('upload')}
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${imageMode === 'upload' ? 'bg-teal-100 text-teal-700 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        <Upload className="h-3 w-3" /> Upload
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageMode('url')}
+                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${imageMode === 'url' ? 'bg-teal-100 text-teal-700 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        <Link className="h-3 w-3" /> URL
+                      </button>
+                    </div>
+                  </div>
+
+                  {imageMode === 'upload' ? (
+                    <div
+                      onClick={() => imageInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-200 rounded-lg p-4 text-center cursor-pointer hover:border-teal-400 hover:bg-teal-50 transition-colors"
+                    >
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageFile}
+                      />
+                      {formData.imageUrl && formData.imageUrl.startsWith('data:') ? (
+                        <div className="relative">
+                          <img src={formData.imageUrl} alt="preview" className="mx-auto max-h-32 rounded object-cover" />
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setFormData(prev => ({ ...prev, imageUrl: '' })); }}
+                            className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-0.5"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-slate-400">
+                          <Upload className="h-6 w-6 mx-auto mb-1" />
+                          <p className="text-sm">Toque para selecionar uma imagem</p>
+                          <p className="text-xs">JPEG, PNG, WebP — máx. 5MB</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Input
+                      value={formData.imageUrl.startsWith('data:') ? '' : formData.imageUrl}
+                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  )}
                 </div>
                 <div>
                   <Label>Conteúdo</Label>

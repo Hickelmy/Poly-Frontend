@@ -51,22 +51,6 @@ async function getEncryptionKey(userEmail) {
     || import.meta.env.REACT_APP_ENCRYPTION_MASTER_KEY 
     || 'polys-master-key-change-in-production';
   
-  // Debug apenas em desenvolvimento
-  if (import.meta.env.DEV) {
-    console.log('🔑 Frontend - Chave de criptografia:', {
-      VITE_ENCRYPTION_MASTER_KEY: import.meta.env.VITE_ENCRYPTION_MASTER_KEY ? '✅ Configurada' : '❌ Não configurada',
-      REACT_APP_ENCRYPTION_MASTER_KEY: import.meta.env.REACT_APP_ENCRYPTION_MASTER_KEY ? '✅ Configurada' : '❌ Não configurada',
-      masterKeyLength: masterKey.length,
-      isDefault: masterKey === 'polys-master-key-change-in-production',
-      preview: masterKey.substring(0, 10) + '...'
-    });
-    if (masterKey === 'polys-master-key-change-in-production') {
-      console.warn('⚠️ ATENÇÃO: Usando chave padrão de desenvolvimento. Configure VITE_ENCRYPTION_MASTER_KEY no .env.local');
-    } else {
-      console.log('✅ Frontend - Usando chave mestre configurada');
-    }
-  }
-  
   // Deriva chave única por usuário: MASTER_KEY + EMAIL
   const keyString = `${masterKey}-${userEmail}`;
   
@@ -87,15 +71,7 @@ export async function encrypt(text, userEmail) {
     const key = await getEncryptionKey(userEmail);
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
-    
-    if (import.meta.env.DEV) {
-      console.log(`🔐 Frontend - Criptografando para ${userEmail}:`, {
-        textLength: text.length,
-        dataLength: data.length,
-        textPreview: text.substring(0, 20) + '...'
-      });
-    }
-    
+
     // Gera um IV (Initialization Vector) aleatório
     const iv = crypto.getRandomValues(new Uint8Array(12));
     
@@ -109,14 +85,6 @@ export async function encrypt(text, userEmail) {
       data
     );
     
-    if (import.meta.env.DEV) {
-      console.log(`🔐 Frontend - Dados criptografados:`, {
-        ivLength: iv.length,
-        encryptedLength: encrypted.byteLength,
-        totalLength: iv.length + encrypted.byteLength
-      });
-    }
-    
     // No Web Crypto API, o auth tag já vem automaticamente no final do encrypted
     // Formato: IV (12 bytes) + ciphertext + auth tag (16 bytes)
     // Combina IV + dados criptografados (que já inclui o auth tag) e converte para base64
@@ -126,11 +94,10 @@ export async function encrypt(text, userEmail) {
     
     const base64Result = btoa(String.fromCharCode(...combined));
     if (import.meta.env.DEV) {
-      console.log(`🔐 Frontend - Resultado base64 (primeiros 50 chars): ${base64Result.substring(0, 50)}...`);
     }
     return base64Result;
   } catch (error) {
-    if (import.meta.env.DEV) console.error('Erro ao criptografar:', error);
+    console.error('Erro ao criptografar:', error);
     throw new Error('Falha ao criptografar dados');
   }
 }
@@ -199,9 +166,7 @@ export async function decryptObject(obj, sensitiveFields, userEmail) {
       try {
         decrypted[field] = await decrypt(decrypted[field], userEmail);
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn(`Campo ${field} não pôde ser descriptografado, mantendo original`);
-        }
+        // silent fail - keep original value
       }
     }
   }

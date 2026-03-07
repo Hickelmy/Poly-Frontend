@@ -131,7 +131,6 @@ function MapView({
         if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
           if (!userMarkerRef.current) {
             userMarkerRef.current = L.marker([lat, lng], { icon: userLocationIcon }).addTo(map);
-            console.log('Marcador de localização adicionado após inicialização do mapa');
           }
         }
       }
@@ -169,7 +168,6 @@ function MapView({
           if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
             if (!userMarkerRef.current) {
               userMarkerRef.current = L.marker([lat, lng], { icon: userLocationIcon }).addTo(mapRef.current);
-              console.log('Marcador de localização adicionado (retry):', [lat, lng]);
             }
           }
         }
@@ -204,21 +202,18 @@ function MapView({
         userMarkerRef.current = L.marker(coords, { icon: userLocationIcon }).addTo(
           mapRef.current,
         );
-        console.log('Marcador de localização adicionado:', coords);
       } catch (error) {
         console.error('Erro ao adicionar marcador:', error);
       }
     } else {
       try {
         userMarkerRef.current.setLatLng(coords);
-        console.log('Marcador de localização atualizado:', coords);
       } catch (error) {
         console.error('Erro ao atualizar marcador:', error);
         // Se falhar, tentar recriar o marcador
         try {
           mapRef.current.removeLayer(userMarkerRef.current);
           userMarkerRef.current = L.marker(coords, { icon: userLocationIcon }).addTo(mapRef.current);
-          console.log('Marcador de localização recriado:', coords);
         } catch (retryError) {
           console.error('Erro ao recriar marcador:', retryError);
         }
@@ -442,7 +437,6 @@ export default function Dashboard() {
           return;
         }
         
-        console.log('Localização GPS obtida no Dashboard:', latitude, longitude);
         setUserLocation([latitude, longitude]);
         setMapCenter([latitude, longitude]);
         setMapZoom(16);

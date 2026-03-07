@@ -136,7 +136,6 @@ export default function Layout({ children, currentPageName }) {
         setUnreadCount(notifs.length);
       }
     } catch (e) {
-      console.log('Error loading notifications');
     }
   };
 
@@ -145,7 +144,6 @@ export default function Layout({ children, currentPageName }) {
       const settings = await polysApi.settings.get();
       setAppSettings(settings);
     } catch (e) {
-      console.log('Error loading app settings');
     }
   };
 

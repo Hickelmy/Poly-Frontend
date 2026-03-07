@@ -775,16 +775,6 @@ const auth = {
       // O backend já descriptografa os dados antes de enviar
       const mapped = mapBackendUserToLocal(data);
       
-      // Debug apenas em desenvolvimento
-      if (import.meta.env.DEV) {
-        console.log('Dados recebidos do backend (deve estar descriptografado):', {
-          phone: mapped.phone?.substring(0, 20) + '...',
-          cep: mapped.cep?.substring(0, 20) + '...',
-          street: mapped.street?.substring(0, 20) + '...',
-          neighborhood: mapped.neighborhood?.substring(0, 20) + '...',
-        });
-      }
-
       // Atualiza o cache local com dados descriptografados do backend
       const db = loadDb();
       const index = db.users.findIndex((u) => u.id === mapped.id);
@@ -981,32 +971,26 @@ const integrations = {
     },
 
     async SendEmail({ to, subject, body }) {
-      console.log('Mock envio de email:', { to, subject, body });
       return { success: true };
     },
 
     async InvokeLLM() {
-      console.log('Mock InvokeLLM chamado');
       return { success: true };
     },
 
     async GenerateImage() {
-      console.log('Mock GenerateImage chamado');
       return { success: true };
     },
 
     async ExtractDataFromUploadedFile() {
-      console.log('Mock ExtractDataFromUploadedFile chamado');
       return { success: true };
     },
 
     async CreateFileSignedUrl() {
-      console.log('Mock CreateFileSignedUrl chamado');
       return { success: true };
     },
 
     async UploadPrivateFile() {
-      console.log('Mock UploadPrivateFile chamado');
       return { success: true };
     },
   },

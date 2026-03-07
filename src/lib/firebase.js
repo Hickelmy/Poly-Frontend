@@ -1,5 +1,9 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+
+function isMobile() {
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -37,6 +41,12 @@ export async function signInWithGoogle() {
   provider.addScope('email');
   provider.addScope('profile');
 
+  if (isMobile()) {
+    // On mobile, redirect is more reliable than popup
+    await signInWithRedirect(firebaseAuth, provider);
+    return null; // page will reload after redirect
+  }
+
   const result = await signInWithPopup(firebaseAuth, provider);
   const idToken = await result.user.getIdToken();
 
@@ -48,6 +58,26 @@ export async function signInWithGoogle() {
       photoUrl: result.user.photoURL,
     },
   };
+}
+
+export async function getGoogleRedirectResult() {
+  const firebaseAuth = getFirebaseAuth();
+  if (!firebaseAuth) return null;
+  try {
+    const result = await getRedirectResult(firebaseAuth);
+    if (!result) return null;
+    const idToken = await result.user.getIdToken();
+    return {
+      idToken,
+      user: {
+        email: result.user.email,
+        name: result.user.displayName,
+        photoUrl: result.user.photoURL,
+      },
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function isFirebaseConfigured() {

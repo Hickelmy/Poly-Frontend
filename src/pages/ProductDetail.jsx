@@ -44,15 +44,8 @@ export default function ProductDetail() {
 
   // Verifica se há status de pagamento na URL e abre o checkout
   useEffect(() => {
-    console.log('ProductDetail - Verificando parâmetros da URL:', {
-      paymentStatusParam,
-      productId,
-      fullUrl: window.location.href,
-      searchParams: window.location.search,
-    });
     
     if (paymentStatusParam) {
-      console.log('ProductDetail - Status de pagamento detectado:', paymentStatusParam);
       setPaymentStatus(paymentStatusParam);
       setCheckoutOpen(true);
       

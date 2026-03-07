@@ -144,7 +144,6 @@ export default function LocationSetupModal({ open, onClose, user, onSuccess }) {
       // No zone found, user needs to draw
       setStep('draw');
     } catch (e) {
-      console.log('Error checking zones:', e);
       setStep('draw');
     }
   };

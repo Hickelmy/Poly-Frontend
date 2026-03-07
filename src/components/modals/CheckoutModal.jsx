@@ -317,19 +317,12 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
       }
 
       // Log para debug
-      console.log('Enviando pagamento:', {
-        productPrice: product.price,
-        quantity: quantity,
-        total: total,
-        shippingCost: 0,
-      });
 
       // URL de retorno: volta para a página do produto com status de pagamento
       // Usa createPageUrl para garantir a rota correta
       const productDetailUrl = createPageUrl('ProductDetail');
       const returnUrl = `${window.location.origin}${productDetailUrl}?id=${product.id}&payment_status=approved`;
       
-      console.log('URL de retorno configurada:', returnUrl);
 
       const result = await polysApi.paymentGateway.createStripePayment({
         amount: total,
@@ -339,7 +332,6 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
         currency: 'brl',
       });
       
-      console.log('Resposta do Stripe:', result);
 
       if (result.success && result.checkout_url) {
         // Redireciona para o checkout hospedado do Stripe
@@ -576,14 +568,8 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
 
   // Se o pagamento foi aprovado, avança para a etapa de confirmação
   useEffect(() => {
-    console.log('CheckoutModal - Verificando status de pagamento:', {
-      open,
-      paymentStatus,
-      currentStep,
-    });
     
     if (open && paymentStatus === 'approved') {
-      console.log('CheckoutModal - Avançando para etapa de confirmação (step 3)');
       setCurrentStep(3); // Vai direto para confirmação
     }
   }, [open, paymentStatus]);

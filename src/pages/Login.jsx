@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Map, Mail, Lock, Eye, EyeOff, LogIn, Loader2 } from 'lucide-react';
 import { polysApi } from '@/api/polysClient';
 import { createPageUrl } from '../utils';
-import { signInWithGoogle, isFirebaseConfigured } from '@/lib/firebase';
+import { signInWithGoogle, getGoogleRedirectResult, isFirebaseConfigured } from '@/lib/firebase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,23 @@ export default function Login() {
 
   const searchParams = new URLSearchParams(location.search);
   const redirect = searchParams.get('redirect') || createPageUrl('Dashboard');
+
+  // Processa retorno do redirect do Google (mobile)
+  useEffect(() => {
+    getGoogleRedirectResult().then(async (result) => {
+      if (!result) return;
+      setGoogleLoading(true);
+      try {
+        await polysApi.auth.loginWithGoogle(result.idToken);
+        toast.success('Login com Google realizado!');
+        navigate(redirect, { replace: true });
+      } catch (err) {
+        toast.error(err.message || 'Erro ao fazer login com Google');
+      } finally {
+        setGoogleLoading(false);
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Verifica se o usuário já está autenticado ao carregar a página
   useEffect(() => {
@@ -179,8 +196,9 @@ export default function Login() {
                   onClick={async () => {
                     setGoogleLoading(true);
                     try {
-                      const { idToken } = await signInWithGoogle();
-                      await polysApi.auth.loginWithGoogle(idToken);
+                      const result = await signInWithGoogle();
+                      if (!result) return; // mobile redirect — page will reload
+                      await polysApi.auth.loginWithGoogle(result.idToken);
                       toast.success('Login com Google realizado!');
                       navigate(redirect, { replace: true });
                     } catch (err) {

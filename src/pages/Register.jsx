@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
-import { signInWithGoogle, isFirebaseConfigured } from '@/lib/firebase';
+import { signInWithGoogle, getGoogleRedirectResult, isFirebaseConfigured } from '@/lib/firebase';
 import { Map, Mail, Lock, Eye, EyeOff, User, Loader2, ArrowLeft, MapPin } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +82,23 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Processa retorno do redirect do Google (mobile)
+  useEffect(() => {
+    getGoogleRedirectResult().then(async (result) => {
+      if (!result) return;
+      setGoogleLoading(true);
+      try {
+        await polysApi.auth.loginWithGoogle(result.idToken);
+        toast.success('Conta criada com Google!');
+        navigate(createPageUrl('Dashboard'), { replace: true });
+      } catch (err) {
+        toast.error(err.message || 'Erro ao criar conta com Google');
+      } finally {
+        setGoogleLoading(false);
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -328,8 +345,9 @@ export default function Register() {
                   onClick={async () => {
                     setGoogleLoading(true);
                     try {
-                      const { idToken } = await signInWithGoogle();
-                      await polysApi.auth.loginWithGoogle(idToken);
+                      const result = await signInWithGoogle();
+                      if (!result) return; // mobile redirect — page will reload
+                      await polysApi.auth.loginWithGoogle(result.idToken);
                       toast.success('Conta criada com Google!');
                       navigate(createPageUrl('Dashboard'), { replace: true });
                     } catch (err) {

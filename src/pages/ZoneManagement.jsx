@@ -473,17 +473,6 @@ function getContourPointsBetween(point1, point2, edgeIndex1, edgeIndex2, polygon
 }
 
 function getExistingZonesPolygons(zones, editingZoneId) {
-  console.log('🔍 getExistingZonesPolygons - input:', {
-    zonesCount: zones?.length,
-    editingZoneId,
-    zonesData: zones?.map(z => ({ 
-      id: z.id, 
-      name: z.name, 
-      hasPolygon: !!z.polygon_geojson,
-      polygonType: typeof z.polygon_geojson,
-      hasCoords: !!z.polygon_geojson?.coordinates
-    }))
-  });
   
   const result = zones
     .filter(z => z.id !== editingZoneId && z.polygon_geojson?.coordinates)
@@ -493,7 +482,6 @@ function getExistingZonesPolygons(zones, editingZoneId) {
       polygon: z.polygon_geojson.coordinates[0].map(c => [c[1], c[0]])
     }));
     
-  console.log('🔍 getExistingZonesPolygons - output:', result);
   return result;
 }
 
@@ -555,7 +543,6 @@ function DialogMap({
   useEffect(() => {
     if (!mapReady || !containerRef.current || mapRef.current) return;
 
-    console.log('🗺️ DialogMap: Inicializando mapa Leaflet diretamente');
     
     try {
       // Usa coordenadas padrão se mapCenter ainda não estiver definido
@@ -571,17 +558,11 @@ function DialogMap({
       existingZonesLayerRef.current = L.layerGroup().addTo(map); // Layer para zonas existentes (abaixo)
       zonesLayerRef.current = L.layerGroup().addTo(map); // Layer para o polígono sendo desenhado (acima)
 
-      console.log('✅ DialogMap: Mapa inicializado com sucesso');
 
       // Desenha as zonas existentes imediatamente
       const existingZones = getExistingZonesPolygons(zones, editingZone?.id);
-      console.log('🔴 DialogMap: Zonas existentes na inicialização:', {
-        total: existingZones.length,
-        zonas: existingZones.map(z => ({ name: z.name, pontos: z.polygon?.length }))
-      });
       
       existingZones.forEach(zone => {
-        console.log('🔴 DialogMap: Desenhando zona existente:', zone.name);
         L.polygon(zone.polygon, {
           color: '#ef4444', // Vermelho para indicar área bloqueada
           weight: 2,
@@ -597,9 +578,6 @@ function DialogMap({
 
       // Se houver pontos desenhados, cria o polígono e marcadores imediatamente
       if (currentPoints.length >= 3) {
-        console.log('📍 DialogMap: Criando polígono e marcadores na inicialização', {
-          pointsCount: currentPoints.length
-        });
         // Cria o polígono
         drawnPolygonRef.current = L.polygon(currentPoints, {
           color: '#3b82f6',
@@ -682,12 +660,10 @@ function DialogMap({
       setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.invalidateSize();
-          console.log('✅ DialogMap: Tamanho invalidado');
         }
       }, 300);
 
       return () => {
-        console.log('🧹 DialogMap: Limpando mapa');
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
@@ -752,18 +728,9 @@ function DialogMap({
   // Atualizar polígono desenhado e marcadores
   useEffect(() => {
     if (!mapReady || !mapRef.current || !zonesLayerRef.current) {
-      console.log('⏸️ DialogMap: Aguardando condições', {
-        mapReady,
-        hasMapRef: !!mapRef.current,
-        hasZonesLayer: !!zonesLayerRef.current,
-        pointsCount: drawnPoints.length
-      });
       return;
     }
 
-    console.log('🎨 DialogMap: Criando/atualizando polígono e marcadores', {
-      pointsCount: drawnPoints.length
-    });
 
     // Remove marcadores anteriores
     markersRef.current.forEach(marker => {
@@ -866,14 +833,8 @@ function DialogMap({
 
   // Mostrar outras zonas existentes (áreas bloqueadas)
   useEffect(() => {
-    console.log('🔴 DialogMap: Renderizando zonas existentes', {
-      hasLayer: !!existingZonesLayerRef.current,
-      zonesCount: zones?.length,
-      editingZoneId: editingZone?.id
-    });
     
     if (!existingZonesLayerRef.current) {
-      console.log('⚠️ DialogMap: Layer de zonas existentes não disponível');
       return;
     }
 
@@ -884,11 +845,9 @@ function DialogMap({
     const existingZones = getExistingZonesPolygons(zones, editingZone?.id);
     existingZonesRef.current = existingZones;
     
-    console.log('🔴 DialogMap: Zonas existentes processadas:', existingZones);
 
     // Adiciona outras zonas com estilo de "área bloqueada"
     existingZones.forEach(zone => {
-      console.log('🔴 DialogMap: Adicionando zona existente ao mapa:', zone.name, zone.polygon);
       L.polygon(zone.polygon, {
         color: '#ef4444', // Vermelho para indicar área bloqueada
         weight: 2,
@@ -943,11 +902,6 @@ function ZoneCardMap({ zone, getZonePolygon }) {
   useEffect(() => {
     // Se não há container ou dados de polígono, não faz nada
     if (!containerRef.current || !zone?.polygon_geojson?.coordinates) {
-      console.log('⚠️ ZoneCardMap: Faltando container ou polygon', { 
-        hasContainer: !!containerRef.current, 
-        hasPolygon: !!zone?.polygon_geojson,
-        hasCoords: !!zone?.polygon_geojson?.coordinates
-      });
       return;
     }
     
@@ -960,7 +914,6 @@ function ZoneCardMap({ zone, getZonePolygon }) {
     const center = [zone.center_lat || -23.55, zone.center_lng || -46.63];
     
     try {
-      console.log('🗺️ ZoneCardMap: Criando mapa para', zone.name);
       
       const map = L.map(containerRef.current, {
         zoomControl: false,
@@ -982,7 +935,6 @@ function ZoneCardMap({ zone, getZonePolygon }) {
 
       // Adiciona polígono
       const poly = getZonePolygon(zone);
-      console.log('🗺️ ZoneCardMap: Polygon data:', poly);
       
       if (poly && poly.length > 0) {
         const polygon = L.polygon(poly, {
@@ -1000,7 +952,6 @@ function ZoneCardMap({ zone, getZonePolygon }) {
       setTimeout(() => {
         if (mapRef.current) {
           mapRef.current.invalidateSize();
-          console.log('🗺️ ZoneCardMap: Tamanho invalidado para', zone.name);
         }
       }, 200);
 
@@ -1116,7 +1067,6 @@ export default function ZoneManagement() {
     queryKey: ['zones'],
     queryFn: async () => {
       const result = await polysApi.entities.Zone.list('-created_date');
-      console.log('🗺️ Zones carregadas:', result);
       return result;
     },
   });
@@ -1231,31 +1181,24 @@ export default function ZoneManagement() {
   // Controla quando o mapa deve ser renderizado (após o modal estar aberto)
   useEffect(() => {
     console.group('🔄 ZoneManagement: useEffect [createModalOpen]');
-    console.log('createModalOpen:', createModalOpen);
-    console.log('editingZone:', editingZone?.id);
     
     if (createModalOpen) {
-      console.log('📂 Modal aberto, resetando mapReady e gerando nova key');
       // Reset primeiro
       setMapReady(false);
       // Gera uma nova key para forçar remontagem do mapa
       const newKey = Date.now();
       setMapKey(newKey);
-      console.log('🔑 Nova mapKey gerada:', newKey);
       
       // Delay maior para garantir que o modal está totalmente renderizado no DOM
       const timer = setTimeout(() => {
-        console.log('✅ ZoneManagement: Marcando mapReady como true após 400ms');
         setMapReady(true);
       }, 400);
       
       return () => {
-        console.log('🧹 ZoneManagement: Limpando timer e resetando mapReady');
         clearTimeout(timer);
         setMapReady(false);
       };
     } else {
-      console.log('📂 Modal fechado, resetando mapReady');
       // Reset quando o modal fecha
       setMapReady(false);
     }
