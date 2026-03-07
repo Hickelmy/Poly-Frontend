@@ -155,10 +155,7 @@ export default function Layout({ children, currentPageName }) {
   if (!isPublicPage && checkingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-slate-600 dark:text-slate-400">Verificando autenticação...</p>
-        </div>
+        <div className="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
       </div>
     );
   }

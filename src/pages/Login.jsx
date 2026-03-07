@@ -95,8 +95,7 @@ export default function Login() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4 transition-colors">
         <div className="w-full max-w-md text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-teal-600 mb-4" />
-          <p className="text-sm text-slate-500">Verificando autenticação...</p>
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-teal-600" />
         </div>
       </div>
     );
