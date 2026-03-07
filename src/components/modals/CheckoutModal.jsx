@@ -293,7 +293,7 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
 }
 
 // Etapa de pagamento
-function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress, onBack, onSuccess }) {
+function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress, onBack, onSuccess, user }) {
   const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
@@ -682,6 +682,7 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
                   onBack={handleBack}
                   onNext={handleNext}
                   onSuccess={handleClose}
+                  user={user}
                 />
               )}
 
