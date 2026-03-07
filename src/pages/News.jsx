@@ -144,12 +144,38 @@ export default function News() {
 
   const likeMutation = useMutation({
     mutationFn: (newsId) => polysApi.news.like(newsId),
-    onSuccess: () => queryClient.invalidateQueries(['news']),
+    onMutate: async (newsId) => {
+      await queryClient.cancelQueries(['news']);
+      const previous = queryClient.getQueryData(['news']);
+      queryClient.setQueryData(['news'], (old) =>
+        old?.map((n) =>
+          n.id === newsId ? { ...n, isLikedByMe: true, likesCount: (n.likesCount || 0) + 1 } : n
+        )
+      );
+      return { previous };
+    },
+    onError: (_err, _newsId, context) => {
+      if (context?.previous) queryClient.setQueryData(['news'], context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries(['news']),
   });
 
   const unlikeMutation = useMutation({
     mutationFn: (newsId) => polysApi.news.unlike(newsId),
-    onSuccess: () => queryClient.invalidateQueries(['news']),
+    onMutate: async (newsId) => {
+      await queryClient.cancelQueries(['news']);
+      const previous = queryClient.getQueryData(['news']);
+      queryClient.setQueryData(['news'], (old) =>
+        old?.map((n) =>
+          n.id === newsId ? { ...n, isLikedByMe: false, likesCount: Math.max((n.likesCount || 1) - 1, 0) } : n
+        )
+      );
+      return { previous };
+    },
+    onError: (_err, _newsId, context) => {
+      if (context?.previous) queryClient.setQueryData(['news'], context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries(['news']),
   });
 
   const addCommentMutation = useMutation({
@@ -181,6 +207,12 @@ export default function News() {
       toast.success('Notícia removida');
     },
   });
+
+  // Sync selectedNews with cache updates
+  const cachedNews = queryClient.getQueryData(['news']);
+  const syncedSelectedNews = selectedNews
+    ? (cachedNews?.find((n) => n.id === selectedNews.id) ?? selectedNews)
+    : null;
 
   // Handlers
   const handleLike = (item) => {
@@ -687,13 +719,13 @@ export default function News() {
               <div className="flex items-center justify-between pt-4 border-t shrink-0">
                 <div className="flex items-center gap-2">
                   <Button
-                    variant={selectedNews.isLikedByMe ? 'default' : 'outline'}
+                    variant={syncedSelectedNews.isLikedByMe ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => handleLike(selectedNews)}
-                    className={selectedNews.isLikedByMe ? 'bg-red-500 hover:bg-red-600' : ''}
+                    onClick={() => handleLike(syncedSelectedNews)}
+                    className={syncedSelectedNews.isLikedByMe ? 'bg-red-500 hover:bg-red-600' : ''}
                   >
-                    <Heart className={`h-4 w-4 mr-2 ${selectedNews.isLikedByMe ? 'fill-current' : ''}`} />
-                    {selectedNews.likesCount} Curtidas
+                    <Heart className={`h-4 w-4 mr-2 ${syncedSelectedNews.isLikedByMe ? 'fill-current' : ''}`} />
+                    {syncedSelectedNews.likesCount} Curtidas
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
