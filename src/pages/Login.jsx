@@ -23,50 +23,53 @@ export default function Login() {
   const searchParams = new URLSearchParams(location.search);
   const redirect = searchParams.get('redirect') || createPageUrl('Dashboard');
 
-  // Processa retorno do redirect do Google (mobile)
+  // Inicialização: verifica redirect do Google (mobile) e depois checa autenticação
   useEffect(() => {
-    getGoogleRedirectResult().then(async (result) => {
-      if (!result) return;
-      setGoogleLoading(true);
+    const initialize = async () => {
+      // 1. Primeiro tenta capturar resultado de redirect do Google (mobile/tablet)
       try {
-        await polysApi.auth.loginWithGoogle(result.idToken);
-        toast.success('Login com Google realizado!');
-        navigate(redirect, { replace: true });
+        const result = await getGoogleRedirectResult();
+        if (result) {
+          setGoogleLoading(true);
+          try {
+            await polysApi.auth.loginWithGoogle(result.idToken);
+            toast.success('Login com Google realizado!');
+            navigate(redirect, { replace: true });
+            return;
+          } catch (err) {
+            toast.error(err.message || 'Erro ao fazer login com Google');
+          } finally {
+            setGoogleLoading(false);
+          }
+        }
       } catch (err) {
-        toast.error(err.message || 'Erro ao fazer login com Google');
-      } finally {
-        setGoogleLoading(false);
+        // Erro real no Firebase (authDomain errado, cookies bloqueados, etc.)
+        if (err.code && err.code !== 'auth/null-user') {
+          toast.error('Erro ao retornar login com Google. Tente novamente.');
+        }
       }
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Verifica se o usuário já está autenticado ao carregar a página
-  useEffect(() => {
-    const checkAuthentication = async () => {
+      // 2. Verifica se o usuário já está autenticado
       try {
         const isAuth = await polysApi.auth.isAuthenticated();
         if (isAuth) {
-          // Se há token, tenta validar com o backend
           try {
             await polysApi.auth.me();
-            // Token válido, redireciona para o dashboard
             navigate(redirect, { replace: true });
-          } catch (err) {
-            // Token inválido ou expirado, limpa e mostra a página de login
-            // O erro já foi tratado pelo auth.me() que limpa o storage
-            setCheckingAuth(false);
+            return;
+          } catch {
+            // Token inválido ou expirado — limpa storage e mostra login
           }
-        } else {
-          setCheckingAuth(false);
         }
-      } catch (err) {
-        // Em caso de erro, apenas mostra a página de login
-        setCheckingAuth(false);
+      } catch {
+        // Erro ao checar auth — mostra login normalmente
       }
+
+      setCheckingAuth(false);
     };
 
-    checkAuthentication();
-  }, [navigate, redirect]);
+    initialize();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -63,21 +63,19 @@ export async function signInWithGoogle() {
 export async function getGoogleRedirectResult() {
   const firebaseAuth = getFirebaseAuth();
   if (!firebaseAuth) return null;
-  try {
-    const result = await getRedirectResult(firebaseAuth);
-    if (!result) return null;
-    const idToken = await result.user.getIdToken();
-    return {
-      idToken,
-      user: {
-        email: result.user.email,
-        name: result.user.displayName,
-        photoUrl: result.user.photoURL,
-      },
-    };
-  } catch {
-    return null;
-  }
+
+  const result = await getRedirectResult(firebaseAuth);
+  if (!result) return null;
+
+  const idToken = await result.user.getIdToken();
+  return {
+    idToken,
+    user: {
+      email: result.user.email,
+      name: result.user.displayName,
+      photoUrl: result.user.photoURL,
+    },
+  };
 }
 
 export function isFirebaseConfigured() {

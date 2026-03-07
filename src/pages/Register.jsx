@@ -85,19 +85,27 @@ export default function Register() {
 
   // Processa retorno do redirect do Google (mobile)
   useEffect(() => {
-    getGoogleRedirectResult().then(async (result) => {
-      if (!result) return;
-      setGoogleLoading(true);
+    const handleRedirect = async () => {
       try {
-        await polysApi.auth.loginWithGoogle(result.idToken);
-        toast.success('Conta criada com Google!');
-        navigate(createPageUrl('Dashboard'), { replace: true });
+        const result = await getGoogleRedirectResult();
+        if (!result) return;
+        setGoogleLoading(true);
+        try {
+          await polysApi.auth.loginWithGoogle(result.idToken);
+          toast.success('Conta criada com Google!');
+          navigate(createPageUrl('Dashboard'), { replace: true });
+        } catch (err) {
+          toast.error(err.message || 'Erro ao criar conta com Google');
+        } finally {
+          setGoogleLoading(false);
+        }
       } catch (err) {
-        toast.error(err.message || 'Erro ao criar conta com Google');
-      } finally {
-        setGoogleLoading(false);
+        if (err.code && err.code !== 'auth/null-user') {
+          toast.error('Erro ao retornar login com Google. Tente novamente.');
+        }
       }
-    });
+    };
+    handleRedirect();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
