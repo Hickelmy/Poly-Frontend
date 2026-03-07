@@ -1,9 +1,11 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-
-function isMobile() {
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-}
+import { initializeApp, getApps } from 'firebase/app';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -14,58 +16,91 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-let app = null;
-let auth = null;
+let _app = null;
+let _auth = null;
 
-export function getFirebaseApp() {
+function getFirebaseApp() {
   if (!firebaseConfig.apiKey) return null;
-  if (!app) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
+  if (!_app) {
+    const existing = getApps();
+    _app = existing.length > 0 ? existing[0] : initializeApp(firebaseConfig);
+    _auth = getAuth(_app);
   }
-  return app;
+  return _app;
 }
 
 export function getFirebaseAuth() {
   getFirebaseApp();
-  return auth;
+  return _auth;
 }
 
-export async function signInWithGoogle() {
-  const firebaseAuth = getFirebaseAuth();
-  if (!firebaseAuth) {
-    throw new Error('Firebase não configurado. Login com Google indisponível.');
-  }
+export function isFirebaseConfigured() {
+  return !!firebaseConfig.apiKey;
+}
 
+// Android Chrome: popup abre nova aba e não retorna → usa redirect
+// iOS Safari: redirect quebra por restrição de cookies → usa popup
+// Desktop: popup
+function useRedirect() {
+  return /Android/i.test(navigator.userAgent);
+}
+
+function buildProvider() {
   const provider = new GoogleAuthProvider();
   provider.addScope('email');
   provider.addScope('profile');
-
-  if (isMobile()) {
-    // On mobile, redirect is more reliable than popup
-    await signInWithRedirect(firebaseAuth, provider);
-    return null; // page will reload after redirect
-  }
-
-  const result = await signInWithPopup(firebaseAuth, provider);
-  const idToken = await result.user.getIdToken();
-
-  return {
-    idToken,
-    user: {
-      email: result.user.email,
-      name: result.user.displayName,
-      photoUrl: result.user.photoURL,
-    },
-  };
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
 }
 
-export async function getGoogleRedirectResult() {
-  const firebaseAuth = getFirebaseAuth();
-  if (!firebaseAuth) return null;
+// Retorna { idToken, user } ou null (popup fechado / redirect iniciado)
+export async function signInWithGoogle() {
+  const auth = getFirebaseAuth();
+  if (!auth) throw new Error('Firebase não configurado. Login com Google indisponível.');
+
+  const provider = buildProvider();
+
+  if (useRedirect()) {
+    await signInWithRedirect(auth, provider);
+    return null; // página recarrega após autenticação
+  }
+
   try {
-    const result = await getRedirectResult(firebaseAuth);
-    if (!result) return null;
+    const result = await signInWithPopup(auth, provider);
+    const idToken = await result.user.getIdToken();
+    return {
+      idToken,
+      user: {
+        email: result.user.email,
+        name: result.user.displayName,
+        photoUrl: result.user.photoURL,
+      },
+    };
+  } catch (err) {
+    if (
+      err.code === 'auth/popup-closed-by-user' ||
+      err.code === 'auth/cancelled-popup-request'
+    ) {
+      return null;
+    }
+    if (err.code === 'auth/popup-blocked') {
+      await signInWithRedirect(auth, provider);
+      return null;
+    }
+    throw err;
+  }
+}
+
+// Verifica resultado pendente de redirect (Android Chrome)
+// Retorna { idToken, user } ou null
+export async function getGoogleRedirectResult() {
+  const auth = getFirebaseAuth();
+  if (!auth) return null;
+
+  try {
+    const result = await getRedirectResult(auth);
+    if (!result || !result.user) return null;
+
     const idToken = await result.user.getIdToken();
     return {
       idToken,
@@ -76,10 +111,7 @@ export async function getGoogleRedirectResult() {
       },
     };
   } catch {
+    // Sem resultado de redirect ou storage bloqueado (iOS incógnito, etc.)
     return null;
   }
-}
-
-export function isFirebaseConfigured() {
-  return !!firebaseConfig.apiKey;
 }

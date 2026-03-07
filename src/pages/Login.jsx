@@ -23,50 +23,41 @@ export default function Login() {
   const searchParams = new URLSearchParams(location.search);
   const redirect = searchParams.get('redirect') || createPageUrl('Dashboard');
 
-  // Processa retorno do redirect do Google (mobile)
   useEffect(() => {
-    getGoogleRedirectResult().then(async (result) => {
-      if (!result) return;
-      setGoogleLoading(true);
-      try {
-        await polysApi.auth.loginWithGoogle(result.idToken);
-        toast.success('Login com Google realizado!');
-        navigate(redirect, { replace: true });
-      } catch (err) {
-        toast.error(err.message || 'Erro ao fazer login com Google');
-      } finally {
-        setGoogleLoading(false);
+    const initialize = async () => {
+      // 1. Resultado de redirect do Google (Android Chrome)
+      const redirectResult = await getGoogleRedirectResult();
+      if (redirectResult) {
+        setGoogleLoading(true);
+        try {
+          await polysApi.auth.loginWithGoogle(redirectResult.idToken);
+          toast.success('Login com Google realizado!');
+          navigate(redirect, { replace: true });
+          return;
+        } catch (err) {
+          toast.error(err.message || 'Erro ao fazer login com Google');
+        } finally {
+          setGoogleLoading(false);
+        }
       }
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Verifica se o usuário já está autenticado ao carregar a página
-  useEffect(() => {
-    const checkAuthentication = async () => {
+      // 2. Sessão existente
       try {
         const isAuth = await polysApi.auth.isAuthenticated();
         if (isAuth) {
-          // Se há token, tenta validar com o backend
-          try {
-            await polysApi.auth.me();
-            // Token válido, redireciona para o dashboard
-            navigate(redirect, { replace: true });
-          } catch (err) {
-            // Token inválido ou expirado, limpa e mostra a página de login
-            // O erro já foi tratado pelo auth.me() que limpa o storage
-            setCheckingAuth(false);
-          }
-        } else {
-          setCheckingAuth(false);
+          await polysApi.auth.me();
+          navigate(redirect, { replace: true });
+          return;
         }
-      } catch (err) {
-        // Em caso de erro, apenas mostra a página de login
-        setCheckingAuth(false);
+      } catch {
+        // token inválido ou sem sessão — exibe o login
       }
+
+      setCheckingAuth(false);
     };
 
-    checkAuthentication();
-  }, [navigate, redirect]);
+    initialize();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -196,14 +187,15 @@ export default function Login() {
                     setGoogleLoading(true);
                     try {
                       const result = await signInWithGoogle();
-                      if (!result) return; // mobile redirect — page will reload
+                      if (!result) {
+                        // Usuário fechou o popup OU redirect iniciado (página vai recarregar)
+                        return;
+                      }
                       await polysApi.auth.loginWithGoogle(result.idToken);
                       toast.success('Login com Google realizado!');
                       navigate(redirect, { replace: true });
                     } catch (err) {
-                      if (err.code !== 'auth/popup-closed-by-user') {
-                        toast.error(err.message || 'Erro ao fazer login com Google');
-                      }
+                      toast.error(err.message || 'Erro ao fazer login com Google');
                     } finally {
                       setGoogleLoading(false);
                     }
