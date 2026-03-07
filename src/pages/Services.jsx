@@ -28,6 +28,7 @@ import { ProductCardSkeleton } from '../components/shared/SkeletonLoader';
 
 export default function Services() {
   const [user, setUser] = useState(null);
+  const [userLoading, setUserLoading] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -45,7 +46,7 @@ export default function Services() {
       try {
         const userData = await polysApi.auth.me();
         setUser(userData);
-        
+
         // Se o usuário tem residence_lat/lng, usa essas coordenadas
         if (userData.residence_lat && userData.residence_lng) {
           setUserLocation({
@@ -55,6 +56,8 @@ export default function Services() {
         }
       } catch (e) {
         // Not logged in
+      } finally {
+        setUserLoading(false);
       }
     };
     loadUser();
@@ -160,6 +163,7 @@ export default function Services() {
         <Button 
           className="bg-teal-600 hover:bg-teal-700"
           onClick={() => {
+            if (userLoading) return;
             if (!user) {
               toast.error('Faça login para oferecer serviços');
               return;
