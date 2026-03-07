@@ -199,14 +199,15 @@ export default function Login() {
                     setGoogleLoading(true);
                     try {
                       const result = await signInWithGoogle();
-                      if (!result) return; // mobile redirect — page will reload
+                      if (!result) {
+                        // Usuário fechou o popup OU redirect iniciado (página vai recarregar)
+                        return;
+                      }
                       await polysApi.auth.loginWithGoogle(result.idToken);
                       toast.success('Login com Google realizado!');
                       navigate(redirect, { replace: true });
                     } catch (err) {
-                      if (err.code !== 'auth/popup-closed-by-user') {
-                        toast.error(err.message || 'Erro ao fazer login com Google');
-                      }
+                      toast.error(err.message || 'Erro ao fazer login com Google');
                     } finally {
                       setGoogleLoading(false);
                     }

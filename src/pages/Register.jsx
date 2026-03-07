@@ -354,14 +354,15 @@ export default function Register() {
                     setGoogleLoading(true);
                     try {
                       const result = await signInWithGoogle();
-                      if (!result) return; // mobile redirect — page will reload
+                      if (!result) {
+                        // Usuário fechou o popup OU redirect iniciado (página vai recarregar)
+                        return;
+                      }
                       await polysApi.auth.loginWithGoogle(result.idToken);
                       toast.success('Conta criada com Google!');
                       navigate(createPageUrl('Dashboard'), { replace: true });
                     } catch (err) {
-                      if (err.code !== 'auth/popup-closed-by-user') {
-                        toast.error(err.message || 'Erro ao criar conta com Google');
-                      }
+                      toast.error(err.message || 'Erro ao criar conta com Google');
                     } finally {
                       setGoogleLoading(false);
                     }
