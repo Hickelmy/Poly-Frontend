@@ -37,6 +37,7 @@ export default function Services() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
   const [createServiceModalOpen, setCreateServiceModalOpen] = useState(false);
+  const [radiusKm, setRadiusKm] = useState(5);
 
   // Zone context (para condomínios privados)
   const { selectedZone } = useSelectedZone();
@@ -94,7 +95,7 @@ export default function Services() {
   const proximityFiltered = useProximityFilter(
     services,
     userLocation,
-    5, // 5km de raio
+    radiusKm,
     'zone_id',
     'lat',
     'lng'
@@ -230,6 +231,21 @@ export default function Services() {
                 </SelectContent>
               </Select>
 
+              <Select value={String(radiusKm)} onValueChange={(v) => setRadiusKm(Number(v))}>
+                <SelectTrigger className="w-36">
+                  <MapPin className="w-4 h-4 mr-1 text-teal-500" />
+                  <SelectValue placeholder="Raio" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 km</SelectItem>
+                  <SelectItem value="2">2 km</SelectItem>
+                  <SelectItem value="5">5 km</SelectItem>
+                  <SelectItem value="10">10 km</SelectItem>
+                  <SelectItem value="20">20 km</SelectItem>
+                  <SelectItem value="50">50 km</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-36">
                   <SelectValue placeholder="Ordenar" />
@@ -273,7 +289,7 @@ export default function Services() {
               {userLocation && !selectedZone && (
                 <Badge className="gap-1 bg-blue-600">
                   <MapPin className="w-3 h-3" />
-                  Próximos de você (5km)
+                  Raio: {radiusKm} km
                 </Badge>
               )}
             </div>

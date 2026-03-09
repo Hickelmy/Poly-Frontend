@@ -44,39 +44,43 @@ export function useProximityFilter(
   latField = 'lat',
   lngField = 'lng'
 ) {
-  const { selectedZone } = useSelectedZone();
+  const { selectedZone, zones } = useSelectedZone();
+
+  // IDs das zonas que o usuário é membro
+  const accessibleZoneIds = useMemo(() => zones.map(z => z.id), [zones]);
 
   return useMemo(() => {
     if (!items || items.length === 0) return [];
 
-    // Se não há localização do usuário, retorna todos os itens
+    // Sem localização do usuário: mostra apenas itens globais + itens de zonas acessíveis
     if (!userLocation || (!userLocation.lat && !userLocation.lng)) {
-      return items;
+      if (accessibleZoneIds.length === 0) return items.filter(item => {
+        const zoneId = item[zoneField] || item.zoneId || item.zone_id;
+        return !zoneId;
+      });
+      return items.filter(item => {
+        const zoneId = item[zoneField] || item.zoneId || item.zone_id;
+        if (!zoneId) return true;
+        return accessibleZoneIds.includes(zoneId);
+      });
     }
 
     return items.filter(item => {
-      // Se o item tem zone_id/zoneId, é condomínio privado - usa filtro de zona
       const zoneId = item[zoneField] || item.zoneId || item.zone_id;
       if (zoneId) {
-        // Se há uma zona selecionada, filtra por ela
-        if (selectedZone) {
-          return zoneId === selectedZone.id;
-        }
-        // Se não há zona selecionada, não mostra itens de condomínios privados
-        return false;
+        // Zona selecionada: só mostra itens dessa zona
+        if (selectedZone) return zoneId === selectedZone.id;
+        // Sem zona selecionada: mostra se o usuário é membro dessa zona (sem limite de distância)
+        return accessibleZoneIds.includes(zoneId);
       }
 
-      // Se não tem zone_id, filtra por proximidade
+      // Item global — filtra por proximidade
       const itemLat = item[latField] || item.lat;
       const itemLng = item[lngField] || item.lng;
-      
-      // Se o item não tem coordenadas, mostra mesmo assim (produto geral sem localização)
-      // Apenas filtra por proximidade se tiver coordenadas
-      if (!itemLat || !itemLng) {
-        return true; // Mostra produtos sem localização
-      }
 
-      // Calcula distância
+      // Sem coordenadas e sem zona: mostra apenas se o usuário não tem localização conhecida
+      if (!itemLat || !itemLng) return false;
+
       const distance = calculateDistance(
         userLocation.lat,
         userLocation.lng,
@@ -86,7 +90,7 @@ export function useProximityFilter(
 
       return distance <= maxDistanceKm;
     });
-  }, [items, userLocation, maxDistanceKm, zoneField, latField, lngField, selectedZone]);
+  }, [items, userLocation, maxDistanceKm, zoneField, latField, lngField, selectedZone, accessibleZoneIds]);
 }
 
 /**
@@ -99,29 +103,29 @@ export function filterByProximity(
   zoneField = 'zone_id',
   latField = 'lat',
   lngField = 'lng',
-  selectedZone = null
+  selectedZone = null,
+  accessibleZoneIds = []
 ) {
   if (!items || items.length === 0) return [];
-  if (!userLocation || (!userLocation.lat && !userLocation.lng)) return items;
+  if (!userLocation || (!userLocation.lat && !userLocation.lng)) {
+    return items.filter(item => {
+      const zoneId = item[zoneField] || item.zoneId || item.zone_id;
+      if (!zoneId) return true;
+      return accessibleZoneIds.includes(zoneId);
+    });
+  }
 
   return items.filter(item => {
-    // Se o item tem zone_id/zoneId, é condomínio privado - usa filtro de zona
     const zoneId = item[zoneField] || item.zoneId || item.zone_id;
     if (zoneId) {
-      if (selectedZone) {
-        return zoneId === selectedZone.id;
-      }
-      return false;
+      if (selectedZone) return zoneId === selectedZone.id;
+      return accessibleZoneIds.includes(zoneId);
     }
 
-    // Filtra por proximidade
     const itemLat = item[latField] || item.lat;
     const itemLng = item[lngField] || item.lng;
-    
-    // Se o item não tem coordenadas, mostra mesmo assim (produto geral sem localização)
-    if (!itemLat || !itemLng) {
-      return true; // Mostra produtos sem localização
-    }
+
+    if (!itemLat || !itemLng) return false;
 
     const distance = calculateDistance(
       userLocation.lat,

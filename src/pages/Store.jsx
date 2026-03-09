@@ -44,6 +44,7 @@ export default function Store() {
   const [viewMode, setViewMode] = useState('grid');
   const [sortBy, setSortBy] = useState('recent');
   const [createProductModalOpen, setCreateProductModalOpen] = useState(false);
+  const [radiusKm, setRadiusKm] = useState(5);
 
   // Zone context (para condomínios privados)
   const { selectedZone } = useSelectedZone();
@@ -102,7 +103,7 @@ export default function Store() {
   const proximityFiltered = useProximityFilter(
     products,
     userLocation,
-    5, // 5km de raio
+    radiusKm,
     'zoneId',
     'lat',
     'lng'
@@ -279,6 +280,28 @@ export default function Store() {
                     <SheetTitle>Filtros Avançados</SheetTitle>
                   </SheetHeader>
                   <div className="space-y-6 mt-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium flex items-center gap-1">
+                          <MapPin className="w-4 h-4 text-teal-500" />
+                          Raio de busca
+                        </label>
+                        <span className="text-sm font-semibold text-teal-600">{radiusKm} km</span>
+                      </div>
+                      <Slider
+                        value={[radiusKm]}
+                        onValueChange={([v]) => setRadiusKm(v)}
+                        min={1}
+                        max={50}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>1 km</span>
+                        <span>50 km</span>
+                      </div>
+                    </div>
+
                     <div className="space-y-4">
                       <label className="text-sm font-medium">Faixa de Preço</label>
                       <Slider
@@ -294,13 +317,14 @@ export default function Store() {
                       </div>
                     </div>
 
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full"
                       onClick={() => {
                         setPriceRange([0, 10000]);
                         setCategoryFilter('all');
                         setConditionFilter('all');
+                        setRadiusKm(5);
                       }}
                     >
                       <X className="w-4 h-4 mr-2" />
@@ -330,7 +354,7 @@ export default function Store() {
           </div>
 
           {/* Active Filters */}
-          {(selectedZone || categoryFilter !== 'all' || conditionFilter !== 'all' || priceRange[1] < 10000) && (
+          {(selectedZone || categoryFilter !== 'all' || conditionFilter !== 'all' || priceRange[1] < 10000 || radiusKm !== 5) && (
             <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
               {selectedZone && (
                 <Badge className="gap-1 bg-teal-600">
@@ -341,7 +365,8 @@ export default function Store() {
               {userLocation && !selectedZone && (
                 <Badge className="gap-1 bg-blue-600">
                   <MapPin className="w-3 h-3" />
-                  Próximos de você (5km)
+                  Raio: {radiusKm} km
+                  <X className="w-3 h-3 cursor-pointer" onClick={() => setRadiusKm(5)} />
                 </Badge>
               )}
               {categoryFilter !== 'all' && (

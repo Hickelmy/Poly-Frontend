@@ -47,6 +47,7 @@ export default function Projects() {
   const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [activeTab, setActiveTab] = useState('active'); // 'active' ou 'voting'
+  const [radiusKm, setRadiusKm] = useState(5);
 
   // Zone context (para condomínios privados)
   const { selectedZone } = useSelectedZone();
@@ -179,13 +180,14 @@ export default function Projects() {
   };
 
   // Filter by proximity (ou zona para condomínios privados)
+  // Projects usa latitude/longitude (não lat/lng)
   const proximityFiltered = useProximityFilter(
     projects,
     userLocation,
-    5, // 5km de raio
+    radiusKm,
     'zone_id',
-    'lat',
-    'lng'
+    'latitude',
+    'longitude'
   );
 
   // Separar projetos em ativos e em votação
@@ -364,6 +366,21 @@ export default function Projects() {
                     </SelectContent>
                   </Select>
 
+                  <Select value={String(radiusKm)} onValueChange={(v) => setRadiusKm(Number(v))}>
+                    <SelectTrigger className="w-36">
+                      <MapPin className="w-4 h-4 mr-1 text-teal-500" />
+                      <SelectValue placeholder="Raio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 km</SelectItem>
+                      <SelectItem value="2">2 km</SelectItem>
+                      <SelectItem value="5">5 km</SelectItem>
+                      <SelectItem value="10">10 km</SelectItem>
+                      <SelectItem value="20">20 km</SelectItem>
+                      <SelectItem value="50">50 km</SelectItem>
+                    </SelectContent>
+                  </Select>
+
                   <div className="flex rounded-lg border">
                     <Button
                       variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -475,6 +492,21 @@ export default function Projects() {
                           {status.label}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={String(radiusKm)} onValueChange={(v) => setRadiusKm(Number(v))}>
+                    <SelectTrigger className="w-36">
+                      <MapPin className="w-4 h-4 mr-1 text-teal-500" />
+                      <SelectValue placeholder="Raio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 km</SelectItem>
+                      <SelectItem value="2">2 km</SelectItem>
+                      <SelectItem value="5">5 km</SelectItem>
+                      <SelectItem value="10">10 km</SelectItem>
+                      <SelectItem value="20">20 km</SelectItem>
+                      <SelectItem value="50">50 km</SelectItem>
                     </SelectContent>
                   </Select>
 
