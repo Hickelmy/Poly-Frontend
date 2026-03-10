@@ -157,6 +157,19 @@ async function apiRequest(path, options = {}) {
   const storage = getStorage();
   let token = storage?.getItem(TOKEN_KEY);
 
+  // Refresh proativo: sem access token mas com refresh token → renova antes da requisição
+  if (!token && storage?.getItem(REFRESH_TOKEN_KEY) && !path.includes('/auth/')) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      refreshPromise = tryRefreshToken().finally(() => {
+        isRefreshing = false;
+        refreshPromise = null;
+      });
+    }
+    await (refreshPromise || Promise.resolve(false));
+    token = storage?.getItem(TOKEN_KEY);
+  }
+
   const headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
