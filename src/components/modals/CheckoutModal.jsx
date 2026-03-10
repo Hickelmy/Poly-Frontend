@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { MapPin, Package, Truck, CheckCircle2, Loader2, Plus, Minus, CreditCard, AlertTriangle } from 'lucide-react';
+import { MapPin, Package, Truck, CheckCircle2, Loader2, Plus, Minus, CreditCard, AlertTriangle, QrCode, Copy } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import AddressSelectionModal from "./AddressSelectionModal";
 import { Input } from "@/components/ui/input";
@@ -294,135 +294,237 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
 
 // Etapa de pagamento
 function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress, onBack, onSuccess, user }) {
+  const [selectedMethod, setSelectedMethod] = useState(null); // 'pix' | 'stripe'
   const [loading, setLoading] = useState(false);
+  const [pixData, setPixData] = useState(null);
+  const [pixStatus, setPixStatus] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const pollingRef = useRef(null);
 
-  const handlePayment = async () => {
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopPolling(), []);
+
+  const startPolling = (pixId) => {
+    stopPolling();
+    pollingRef.current = setInterval(async () => {
+      try {
+        const { polysApi } = await import('@/api/polysClient');
+        const result = await polysApi.paymentGateway.checkPixStatus(pixId);
+        setPixStatus(result.status);
+        if (result.status === 'PAID' || result.status === 'EXPIRED') {
+          stopPolling();
+        }
+      } catch (_) { /* ignore polling errors */ }
+    }, 3000);
+  };
+
+  const handlePixPayment = async () => {
     if (!product) return;
-
     setLoading(true);
     try {
       const { polysApi } = await import('@/api/polysClient');
-      
-      // Formata endereço se for delivery
-      let deliveryAddress = null;
-      if (deliveryMethod === 'delivery' && selectedAddress) {
-        deliveryAddress = JSON.stringify({
-          street: selectedAddress.street,
-          house_number: selectedAddress.house_number,
-          neighborhood: selectedAddress.neighborhood,
-          city: selectedAddress.city,
-          state: selectedAddress.state,
-          cep: selectedAddress.cep,
-        });
+      const result = await polysApi.paymentGateway.createPixPayment({
+        amount: total,
+        product_id: product.id,
+        product_title: product.title,
+        quantity,
+      });
+      if (result.success) {
+        setPixData(result);
+        setPixStatus('PENDING');
+        startPolling(result.pix_id);
+      } else {
+        throw new Error('Erro ao gerar PIX');
       }
+    } catch (error) {
+      toast.error(error.message || 'Erro ao gerar PIX. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Log para debug
-
-      // URL de retorno: volta para a página do produto com status de pagamento
-      // Usa createPageUrl para garantir a rota correta
-      const productDetailUrl = createPageUrl('ProductDetail');
-      const returnUrl = `${window.location.origin}${productDetailUrl}?id=${product.id}&payment_status=approved`;
-      
-
+  const handleStripePayment = async () => {
+    if (!product) return;
+    setLoading(true);
+    try {
+      const { polysApi } = await import('@/api/polysClient');
       const result = await polysApi.paymentGateway.createStripePayment({
         amount: total,
         product_id: product.id,
         product_title: product.title,
-        quantity: quantity,
+        quantity,
         currency: 'brl',
       });
-      
-
       if (result.success && result.checkout_url) {
-        // Redireciona para o checkout hospedado do Stripe
         window.location.href = result.checkout_url;
       } else {
         throw new Error('Erro ao criar pagamento');
       }
     } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
-      
-      // Verifica se o usuário é gestor ou administrador
       const userRole = user?.user_role || user?.role || 'usuario';
       const isManagerOrAdmin = ['gestor', 'administrador', 'manager', 'admin', 'administrator'].includes(userRole.toLowerCase());
-      
-      // Mensagem de erro mais específica
       let errorMessage = 'Erro ao processar pagamento. Tente novamente.';
       if (error.message?.includes('Token do Stripe não configurado')) {
-        // Só mostra mensagem sobre token não configurado para managers/gerentes
-        if (isManagerOrAdmin) {
-          errorMessage = 'Token do Stripe não está configurado. Por favor, configure em Configurações > API Tokens.';
-        } else {
-          errorMessage = 'Erro ao processar pagamento. Entre em contato com o suporte.';
-        }
+        errorMessage = isManagerOrAdmin
+          ? 'Token do Stripe não está configurado. Configure em Configurações > API Tokens.'
+          : 'Erro ao processar pagamento. Entre em contato com o suporte.';
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
-      toast.error(errorMessage, {
-        duration: 5000,
-      });
+      toast.error(errorMessage, { duration: 5000 });
       setLoading(false);
     }
   };
 
-  const formatCurrency = (value) =>
-    new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value || 0);
+  const handleCopy = () => {
+    if (pixData?.br_code) {
+      navigator.clipboard.writeText(pixData.br_code);
+      setCopied(true);
+      toast.success('Código PIX copiado!');
+      setTimeout(() => setCopied(false), 3000);
+    }
+  };
 
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+
+  // PIX QR code shown
+  if (pixData) {
+    if (pixStatus === 'PAID') {
+      return (
+        <div className="space-y-6 text-center py-8">
+          <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto" />
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+              Pagamento confirmado!
+            </h3>
+            <p className="text-slate-500 dark:text-slate-400">Seu PIX foi pago com sucesso.</p>
+          </div>
+          <Button onClick={onSuccess} className="bg-teal-600 hover:bg-teal-700">Fechar</Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">{formatCurrency(total)}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Escaneie o QR Code ou copie o código PIX</p>
+        </div>
+
+        {pixData.qr_code_base64 && (
+          <div className="flex justify-center">
+            <img src={pixData.qr_code_base64} alt="QR Code PIX" className="w-48 h-48 border rounded-xl" />
+          </div>
+        )}
+
+        {pixData.br_code && (
+          <div className="flex gap-2">
+            <Input value={pixData.br_code} readOnly className="text-xs font-mono bg-slate-50 dark:bg-slate-800" />
+            <Button variant="outline" size="icon" onClick={handleCopy}>
+              {copied ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+            </Button>
+          </div>
+        )}
+
+        {pixStatus === 'EXPIRED' ? (
+          <p className="text-center text-sm text-red-500">
+            QR Code expirado.{' '}
+            <button className="underline" onClick={() => { setPixData(null); setPixStatus(null); }}>
+              Gerar novo
+            </button>
+          </p>
+        ) : (
+          <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Aguardando pagamento...
+          </div>
+        )}
+
+        <div className="flex justify-between pt-4 border-t">
+          <Button variant="outline" onClick={() => { stopPolling(); setPixData(null); setPixStatus(null); }}>
+            Voltar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Method selection
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-          Pagamento
-        </h3>
-        <p className="text-sm text-slate-600 dark:text-slate-300 mb-6">
-          Você será redirecionado para o checkout seguro do Stripe para finalizar o pagamento.
-        </p>
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+        Escolha a forma de pagamento
+      </h3>
 
-        <Card className="border-2 border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/20">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <CreditCard className="w-6 h-6 text-teal-600 dark:text-teal-400" />
-              <div>
-                <p className="font-semibold text-slate-900 dark:text-white">
-                  Stripe
-                </p>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Pagamento seguro e rápido
-                </p>
-              </div>
+      <div className="space-y-3">
+        <Card
+          className={cn(
+            'border-2 cursor-pointer transition-all',
+            selectedMethod === 'pix'
+              ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-900/20'
+              : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+          )}
+          onClick={() => setSelectedMethod('pix')}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <QrCode className="w-6 h-6 text-teal-600 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold text-slate-900 dark:text-white">PIX</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Pagamento instantâneo via Abacate Pay</p>
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-600 dark:text-slate-300">Total a pagar:</span>
-                <span className="font-semibold text-lg text-teal-600 dark:text-teal-400">
-                  {formatCurrency(total)}
-                </span>
-              </div>
+            <span className="text-xs text-green-600 dark:text-green-400 font-medium">Instantâneo</span>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={cn(
+            'border-2 cursor-pointer transition-all',
+            selectedMethod === 'stripe'
+              ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-900/20'
+              : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+          )}
+          onClick={() => setSelectedMethod('stripe')}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <CreditCard className="w-6 h-6 text-blue-600 shrink-0" />
+            <div className="flex-1">
+              <p className="font-semibold text-slate-900 dark:text-white">Cartão ou Boleto</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Crédito, débito e boleto via Stripe</p>
             </div>
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Stripe</span>
           </CardContent>
         </Card>
       </div>
+
+      {selectedMethod && (
+        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 flex justify-between text-sm">
+          <span className="text-slate-600 dark:text-slate-300">Total a pagar:</span>
+          <span className="font-bold text-teal-600 dark:text-teal-400">{formatCurrency(total)}</span>
+        </div>
+      )}
 
       <div className="flex justify-between pt-4 border-t">
         <Button variant="outline" onClick={onBack} disabled={loading}>
           Voltar
         </Button>
         <Button
-          onClick={handlePayment}
-          disabled={loading}
+          onClick={selectedMethod === 'pix' ? handlePixPayment : handleStripePayment}
+          disabled={!selectedMethod || loading}
           className="bg-teal-600 hover:bg-teal-700"
         >
           {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processando...
-            </>
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processando...</>
+          ) : selectedMethod === 'pix' ? (
+            <><QrCode className="w-4 h-4 mr-2" />Gerar QR Code PIX</>
           ) : (
-            'Finalizar Pagamento'
+            <><CreditCard className="w-4 h-4 mr-2" />Ir para Stripe</>
           )}
         </Button>
       </div>

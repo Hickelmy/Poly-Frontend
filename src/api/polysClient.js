@@ -1064,6 +1064,9 @@ const paymentGateway = {
   async checkStatus(paymentId) {
     return apiRequest(`/payment-gateway/status/${paymentId}`, { method: 'GET' });
   },
+  async checkPixStatus(pixId) {
+    return apiRequest(`/payment-gateway/check-pix/${pixId}`, { method: 'GET' });
+  },
   async createStripePayment(data) {
     return apiRequest('/payment-gateway/create-stripe', {
       method: 'POST',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Heart, CreditCard, QrCode, FileText, Loader2, ExternalLink, Copy, CheckCircle2 } from 'lucide-react';
+import { Heart, CreditCard, QrCode, FileText, Loader2, Copy, CheckCircle2, ExternalLink } from 'lucide-react';
 import { toast } from "sonner";
 import ProgressBar from '../shared/ProgressBar';
 
@@ -23,133 +23,125 @@ export default function DonationModal({ open, onClose, project, user }) {
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [isSubscription, setIsSubscription] = useState(false);
   const [anonymous, setAnonymous] = useState(false);
-  
-  // Estados para o fluxo de pagamento PIX
+
+  // Estados para o fluxo de pagamento
   const [paymentStep, setPaymentStep] = useState('form'); // 'form' | 'pix_generated' | 'success'
   const [pixData, setPixData] = useState(null);
+  const [pixStatus, setPixStatus] = useState(null); // 'PENDING' | 'PAID' | 'EXPIRED'
   const [copied, setCopied] = useState(false);
+  const pollingRef = useRef(null);
 
   const queryClient = useQueryClient();
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopPolling(), []);
+
+  const startPolling = (pixId) => {
+    stopPolling();
+    pollingRef.current = setInterval(async () => {
+      try {
+        const result = await polysApi.paymentGateway.checkPixStatus(pixId);
+        setPixStatus(result.status);
+        if (result.status === 'PAID') {
+          stopPolling();
+          queryClient.invalidateQueries(['projects']);
+          setPaymentStep('success');
+        } else if (result.status === 'EXPIRED') {
+          stopPolling();
+        }
+      } catch (_) { /* ignore polling errors */ }
+    }, 3000);
+  };
 
   const MIN_DONATION_AMOUNT = 20;
   const predefinedAmounts = [20, 50, 100, 250, 500];
 
-  // Mutation para criar pagamento PIX via Abacate Pay
+  // Mutation para criar QR Code PIX via Abacate Pay
   const pixMutation = useMutation({
     mutationFn: async () => {
       const donationAmount = amount === 'custom' ? parseFloat(customAmount) : parseFloat(amount);
-      
-      if (!donationAmount || donationAmount <= 0) {
-        throw new Error('Valor inválido');
-      }
-
+      if (!donationAmount || donationAmount <= 0) throw new Error('Valor inválido');
       if (donationAmount < MIN_DONATION_AMOUNT) {
         throw new Error(`O valor mínimo para doação é R$ ${MIN_DONATION_AMOUNT.toFixed(2)}`);
       }
-
-      // Cria pagamento via Abacate Pay
-      const result = await polysApi.paymentGateway.createPixPayment({
+      return polysApi.paymentGateway.createPixPayment({
         amount: donationAmount,
         project_id: project.id,
         project_title: project.title,
-        anonymous: anonymous,
+        anonymous,
       });
-
-      return result;
     },
     onSuccess: (data) => {
-      if (data.payment_url) {
+      if (data.success) {
         setPixData(data);
+        setPixStatus('PENDING');
         setPaymentStep('pix_generated');
-        toast.success('PIX gerado com sucesso!', {
+        startPolling(data.pix_id);
+        toast.success('QR Code PIX gerado!', {
           description: 'Escaneie o QR Code ou copie o código para pagar',
         });
       }
     },
     onError: (error) => {
-      // Verifica se o usuário é gestor ou administrador
       const userRole = user?.user_role || user?.role || 'usuario';
       const isManagerOrAdmin = ['gestor', 'administrador', 'manager', 'admin', 'administrator'].includes(userRole?.toLowerCase() || '');
-      
       let errorDescription = 'Tente novamente.';
-      if (error.message?.includes('Token do Abacate Pay não configurado') || error.message?.includes('configure o token')) {
-        // Só mostra mensagem sobre token não configurado para managers/gerentes
-        if (isManagerOrAdmin) {
-          errorDescription = 'Configure o token do Abacate Pay em Configurações > API Tokens.';
-        } else {
-          errorDescription = 'Entre em contato com o suporte.';
-        }
+      if (error.message?.includes('Token do Abacate Pay não configurado')) {
+        errorDescription = isManagerOrAdmin
+          ? 'Configure o token do Abacate Pay em Configurações > API Tokens.'
+          : 'Entre em contato com o suporte.';
       } else if (error.message) {
         errorDescription = error.message;
       }
-      
-      toast.error('Erro ao gerar PIX', {
-        description: errorDescription,
-      });
+      toast.error('Erro ao gerar PIX', { description: errorDescription });
     },
   });
 
-  // Mutation para pagamentos simulados (cartão/boleto)
-  const donationMutation = useMutation({
+  // Mutation para pagamento via Stripe (cartão/boleto)
+  const stripeMutation = useMutation({
     mutationFn: async () => {
       const donationAmount = amount === 'custom' ? parseFloat(customAmount) : parseFloat(amount);
-      
-      if (!donationAmount || donationAmount <= 0) {
-        throw new Error('Valor inválido');
-      }
-
+      if (!donationAmount || donationAmount <= 0) throw new Error('Valor inválido');
       if (donationAmount < MIN_DONATION_AMOUNT) {
         throw new Error(`O valor mínimo para doação é R$ ${MIN_DONATION_AMOUNT.toFixed(2)}`);
       }
-
-      // Calculate commission (10% default)
-      const commission = donationAmount * 0.10;
-
-      // Create payment record
-      const payment = await polysApi.entities.ProjectPayment.create({
-        project_id: project.id,
-        user_id: user.id,
-        user_email: user.email,
+      return polysApi.paymentGateway.createStripePayment({
         amount: donationAmount,
-        commission_amount: commission,
-        payment_method: paymentMethod,
-        status: 'pending',
-        is_subscription: isSubscription,
-        anonymous: anonymous,
-        transaction_id: `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        project_id: project.id,
+        project_title: project.title,
+        currency: 'brl',
       });
-
-      // Simulate payment confirmation (in real app, this would be handled by payment gateway callback)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Update payment status
-      await polysApi.entities.ProjectPayment.update(payment.id, {
-        status: 'confirmed'
-      });
-
-      // Update project amount
-      await polysApi.entities.Project.update(project.id, {
-        current_amount: (project.current_amount || 0) + donationAmount
-      });
-
-      return payment;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['projects']);
-      toast.success('Doação realizada com sucesso!', {
-        description: 'Obrigado por contribuir com a comunidade!'
-      });
-      resetForm();
-      onClose();
+    onSuccess: (data) => {
+      if (data.success && data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        toast.error('Erro ao iniciar pagamento Stripe');
+      }
     },
     onError: (error) => {
-      toast.error('Erro ao processar doação', {
-        description: error.message
-      });
-    }
+      const userRole = user?.user_role || user?.role || 'usuario';
+      const isManagerOrAdmin = ['gestor', 'administrador', 'manager', 'admin', 'administrator'].includes(userRole?.toLowerCase() || '');
+      let errorDescription = 'Tente novamente.';
+      if (error.message?.includes('Token do Stripe não configurado')) {
+        errorDescription = isManagerOrAdmin
+          ? 'Configure o token do Stripe em Configurações > API Tokens.'
+          : 'Entre em contato com o suporte.';
+      } else if (error.message) {
+        errorDescription = error.message;
+      }
+      toast.error('Erro ao processar pagamento', { description: errorDescription });
+    },
   });
 
   const resetForm = () => {
+    stopPolling();
     setAmount('');
     setCustomAmount('');
     setPaymentMethod('pix');
@@ -157,6 +149,7 @@ export default function DonationModal({ open, onClose, project, user }) {
     setAnonymous(false);
     setPaymentStep('form');
     setPixData(null);
+    setPixStatus(null);
     setCopied(false);
   };
 
@@ -165,40 +158,29 @@ export default function DonationModal({ open, onClose, project, user }) {
       toast.error('Selecione um valor para doação');
       return;
     }
-
     const donationAmount = amount === 'custom' ? parseFloat(customAmount) : parseFloat(amount);
-    
     if (!donationAmount || donationAmount <= 0) {
       toast.error('Valor inválido');
       return;
     }
-
     if (donationAmount < MIN_DONATION_AMOUNT) {
       toast.error(`O valor mínimo para doação é R$ ${MIN_DONATION_AMOUNT.toFixed(2)}`);
       return;
     }
-
-    // Se for PIX, usa o Abacate Pay
     if (paymentMethod === 'pix') {
       pixMutation.mutate();
     } else {
-      // Para outros métodos, usa o fluxo simulado
-      donationMutation.mutate();
+      stripeMutation.mutate();
     }
   };
 
   const handleCopyPixCode = () => {
-    if (pixData?.payment_url) {
-      navigator.clipboard.writeText(pixData.payment_url);
+    const code = pixData?.br_code;
+    if (code) {
+      navigator.clipboard.writeText(code);
       setCopied(true);
-      toast.success('Link copiado!');
+      toast.success('Código PIX copiado!');
       setTimeout(() => setCopied(false), 3000);
-    }
-  };
-
-  const handleOpenPaymentLink = () => {
-    if (pixData?.payment_url) {
-      window.open(pixData.payment_url, '_blank');
     }
   };
 
@@ -213,20 +195,20 @@ export default function DonationModal({ open, onClose, project, user }) {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) {
-        resetForm();
-      }
+      if (!isOpen) resetForm();
       onClose();
     }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[90dvh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Heart className="w-5 h-5 text-teal-600" />
-            {paymentStep === 'pix_generated' ? 'Pagamento PIX' : 'Fazer Doação'}
+            {paymentStep === 'pix_generated' ? 'Pagamento PIX' : paymentStep === 'success' ? 'Doação Confirmada!' : 'Fazer Doação'}
           </DialogTitle>
           <DialogDescription>
-            {paymentStep === 'pix_generated' 
-              ? 'Escaneie o QR Code ou acesse o link para pagar' 
+            {paymentStep === 'pix_generated'
+              ? 'Escaneie o QR Code ou copie o código PIX'
+              : paymentStep === 'success'
+              ? 'Obrigado pela sua contribuição!'
               : `Contribua com o projeto "${project.title}"`
             }
           </DialogDescription>
@@ -234,7 +216,7 @@ export default function DonationModal({ open, onClose, project, user }) {
 
         {/* Etapa 1: Formulário */}
         {paymentStep === 'form' && (
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 py-4 overflow-y-auto flex-1">
             {/* Project Progress */}
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
@@ -312,20 +294,20 @@ export default function DonationModal({ open, onClose, project, user }) {
                     <span className="text-xs text-green-600 ml-auto">Abacate Pay</span>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer opacity-50">
-                  <RadioGroupItem value="cartao" id="cartao" disabled />
+                <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+                  <RadioGroupItem value="cartao" id="cartao" />
                   <Label htmlFor="cartao" className="flex items-center gap-2 cursor-pointer flex-1">
                     <CreditCard className="w-5 h-5 text-blue-600" />
-                    Cartão de Crédito
-                    <span className="text-xs text-slate-500 ml-auto">Em breve</span>
+                    Cartão de Crédito/Débito
+                    <span className="text-xs text-blue-600 ml-auto">Stripe</span>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer opacity-50">
-                  <RadioGroupItem value="boleto" id="boleto" disabled />
+                <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+                  <RadioGroupItem value="boleto" id="boleto" />
                   <Label htmlFor="boleto" className="flex items-center gap-2 cursor-pointer flex-1">
                     <FileText className="w-5 h-5 text-slate-600" />
                     Boleto Bancário
-                    <span className="text-xs text-slate-500 ml-auto">Em breve</span>
+                    <span className="text-xs text-blue-600 ml-auto">Stripe</span>
                   </Label>
                 </div>
               </RadioGroup>
@@ -359,18 +341,12 @@ export default function DonationModal({ open, onClose, project, user }) {
             <Button
               className="w-full bg-teal-600 hover:bg-teal-700 h-12"
               onClick={handleSubmit}
-              disabled={pixMutation.isPending || donationMutation.isPending || (!amount && !customAmount)}
+              disabled={pixMutation.isPending || stripeMutation.isPending || (!amount && !customAmount)}
             >
-              {(pixMutation.isPending || donationMutation.isPending) ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processando...
-                </>
+              {(pixMutation.isPending || stripeMutation.isPending) ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processando...</>
               ) : (
-                <>
-                  <Heart className="w-4 h-4 mr-2" />
-                  {paymentMethod === 'pix' ? 'Gerar PIX' : 'Confirmar Doação'}
-                </>
+                <><Heart className="w-4 h-4 mr-2" />{paymentMethod === 'pix' ? 'Gerar QR Code PIX' : 'Ir para Stripe'}</>
               )}
             </Button>
 
@@ -383,11 +359,8 @@ export default function DonationModal({ open, onClose, project, user }) {
 
         {/* Etapa 2: PIX Gerado */}
         {paymentStep === 'pix_generated' && pixData && (
-          <div className="space-y-6 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1">
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
-                <QrCode className="w-10 h-10 text-teal-600" />
-              </div>
               <p className="text-2xl font-bold text-teal-700 dark:text-teal-400">
                 {formatCurrency(pixData.amount)}
               </p>
@@ -396,47 +369,74 @@ export default function DonationModal({ open, onClose, project, user }) {
               </p>
             </div>
 
-            {/* Link de pagamento */}
-            <div className="space-y-3">
-              <Label>Link de pagamento</Label>
-              <div className="flex gap-2">
-                <Input 
-                  value={pixData.payment_url} 
-                  readOnly 
-                  className="text-xs bg-slate-50 dark:bg-slate-800"
+            {/* QR Code Image */}
+            {pixData.qr_code_base64 && (
+              <div className="flex justify-center">
+                <img
+                  src={pixData.qr_code_base64}
+                  alt="QR Code PIX"
+                  className="w-48 h-48 border rounded-xl"
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopyPixCode}
-                >
-                  {copied ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </Button>
               </div>
-            </div>
+            )}
 
-            <Button
-              className="w-full bg-teal-600 hover:bg-teal-700 h-12"
-              onClick={handleOpenPaymentLink}
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Abrir página de pagamento
-            </Button>
+            {/* BR Code copy */}
+            {pixData.br_code && (
+              <div className="space-y-1">
+                <Label>Código PIX (copia e cola)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={pixData.br_code}
+                    readOnly
+                    className="text-xs font-mono bg-slate-50 dark:bg-slate-800"
+                  />
+                  <Button variant="outline" size="icon" onClick={handleCopyPixCode}>
+                    {copied ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            )}
 
-            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                <strong>Importante:</strong> Após o pagamento, o valor será creditado automaticamente ao projeto. 
-                Você pode fechar esta janela e acompanhar o status na página do projeto.
+            {/* Status */}
+            {pixStatus === 'EXPIRED' ? (
+              <p className="text-center text-sm text-red-500">
+                QR Code expirado.{' '}
+                <button className="underline" onClick={() => { stopPolling(); setPixData(null); setPixStatus(null); setPaymentStep('form'); }}>
+                  Gerar novo
+                </button>
               </p>
-            </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Aguardando pagamento...
+              </div>
+            )}
 
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => {
-                resetForm();
-                onClose();
-              }}
+              onClick={() => { resetForm(); onClose(); }}
+            >
+              Fechar
+            </Button>
+          </div>
+        )}
+
+        {/* Etapa 3: Sucesso */}
+        {paymentStep === 'success' && (
+          <div className="space-y-6 py-8 text-center">
+            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto" />
+            <div>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+                Pagamento confirmado!
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400">
+                Obrigado por contribuir com o projeto "{project.title}"!
+              </p>
+            </div>
+            <Button
+              className="bg-teal-600 hover:bg-teal-700"
+              onClick={() => { resetForm(); onClose(); }}
             >
               Fechar
             </Button>
