@@ -367,316 +367,344 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{product ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <DialogTitle className="text-2xl">{product ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Imagens - Primeiro campo */}
-          <div className="space-y-2">
-            <Label>Imagens</Label>
-            {/* Grid de imagens */}
-            {formData.images.length > 0 && (
-              <div className="grid grid-cols-4 gap-3 mb-3">
-                {formData.images.map((img, i) => (
-                  <div key={i} className="relative aspect-square group">
-                    <img src={img} alt="" className="w-full h-full object-cover rounded-lg border border-slate-200 dark:border-slate-700" />
-                    <button
-                      onClick={() => setFormData({ ...formData, images: formData.images.filter((_, j) => j !== i) })}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {/* Área de upload full width */}
-            <label className="w-full h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-              {uploading ? (
-                <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-              ) : (
-                <>
-                  <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                  <span className="text-sm text-slate-500 dark:text-slate-400">
-                    Clique para adicionar imagens
-                  </span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                    PNG, JPG, WEBP ou GIF
-                  </span>
-                </>
-              )}
-              <input
-                type="file"
-                accept=".png,.jpg,.jpeg,.webp,.gif"
-                onChange={handleImageUpload}
-                className="hidden"
-                multiple
-              />
-            </label>
-          </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* Nome */}
-          <div className="space-y-2">
-            <Label>Nome *</Label>
-            <Input
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Nome do produto"
-            />
-          </div>
+            {/* Coluna Esquerda */}
+            <div className="space-y-4">
+              {/* Localização Aproximada */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <MapPin className="w-4 h-4 text-teal-600" />
+                  Localização Aproximada *
+                </Label>
 
-          {/* Descrição */}
-          <div className="space-y-2">
-            <Label>Descrição</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descreva seu produto"
-              rows={4}
-              className="resize-none"
-            />
-          </div>
-
-          {/* Preço */}
-          <div className="space-y-2">
-            <Label>Preço *</Label>
-            <CurrencyInput
-              value={formData.price}
-              onChange={(value) => setFormData({ ...formData, price: value })}
-              placeholder="0,00"
-            />
-          </div>
-
-          {/* Quantidade e Unidade */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>
-                {formData.unit_type === 'kg' ? 'Estoque (kg)' : formData.unit_type === 'litro' ? 'Estoque (L)' : 'Estoque (unidades)'}
-              </Label>
-              <Input
-                type="number"
-                value={formData.quantity_available}
-                onChange={(e) => setFormData({ ...formData, quantity_available: e.target.value })}
-                min="0"
-                step={formData.unit_type === 'unidade' ? '1' : '0.5'}
-                placeholder={formData.unit_type === 'unidade' ? '1' : '0'}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de unidade</Label>
-              <Select value={formData.unit_type} onValueChange={(v) => setFormData({ ...formData, unit_type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unidade">Unidade</SelectItem>
-                  <SelectItem value="kg">Quilograma (kg)</SelectItem>
-                  <SelectItem value="litro">Litro (L)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Categoria e Condição */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Categoria</Label>
-              <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="eletronicos">Eletrônicos</SelectItem>
-                  <SelectItem value="moveis">Móveis</SelectItem>
-                  <SelectItem value="vestuario">Vestuário</SelectItem>
-                  <SelectItem value="alimentos">Alimentos</SelectItem>
-                  <SelectItem value="artesanato">Artesanato</SelectItem>
-                  <SelectItem value="outros">Outros</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Condição</Label>
-              <Select value={formData.condition} onValueChange={(v) => setFormData({ ...formData, condition: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="novo">Novo</SelectItem>
-                  <SelectItem value="usado_otimo">Usado - Ótimo</SelectItem>
-                  <SelectItem value="usado_bom">Usado - Bom</SelectItem>
-                  <SelectItem value="usado_regular">Usado - Regular</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Entrega */}
-          <div className="space-y-3">
-            <Label className="text-base font-semibold">Tipos de entrega disponíveis</Label>
-            <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
-              Selecione todos os meios que você aceita para entregar este produto
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { value: 'moto', label: 'Motoboy', icon: '🛵', desc: 'Entregas rápidas e pequenas' },
-                { value: 'carro', label: 'Carro', icon: '🚗', desc: 'Volumes médios' },
-                { value: 'van', label: 'Van', icon: '🚐', desc: 'Cargas maiores' },
-                { value: 'caminhao', label: 'Caminhão', icon: '🚛', desc: 'Cargas pesadas ou grandes' },
-              ].map(({ value, label, icon, desc }) => {
-                const selected = formData.delivery_types.includes(value);
-                return (
-                  <button
-                    key={value}
+                {/* Busca manual por endereço */}
+                <div className="flex gap-2">
+                  <Input
+                    value={addressSearch}
+                    onChange={(e) => setAddressSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress()}
+                    placeholder="Digite um endereço, cidade ou bairro..."
+                    className="h-10"
+                  />
+                  <Button
                     type="button"
-                    onClick={() => {
-                      const types = selected
-                        ? formData.delivery_types.filter(t => t !== value)
-                        : [...formData.delivery_types, value];
-                      setFormData({ ...formData, delivery_types: types });
-                    }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                      selected
-                        ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                    }`}
+                    variant="outline"
+                    onClick={handleSearchAddress}
+                    disabled={searchingAddress || !addressSearch.trim()}
+                    className="shrink-0 h-10"
                   >
-                    <span className="text-2xl">{icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
-                        {label}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{desc}</p>
-                    </div>
-                    <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                      selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
-                    }`}>
-                      {selected && <div className="w-2 h-2 rounded-full bg-white" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    {searchingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  </Button>
+                </div>
 
-            {/* Frete */}
-            <div className="mt-1 space-y-2">
-              <Label className="text-sm font-medium">Quem paga o frete?</Label>
+                {/* Divisor */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                  <span className="text-xs text-slate-400">ou</span>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                </div>
+
+                {/* GPS */}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={formData.lat && formData.lng ? "outline" : "default"}
+                    onClick={handleGetLocation}
+                    disabled={gettingLocation}
+                    className={!formData.lat || !formData.lng ? "border-amber-500 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:border-amber-500/50 dark:hover:bg-amber-900/30 dark:text-amber-200" : ""}
+                  >
+                    {gettingLocation ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Capturando...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="w-4 h-4 mr-2" />
+                        {formData.lat && formData.lng ? 'Atualizar via GPS' : 'Capturar via GPS'}
+                      </>
+                    )}
+                  </Button>
+                  {formData.lat && formData.lng && (
+                    <div className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        <span className="font-medium">Localização definida</span>
+                        <br />
+                        <span className="text-xs">Lat: {formData.lat.toFixed(3)}, Lng: {formData.lng.toFixed(3)}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  A localização é aproximada para preservar sua privacidade. Será usada para filtrar produtos próximos a você.
+                </p>
+
+                {formData.lat && formData.lng && open && (
+                  <div className="mt-1">
+                    <LocationMap lat={formData.lat} lng={formData.lng} />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Círculos verdes mostram a área de alcance: 500m, 1km e 1.5km
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Nome */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Nome *</Label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="Nome do produto"
+                  className="h-10"
+                />
+              </div>
+
+              {/* Descrição */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Descrição</Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Descreva seu produto"
+                  rows={4}
+                  className="resize-none"
+                />
+              </div>
+
+              {/* Categoria e Condição */}
               <div className="grid grid-cols-2 gap-3">
-                {[
-                  { value: 'buyer', label: 'Comprador paga', icon: '💳', desc: 'Frete cobrado separado' },
-                  { value: 'seller', label: 'Incluso no preço', icon: '🎁', desc: 'Frete já embutido' },
-                ].map(({ value, label, icon, desc }) => {
-                  const selected = formData.shipping_paid_by === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, shipping_paid_by: value })}
-                      className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                        selected
-                          ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                      }`}
-                    >
-                      <span className="text-2xl">{icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-semibold ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
-                          {label}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{desc}</p>
-                      </div>
-                      <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                        selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
-                      }`}>
-                        {selected && <div className="w-2 h-2 rounded-full bg-white" />}
-                      </div>
-                    </button>
-                  );
-                })}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Categoria</Label>
+                  <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="eletronicos">Eletrônicos</SelectItem>
+                      <SelectItem value="moveis">Móveis</SelectItem>
+                      <SelectItem value="vestuario">Vestuário</SelectItem>
+                      <SelectItem value="alimentos">Alimentos</SelectItem>
+                      <SelectItem value="artesanato">Artesanato</SelectItem>
+                      <SelectItem value="outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Condição</Label>
+                  <Select value={formData.condition} onValueChange={(v) => setFormData({ ...formData, condition: v })}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="novo">Novo</SelectItem>
+                      <SelectItem value="usado_otimo">Usado - Ótimo</SelectItem>
+                      <SelectItem value="usado_bom">Usado - Bom</SelectItem>
+                      <SelectItem value="usado_regular">Usado - Regular</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Preço, Estoque e Unidade */}
+              <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <Label className="text-sm font-semibold">Preço e Estoque</Label>
+                <div className="space-y-2">
+                  <Label className="text-xs">Preço *</Label>
+                  <CurrencyInput
+                    value={formData.price}
+                    onChange={(value) => setFormData({ ...formData, price: value })}
+                    placeholder="0,00"
+                    className="h-9"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs">
+                      {formData.unit_type === 'kg' ? 'Estoque (kg)' : formData.unit_type === 'litro' ? 'Estoque (L)' : 'Estoque (un)'}
+                    </Label>
+                    <Input
+                      type="number"
+                      value={formData.quantity_available}
+                      onChange={(e) => setFormData({ ...formData, quantity_available: e.target.value })}
+                      min="0"
+                      step={formData.unit_type === 'unidade' ? '1' : '0.5'}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Tipo de unidade</Label>
+                    <Select value={formData.unit_type} onValueChange={(v) => setFormData({ ...formData, unit_type: v })}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unidade">Unidade</SelectItem>
+                        <SelectItem value="kg">Quilograma (kg)</SelectItem>
+                        <SelectItem value="litro">Litro (L)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Localização Aproximada */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-teal-600" />
-              Localização Aproximada *
-            </Label>
-
-            {/* Busca manual por endereço */}
-            <div className="flex gap-2">
-              <Input
-                value={addressSearch}
-                onChange={(e) => setAddressSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress()}
-                placeholder="Digite um endereço, cidade ou bairro..."
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSearchAddress}
-                disabled={searchingAddress || !addressSearch.trim()}
-                className="shrink-0"
-              >
-                {searchingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              </Button>
-            </div>
-
-            {/* Divisor */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-              <span className="text-xs text-slate-400">ou</span>
-              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-            </div>
-
-            {/* Captura automática por GPS */}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={formData.lat && formData.lng ? "outline" : "default"}
-                onClick={handleGetLocation}
-                disabled={gettingLocation}
-                className={!formData.lat || !formData.lng ? "border-amber-500 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:border-amber-500/50 dark:hover:bg-amber-900/30 dark:text-amber-200" : ""}
-              >
-                {gettingLocation ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Capturando...
-                  </>
+            {/* Coluna Direita */}
+            <div className="space-y-4">
+              {/* Imagens */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Imagens do Produto</Label>
+                {formData.images.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {formData.images.map((img, i) => (
+                      <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border-2 border-slate-200 dark:border-slate-700">
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => setFormData({ ...formData, images: formData.images.filter((_, j) => j !== i) })}
+                          className="absolute top-2 right-2 w-7 h-7 bg-red-500/90 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="aspect-square border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      {uploading ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                      ) : (
+                        <>
+                          <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                          <span className="text-xs text-slate-500">Adicionar</span>
+                        </>
+                      )}
+                      <input type="file" accept=".png,.jpg,.jpeg,.webp,.gif" onChange={handleImageUpload} className="hidden" multiple />
+                    </label>
+                  </div>
                 ) : (
-                  <>
-                    <MapPin className="w-4 h-4 mr-2" />
-                    {formData.lat && formData.lng ? 'Atualizar via GPS' : 'Capturar via GPS'}
-                  </>
+                  <label className="block aspect-video border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    {uploading ? (
+                      <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                        <span className="text-sm text-slate-500">Clique para adicionar imagens</span>
+                        <span className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP ou GIF</span>
+                      </>
+                    )}
+                    <input type="file" accept=".png,.jpg,.jpeg,.webp,.gif" onChange={handleImageUpload} className="hidden" multiple />
+                  </label>
                 )}
-              </Button>
-              {formData.lat && formData.lng && (
-                <div className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    <span className="font-medium">Localização definida</span>
-                    <br />
-                    <span className="text-xs">
-                      Lat: {formData.lat.toFixed(3)}, Lng: {formData.lng.toFixed(3)}
-                    </span>
+              </div>
+
+              {/* Tipos de Entrega */}
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-semibold">Tipos de entrega disponíveis</Label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Selecione todos os meios que você aceita para entregar este produto
                   </p>
                 </div>
-              )}
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'moto', label: 'Motoboy', icon: '🛵', desc: 'Entregas rápidas e pequenas' },
+                    { value: 'carro', label: 'Carro', icon: '🚗', desc: 'Volumes médios' },
+                    { value: 'van', label: 'Van', icon: '🚐', desc: 'Cargas maiores' },
+                    { value: 'caminhao', label: 'Caminhão', icon: '🚛', desc: 'Cargas pesadas ou grandes' },
+                  ].map(({ value, label, icon, desc }) => {
+                    const selected = formData.delivery_types.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          const types = selected
+                            ? formData.delivery_types.filter(t => t !== value)
+                            : [...formData.delivery_types, value];
+                          setFormData({ ...formData, delivery_types: types });
+                        }}
+                        className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all ${
+                          selected
+                            ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                        }`}
+                      >
+                        <span className="text-xl">{icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-semibold leading-tight ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                            {label}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{desc}</p>
+                        </div>
+                        <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                          selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}>
+                          {selected && <div className="w-2 h-2 rounded-full bg-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Quem paga o frete */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Quem paga o frete?</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'buyer', label: 'Comprador paga', icon: '💳', desc: 'Frete cobrado separado' },
+                      { value: 'seller', label: 'Incluso no preço', icon: '🎁', desc: 'Frete já embutido' },
+                    ].map(({ value, label, icon, desc }) => {
+                      const selected = formData.shipping_paid_by === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, shipping_paid_by: value })}
+                          className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all ${
+                            selected
+                              ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                              : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                          }`}
+                        >
+                          <span className="text-xl">{icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-semibold leading-tight ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                              {label}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{desc}</p>
+                          </div>
+                          <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                            selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
+                          }`}>
+                            {selected && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              A localização é aproximada para preservar sua privacidade. Será usada para filtrar produtos próximos a você.
-            </p>
-            {/* Mapa com círculos de alcance */}
-            {formData.lat && formData.lng && open && (
-              <div className="mt-3">
-                <LocationMap lat={formData.lat} lng={formData.lng} />
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                  Círculos verdes mostram a área de alcance: 500m, 1km e 1.5km
-                </p>
-              </div>
-            )}
           </div>
+        </div>
 
-          <Button className="w-full bg-teal-600 hover:bg-teal-700" onClick={handleSubmit} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-            {product ? 'Salvar Alterações' : 'Criar Produto'}
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50">
+          <Button
+            className="w-full bg-teal-600 hover:bg-teal-700 h-11 text-base font-semibold"
+            onClick={handleSubmit}
+            disabled={saving}
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              product ? 'Salvar Alterações' : 'Criar Produto'
+            )}
           </Button>
         </div>
       </DialogContent>
