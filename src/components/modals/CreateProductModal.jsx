@@ -159,6 +159,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     price: '',
     quantity_available: '1',
     unit_type: 'unidade',
+    weight_kg: '',
     category: '',
     condition: 'novo',
     delivery_types: [],
@@ -237,6 +238,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         price: product.price?.toString() || '',
         quantity_available: product.quantityAvailable?.toString() || '1',
         unit_type: product.unitType || 'unidade',
+        weight_kg: product.weightKg?.toString() || '',
         category: product.category || '',
         condition: product.condition || 'novo',
         delivery_types: product.deliveryTypes || [],
@@ -252,6 +254,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         price: '',
         quantity_available: '1',
         unit_type: 'unidade',
+        weight_kg: '',
         category: '',
         condition: 'novo',
         delivery_types: [],
@@ -320,6 +323,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         price: parseFloat(formData.price),
         quantityAvailable: parseFloat(formData.quantity_available),
         unitType: formData.unit_type,
+        weightKg: formData.weight_kg ? parseFloat(formData.weight_kg) : null,
         deliveryTypes: formData.delivery_types,
         shippingPaidBy: formData.shipping_paid_by,
         category: formData.category,
@@ -338,6 +342,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         if (fullData.price !== (product.price ?? 0)) changed.price = fullData.price;
         if (fullData.quantityAvailable !== (product.quantityAvailable ?? 0)) changed.quantityAvailable = fullData.quantityAvailable;
         if (fullData.unitType !== (product.unitType || 'unidade')) changed.unitType = fullData.unitType;
+        if (fullData.weightKg !== (product.weightKg ?? null)) changed.weightKg = fullData.weightKg;
         if (JSON.stringify(fullData.deliveryTypes) !== JSON.stringify(product.deliveryTypes || [])) changed.deliveryTypes = fullData.deliveryTypes;
         if (fullData.shippingPaidBy !== (product.shippingPaidBy || 'buyer')) changed.shippingPaidBy = fullData.shippingPaidBy;
         if (fullData.category !== (product.category || '')) changed.category = fullData.category;
@@ -363,6 +368,49 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
       toast.error('Erro ao salvar produto');
     }
     setSaving(false);
+  };
+
+  // Calcula peso total estimado do pedido (em kg) para alertas de transporte
+  const estimatedTotalWeightKg = (() => {
+    const qty = parseFloat(formData.quantity_available) || 0;
+    const unitW = parseFloat(formData.weight_kg) || null;
+    if (formData.unit_type === 'kg') return qty;
+    if (unitW) return qty * unitW;
+    return null;
+  })();
+
+  const TRANSPORT_META = {
+    moto:    { label: 'Motoboy', icon: '🛵', cost: 1, costLabel: 'Econômico',   desc: 'Entregas rápidas e pequenas', idealMax: 30,   warnAbove: 50 },
+    carro:   { label: 'Carro',   icon: '🚗', cost: 2, costLabel: 'Moderado',    desc: 'Volumes médios',              idealMax: 100,  warnAbove: null },
+    van:     { label: 'Van',     icon: '🚐', cost: 3, costLabel: 'Alto',        desc: 'Cargas maiores',              idealMax: 500,  warnAbove: null, warnBelow: 5 },
+    caminhao:{ label: 'Caminhão',icon: '🚛', cost: 4, costLabel: 'Muito alto',  desc: 'Cargas pesadas ou grandes',   idealMax: null, warnAbove: null, warnBelow: 50 },
+  };
+
+  const getTransportWarning = (transportKey) => {
+    const meta = TRANSPORT_META[transportKey];
+    const qty = parseFloat(formData.quantity_available) || 0;
+    const totalKg = estimatedTotalWeightKg;
+
+    if (transportKey === 'moto' && totalKg != null && totalKg > 50) {
+      return `Carga estimada ~${totalKg.toFixed(0)}kg pode exceder a capacidade de um motoboy (max ~30kg).`;
+    }
+    if (transportKey === 'van' && qty > 0) {
+      const isLight = totalKg != null && totalKg < 5;
+      const isFew = formData.unit_type === 'unidade' && qty < 3;
+      if (isLight || isFew) {
+        const ref = totalKg != null ? `~${totalKg.toFixed(1)}kg` : `${qty} ${formData.unit_type}`;
+        return `Van para ${ref} tem custo elevado — ideal para cargas acima de 50kg ou 10 volumes.`;
+      }
+    }
+    if (transportKey === 'caminhao' && qty > 0) {
+      const isLight = totalKg != null && totalKg < 50;
+      const isFew = formData.unit_type === 'unidade' && qty < 20;
+      if (isLight || isFew) {
+        const ref = totalKg != null ? `~${totalKg.toFixed(0)}kg` : `${qty} ${formData.unit_type}`;
+        return `Caminhão para ${ref} tem custo muito alto — ideal para cargas acima de 500kg ou fretes pesados.`;
+      }
+    }
+    return null;
   };
 
   return (
@@ -549,6 +597,31 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                     </Select>
                   </div>
                 </div>
+                {/* Peso por unidade */}
+                {formData.unit_type !== 'kg' && (
+                  <div className="space-y-1.5 pt-1 border-t border-slate-200 dark:border-slate-600">
+                    <Label className="text-xs flex items-center gap-1">
+                      Peso por {formData.unit_type === 'litro' ? 'litro' : 'unidade'} (kg)
+                      <span className="text-slate-400 font-normal">— opcional, ajuda a dimensionar o frete</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      value={formData.weight_kg}
+                      onChange={(e) => setFormData({ ...formData, weight_kg: e.target.value })}
+                      min="0"
+                      step="0.1"
+                      placeholder="ex: 0.5 para 500g, 2 para 2kg"
+                      className="h-9"
+                    />
+                    {estimatedTotalWeightKg != null && estimatedTotalWeightKg > 0 && (
+                      <p className="text-xs text-teal-600 dark:text-teal-400">
+                        Peso total estimado do estoque: ~{estimatedTotalWeightKg >= 1000
+                          ? `${(estimatedTotalWeightKg / 1000).toFixed(1)}t`
+                          : `${estimatedTotalWeightKg.toFixed(1)}kg`}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -603,46 +676,73 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 <div>
                   <Label className="text-sm font-semibold">Tipos de entrega disponíveis</Label>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Selecione todos os meios que você aceita para entregar este produto
+                    Selecione um ou mais meios que você aceita — pode combinar vários
                   </p>
                 </div>
+
+                {/* Régua de referência de peso */}
+                <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 overflow-x-auto pb-0.5">
+                  <span className="shrink-0">🛵 até 30kg</span>
+                  <span className="text-slate-300 dark:text-slate-600">›</span>
+                  <span className="shrink-0">🚗 até 100kg</span>
+                  <span className="text-slate-300 dark:text-slate-600">›</span>
+                  <span className="shrink-0">🚐 até 500kg</span>
+                  <span className="text-slate-300 dark:text-slate-600">›</span>
+                  <span className="shrink-0">🚛 acima de 500kg</span>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'moto', label: 'Motoboy', icon: '🛵', desc: 'Entregas rápidas e pequenas' },
-                    { value: 'carro', label: 'Carro', icon: '🚗', desc: 'Volumes médios' },
-                    { value: 'van', label: 'Van', icon: '🚐', desc: 'Cargas maiores' },
-                    { value: 'caminhao', label: 'Caminhão', icon: '🚛', desc: 'Cargas pesadas ou grandes' },
-                  ].map(({ value, label, icon, desc }) => {
+                  {Object.entries(TRANSPORT_META).map(([value, meta]) => {
                     const selected = formData.delivery_types.includes(value);
+                    const warning = selected ? getTransportWarning(value) : null;
+                    const costDots = '💰'.repeat(meta.cost);
                     return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          const types = selected
-                            ? formData.delivery_types.filter(t => t !== value)
-                            : [...formData.delivery_types, value];
-                          setFormData({ ...formData, delivery_types: types });
-                        }}
-                        className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all ${
-                          selected
-                            ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
-                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                        }`}
-                      >
-                        <span className="text-xl">{icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-semibold leading-tight ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
-                            {label}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{desc}</p>
-                        </div>
-                        <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                          selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
-                        }`}>
-                          {selected && <div className="w-2 h-2 rounded-full bg-white" />}
-                        </div>
-                      </button>
+                      <div key={value} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const types = selected
+                              ? formData.delivery_types.filter(t => t !== value)
+                              : [...formData.delivery_types, value];
+                            setFormData({ ...formData, delivery_types: types });
+                          }}
+                          className={`w-full flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all ${
+                            selected
+                              ? warning
+                                ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20'
+                                : 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                              : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                          }`}
+                        >
+                          <span className="text-xl">{meta.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className={`text-sm font-semibold leading-tight ${
+                                selected
+                                  ? warning ? 'text-amber-700 dark:text-amber-300' : 'text-teal-700 dark:text-teal-300'
+                                  : 'text-slate-800 dark:text-slate-200'
+                              }`}>
+                                {meta.label}
+                              </p>
+                              <span className="text-xs leading-none" title={`Custo: ${meta.costLabel}`}>{costDots}</span>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{meta.costLabel}</p>
+                          </div>
+                          <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                            selected
+                              ? warning ? 'border-amber-400 bg-amber-400' : 'border-teal-500 bg-teal-500'
+                              : 'border-slate-300 dark:border-slate-600'
+                          }`}>
+                            {selected && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
+                        </button>
+                        {warning && (
+                          <div className="flex items-start gap-1.5 px-2 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                            <span className="text-sm shrink-0">⚠️</span>
+                            <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">{warning}</p>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
