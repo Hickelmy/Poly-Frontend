@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
 import { useQueryClient } from '@tanstack/react-query';
-import { MapPin, Upload, X, Loader2 } from 'lucide-react';
+import { MapPin, Upload, X, Loader2, Search } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -168,10 +168,35 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [addressSearch, setAddressSearch] = useState('');
+  const [searchingAddress, setSearchingAddress] = useState(false);
 
   // Função para arredondar coordenadas (privacidade - 3 casas decimais = ~100m)
   const roundCoordinate = (coord) => {
     return Math.round(coord * 1000) / 1000;
+  };
+
+  const handleSearchAddress = async () => {
+    if (!addressSearch.trim()) return;
+    setSearchingAddress(true);
+    try {
+      const query = encodeURIComponent(addressSearch.trim());
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`, {
+        headers: { 'Accept-Language': 'pt-BR' }
+      });
+      const data = await res.json();
+      if (data.length === 0) {
+        toast.error('Endereço não encontrado. Tente ser mais específico.');
+        return;
+      }
+      const lat = roundCoordinate(parseFloat(data[0].lat));
+      const lng = roundCoordinate(parseFloat(data[0].lon));
+      setFormData(prev => ({ ...prev, lat, lng }));
+      toast.success(`Localização encontrada: ${data[0].display_name.split(',').slice(0, 3).join(', ')}`);
+    } catch {
+      toast.error('Erro ao buscar endereço. Verifique sua conexão.');
+    }
+    setSearchingAddress(false);
   };
 
   const handleGetLocation = () => {
@@ -473,11 +498,39 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
           </div>
 
           {/* Localização Aproximada */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-teal-600" />
               Localização Aproximada *
             </Label>
+
+            {/* Busca manual por endereço */}
+            <div className="flex gap-2">
+              <Input
+                value={addressSearch}
+                onChange={(e) => setAddressSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress()}
+                placeholder="Digite um endereço, cidade ou bairro..."
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSearchAddress}
+                disabled={searchingAddress || !addressSearch.trim()}
+                className="shrink-0"
+              >
+                {searchingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            {/* Divisor */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+              <span className="text-xs text-slate-400">ou</span>
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+            </div>
+
+            {/* Captura automática por GPS */}
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -494,14 +547,14 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 ) : (
                   <>
                     <MapPin className="w-4 h-4 mr-2" />
-                    {formData.lat && formData.lng ? 'Atualizar Localização' : 'Capturar Localização'}
+                    {formData.lat && formData.lng ? 'Atualizar via GPS' : 'Capturar via GPS'}
                   </>
                 )}
               </Button>
               {formData.lat && formData.lng && (
                 <div className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
                   <p className="text-sm text-slate-600 dark:text-slate-400">
-                    <span className="font-medium">Localização capturada</span>
+                    <span className="font-medium">Localização definida</span>
                     <br />
                     <span className="text-xs">
                       Lat: {formData.lat.toFixed(3)}, Lng: {formData.lng.toFixed(3)}
@@ -510,6 +563,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 </div>
               )}
             </div>
+
             <p className="text-xs text-slate-500 dark:text-slate-400">
               A localização é aproximada para preservar sua privacidade. Será usada para filtrar produtos próximos a você.
             </p>
