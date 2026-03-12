@@ -161,6 +161,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     unit_type: 'unidade',
     category: '',
     condition: 'novo',
+    delivery_types: [],
+    shipping_paid_by: 'buyer',
     images: [],
     lat: null,
     lng: null
@@ -237,6 +239,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         unit_type: product.unitType || 'unidade',
         category: product.category || '',
         condition: product.condition || 'novo',
+        delivery_types: product.deliveryTypes || [],
+        shipping_paid_by: product.shippingPaidBy || 'buyer',
         images: product.images || [],
         lat: product.lat || null,
         lng: product.lng || null
@@ -250,6 +254,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         unit_type: 'unidade',
         category: '',
         condition: 'novo',
+        delivery_types: [],
+        shipping_paid_by: 'buyer',
         images: [],
         lat: null,
         lng: null
@@ -314,6 +320,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         price: parseFloat(formData.price),
         quantityAvailable: parseFloat(formData.quantity_available),
         unitType: formData.unit_type,
+        deliveryTypes: formData.delivery_types,
+        shippingPaidBy: formData.shipping_paid_by,
         category: formData.category,
         condition: formData.condition,
         images: formData.images,
@@ -330,6 +338,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         if (fullData.price !== (product.price ?? 0)) changed.price = fullData.price;
         if (fullData.quantityAvailable !== (product.quantityAvailable ?? 0)) changed.quantityAvailable = fullData.quantityAvailable;
         if (fullData.unitType !== (product.unitType || 'unidade')) changed.unitType = fullData.unitType;
+        if (JSON.stringify(fullData.deliveryTypes) !== JSON.stringify(product.deliveryTypes || [])) changed.deliveryTypes = fullData.deliveryTypes;
+        if (fullData.shippingPaidBy !== (product.shippingPaidBy || 'buyer')) changed.shippingPaidBy = fullData.shippingPaidBy;
         if (fullData.category !== (product.category || '')) changed.category = fullData.category;
         if (fullData.condition !== (product.condition || '')) changed.condition = fullData.condition;
         if (JSON.stringify(fullData.images || []) !== JSON.stringify(product.images || [])) changed.images = fullData.images;
@@ -494,6 +504,92 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   <SelectItem value="usado_regular">Usado - Regular</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {/* Entrega */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">Tipos de entrega disponíveis</Label>
+            <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
+              Selecione todos os meios que você aceita para entregar este produto
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { value: 'moto', label: 'Motoboy', icon: '🛵', desc: 'Entregas rápidas e pequenas' },
+                { value: 'carro', label: 'Carro', icon: '🚗', desc: 'Volumes médios' },
+                { value: 'van', label: 'Van', icon: '🚐', desc: 'Cargas maiores' },
+                { value: 'caminhao', label: 'Caminhão', icon: '🚛', desc: 'Cargas pesadas ou grandes' },
+              ].map(({ value, label, icon, desc }) => {
+                const selected = formData.delivery_types.includes(value);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      const types = selected
+                        ? formData.delivery_types.filter(t => t !== value)
+                        : [...formData.delivery_types, value];
+                      setFormData({ ...formData, delivery_types: types });
+                    }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                      selected
+                        ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                    }`}
+                  >
+                    <span className="text-2xl">{icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                        {label}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{desc}</p>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                      selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
+                    }`}>
+                      {selected && <div className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Frete */}
+            <div className="mt-1 space-y-2">
+              <Label className="text-sm font-medium">Quem paga o frete?</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { value: 'buyer', label: 'Comprador paga', icon: '💳', desc: 'Frete cobrado separado' },
+                  { value: 'seller', label: 'Incluso no preço', icon: '🎁', desc: 'Frete já embutido' },
+                ].map(({ value, label, icon, desc }) => {
+                  const selected = formData.shipping_paid_by === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, shipping_paid_by: value })}
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                        selected
+                          ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <span className="text-2xl">{icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                          {label}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{desc}</p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                        selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
+                      }`}>
+                        {selected && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
