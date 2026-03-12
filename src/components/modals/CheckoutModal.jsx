@@ -33,7 +33,14 @@ const STEPS = [
 ];
 
 // Primeira etapa - Seleção de entrega
-function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod, selectedAddress, setSelectedAddress, showAddressModal, setShowAddressModal, quantity, setQuantity }) {
+const TRANSPORT_OPTIONS = [
+  { value: 'moto', label: 'Motoboy', icon: '🛵' },
+  { value: 'carro', label: 'Carro', icon: '🚗' },
+  { value: 'van', label: 'Van', icon: '🚐' },
+  { value: 'caminhao', label: 'Caminhão', icon: '🚛' },
+];
+
+function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod, selectedAddress, setSelectedAddress, showAddressModal, setShowAddressModal, quantity, setQuantity, selectedTransport, setSelectedTransport }) {
   const formatCurrency = (value) =>
     new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -57,8 +64,10 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
   const displayAddress = formatAddress();
   const hasAddress = selectedAddress && selectedAddress.street && selectedAddress.city;
 
-  // Calcular frete (por enquanto grátis)
-  const shippingCost = 0;
+  const shippingIncluded = product?.shippingPaidBy === 'seller';
+  const availableTransports = (product?.deliveryTypes || [])
+    .map(v => TRANSPORT_OPTIONS.find(o => o.value === v))
+    .filter(Boolean);
 
   // Quantidade disponível e tipo de unidade
   const maxQuantity = product?.quantityAvailable ?? product?.quantity_available ?? 99999;
@@ -125,61 +134,84 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
           <div className="space-y-4">
             {/* Opção 1: Delivery */}
             <Card className={cn(
-              "border-2 cursor-pointer transition-all",
-              deliveryMethod === 'delivery' 
-                ? "border-teal-500 bg-teal-50/50 dark:bg-teal-900/20" 
+              "border-2 transition-all",
+              availableTransports.length === 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+              deliveryMethod === 'delivery'
+                ? "border-teal-500 bg-teal-50/50 dark:bg-teal-900/20"
                 : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
             )}>
-              <label className="block cursor-pointer">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      <RadioGroupItem value="delivery" id="delivery" className="mt-1" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Truck className="w-5 h-5 text-teal-600" />
-                          <Label htmlFor="delivery" className="text-base font-semibold text-slate-900 dark:text-white cursor-pointer">
-                            Enviar no meu endereço
-                          </Label>
-                          <span className="text-sm font-semibold text-green-600 dark:text-green-400 ml-auto">
-                            Grátis
-                          </span>
-                        </div>
-                        
-                        {hasAddress ? (
-                          <>
-                            <p className="text-sm text-slate-600 dark:text-slate-300 mb-2">
-                              {displayAddress}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                              Residencial
-                            </p>
-                            <button
-                              type="button"
-                              className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setShowAddressModal(true);
-                              }}
-                            >
-                              Alterar ou escolher outro endereço
-                            </button>
-                          </>
-                        ) : (
-                          <div className="mt-4">
-                            <button
-                              type="button"
-                              className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setShowAddressModal(true);
-                              }}
-                            >
+              <label className={cn("block", availableTransports.length > 0 ? "cursor-pointer" : "cursor-not-allowed")}>
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <RadioGroupItem value="delivery" id="delivery" className="mt-1" disabled={availableTransports.length === 0} />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Truck className="w-5 h-5 text-teal-600" />
+                        <Label htmlFor="delivery" className="text-base font-semibold text-slate-900 dark:text-white cursor-pointer">
+                          Enviar no meu endereço
+                        </Label>
+                        <span className={cn("text-sm font-semibold ml-auto", shippingIncluded ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
+                          {shippingIncluded ? 'Frete incluso' : 'Frete a combinar'}
+                        </span>
+                      </div>
+
+                      {availableTransports.length === 0 ? (
+                        <p className="text-xs text-slate-400 mt-1">O vendedor não cadastrou opções de entrega.</p>
+                      ) : (
+                        <>
+                          {/* Tipos de transporte disponíveis */}
+                          {deliveryMethod === 'delivery' && (
+                            <div className="mt-3 space-y-2">
+                              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Selecione o meio de transporte:</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                {availableTransports.map(({ value, label, icon }) => (
+                                  <button
+                                    key={value}
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); setSelectedTransport(value); }}
+                                    className={cn(
+                                      "flex items-center gap-2 p-2.5 rounded-lg border-2 text-left transition-all",
+                                      selectedTransport === value
+                                        ? "border-teal-500 bg-teal-50 dark:bg-teal-900/30"
+                                        : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                                    )}
+                                  >
+                                    <span className="text-xl">{icon}</span>
+                                    <span className={cn("text-sm font-medium", selectedTransport === value ? "text-teal-700 dark:text-teal-300" : "text-slate-700 dark:text-slate-300")}>{label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Disponíveis (colapsado) */}
+                          {deliveryMethod !== 'delivery' && (
+                            <div className="flex gap-1.5 mt-1 flex-wrap">
+                              {availableTransports.map(({ value, icon, label }) => (
+                                <span key={value} className="text-base" title={label}>{icon}</span>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Endereço */}
+                      {deliveryMethod === 'delivery' && (
+                        <div className="mt-3">
+                          {hasAddress ? (
+                            <>
+                              <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">{displayAddress}</p>
+                              <button type="button" className="text-sm text-teal-600 dark:text-teal-400 hover:underline" onClick={(e) => { e.preventDefault(); setShowAddressModal(true); }}>
+                                Alterar endereço
+                              </button>
+                            </>
+                          ) : (
+                            <button type="button" className="text-sm text-teal-600 dark:text-teal-400 hover:underline" onClick={(e) => { e.preventDefault(); setShowAddressModal(true); }}>
                               Selecionar endereço de entrega
                             </button>
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -265,7 +297,7 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
             }
             onNext();
           }}
-          disabled={!deliveryMethod || (deliveryMethod === 'delivery' && !hasAddress)}
+          disabled={!deliveryMethod || (deliveryMethod === 'delivery' && (!hasAddress || (availableTransports.length > 0 && !selectedTransport)))}
           className="bg-teal-600 hover:bg-teal-700"
         >
           Continuar
@@ -537,7 +569,8 @@ function PurchaseSummary({ product, deliveryMethod, shippingCost, quantity = 1 }
 
   const unitPrice = product?.price || 0;
   const subtotal = unitPrice * quantity;
-  const total = subtotal + shippingCost;
+  const shippingIsIncluded = shippingCost === 0;
+  const total = subtotal + (shippingIsIncluded ? 0 : 0); // frete a combinar não soma ao total ainda
 
   return (
     <Card className="border-0 shadow-sm sticky top-4">
@@ -564,20 +597,17 @@ function PurchaseSummary({ product, deliveryMethod, shippingCost, quantity = 1 }
 
           <div className="flex justify-between text-sm">
             <span className="text-slate-600 dark:text-slate-300">Frete</span>
-            <span className={cn(
-              "font-medium",
-              shippingCost === 0 
-                ? "text-green-600 dark:text-green-400" 
-                : "text-slate-900 dark:text-white"
-            )}>
-              {shippingCost === 0 ? 'Grátis' : formatCurrency(shippingCost)}
+            <span className={cn("font-medium", shippingIsIncluded ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
+              {shippingIsIncluded ? 'Incluso no preço' : 'A combinar'}
             </span>
           </div>
 
           <div className="flex justify-between pt-3 border-t">
-            <span className="text-base font-semibold text-slate-900 dark:text-white">Total</span>
+            <span className="text-base font-semibold text-slate-900 dark:text-white">
+              Total {!shippingIsIncluded && <span className="text-xs font-normal text-slate-400">(+ frete)</span>}
+            </span>
             <span className="text-lg font-bold text-teal-600 dark:text-teal-400">
-              {formatCurrency(total)}
+              {formatCurrency(subtotal)}
             </span>
           </div>
         </div>
@@ -614,6 +644,7 @@ function PurchaseSummary({ product, deliveryMethod, shippingCost, quantity = 1 }
 export default function CheckoutModal({ open, onClose, product, user, paymentStatus }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [deliveryMethod, setDeliveryMethod] = useState(null);
+  const [selectedTransport, setSelectedTransport] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -645,6 +676,7 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
   const resetAndClose = () => {
     setCurrentStep(1);
     setDeliveryMethod(null);
+    setSelectedTransport(null);
     setSelectedAddress(null);
     setShowAddressModal(false);
     setQuantity(1);
@@ -678,7 +710,9 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
       currency: 'BRL',
     }).format(value || 0);
 
-  const shippingCost = 0; // Por enquanto sempre grátis
+  // Frete: 0 se incluso no preço, null se a combinar (comprador paga)
+  const shippingIncluded = product?.shippingPaidBy === 'seller';
+  const shippingCost = shippingIncluded ? 0 : null;
 
   return (
     <>
@@ -767,6 +801,8 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
                   setShowAddressModal={setShowAddressModal}
                   quantity={quantity}
                   setQuantity={setQuantity}
+                  selectedTransport={selectedTransport}
+                  setSelectedTransport={setSelectedTransport}
                 />
               )}
 
@@ -774,7 +810,7 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
                 <PaymentStep
                   product={product}
                   quantity={quantity}
-                  total={shippingCost + (product?.price || 0) * quantity}
+                  total={(product?.price || 0) * quantity}
                   deliveryMethod={deliveryMethod}
                   selectedAddress={selectedAddress}
                   onBack={handleBack}

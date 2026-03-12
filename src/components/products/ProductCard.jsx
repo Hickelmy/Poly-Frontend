@@ -14,6 +14,8 @@ const conditionLabels = {
   usado_regular: "Usado - Regular"
 };
 
+const TRANSPORT_ICONS = { moto: '🛵', carro: '🚗', van: '🚐', caminhao: '🚛' };
+
 export default function ProductCard({ product, onAddToCart }) {
   const isAvailable = product.quantityAvailable > 0 && product.active;
   
@@ -94,11 +96,21 @@ export default function ProductCard({ product, onAddToCart }) {
           {product.description}
         </p>
 
-        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400 mb-3">
+        <div className="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400 mb-3">
           <div className="flex items-center gap-1">
             <Package className="w-4 h-4" />
-            <span>{product.quantityAvailable} disponíveis</span>
+            <span>{product.quantityAvailable} {product.unitType === 'kg' ? 'kg' : product.unitType === 'litro' ? 'L' : 'un'}</span>
           </div>
+          {product.deliveryTypes?.length > 0 && (
+            <div className="flex items-center gap-1">
+              {product.deliveryTypes.map(t => (
+                <span key={t} className="text-base" title={t}>{TRANSPORT_ICONS[t]}</span>
+              ))}
+              {product.shippingPaidBy === 'seller' && (
+                <span className="ml-1 text-xs text-green-600 dark:text-green-400 font-medium">Frete incluso</span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between">
