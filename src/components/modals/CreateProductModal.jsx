@@ -158,6 +158,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     description: '',
     price: '',
     quantity_available: '1',
+    unit_type: 'unidade',
     category: '',
     condition: 'novo',
     images: [],
@@ -208,6 +209,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         description: product.description || '',
         price: product.price?.toString() || '',
         quantity_available: product.quantityAvailable?.toString() || '1',
+        unit_type: product.unitType || 'unidade',
         category: product.category || '',
         condition: product.condition || 'novo',
         images: product.images || [],
@@ -220,6 +222,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         description: '',
         price: '',
         quantity_available: '1',
+        unit_type: 'unidade',
         category: '',
         condition: 'novo',
         images: [],
@@ -284,7 +287,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
-        quantityAvailable: parseInt(formData.quantity_available),
+        quantityAvailable: parseFloat(formData.quantity_available),
+        unitType: formData.unit_type,
         category: formData.category,
         condition: formData.condition,
         images: formData.images,
@@ -300,6 +304,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         if (fullData.description !== (product.description || '')) changed.description = fullData.description;
         if (fullData.price !== (product.price ?? 0)) changed.price = fullData.price;
         if (fullData.quantityAvailable !== (product.quantityAvailable ?? 0)) changed.quantityAvailable = fullData.quantityAvailable;
+        if (fullData.unitType !== (product.unitType || 'unidade')) changed.unitType = fullData.unitType;
         if (fullData.category !== (product.category || '')) changed.category = fullData.category;
         if (fullData.condition !== (product.condition || '')) changed.condition = fullData.condition;
         if (JSON.stringify(fullData.images || []) !== JSON.stringify(product.images || [])) changed.images = fullData.images;
@@ -399,25 +404,41 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
             />
           </div>
 
-          {/* Preço e Quantidade */}
+          {/* Preço */}
+          <div className="space-y-2">
+            <Label>Preço *</Label>
+            <CurrencyInput
+              value={formData.price}
+              onChange={(value) => setFormData({ ...formData, price: value })}
+              placeholder="0,00"
+            />
+          </div>
+
+          {/* Quantidade e Unidade */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Preço *</Label>
-              <CurrencyInput
-                value={formData.price}
-                onChange={(value) => setFormData({ ...formData, price: value })}
-                placeholder="0,00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Quantidade</Label>
+              <Label>
+                {formData.unit_type === 'kg' ? 'Estoque (kg)' : formData.unit_type === 'litro' ? 'Estoque (L)' : 'Estoque (unidades)'}
+              </Label>
               <Input
                 type="number"
                 value={formData.quantity_available}
                 onChange={(e) => setFormData({ ...formData, quantity_available: e.target.value })}
                 min="0"
-                placeholder="1"
+                step={formData.unit_type === 'unidade' ? '1' : '0.5'}
+                placeholder={formData.unit_type === 'unidade' ? '1' : '0'}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de unidade</Label>
+              <Select value={formData.unit_type} onValueChange={(v) => setFormData({ ...formData, unit_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unidade">Unidade</SelectItem>
+                  <SelectItem value="kg">Quilograma (kg)</SelectItem>
+                  <SelectItem value="litro">Litro (L)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

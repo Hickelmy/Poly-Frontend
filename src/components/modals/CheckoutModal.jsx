@@ -60,66 +60,61 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
   // Calcular frete (por enquanto grátis)
   const shippingCost = 0;
 
-  // Quantidade disponível
-  const maxQuantity = product?.quantity_available || 1;
-  const canSelectQuantity = maxQuantity > 1;
+  // Quantidade disponível e tipo de unidade
+  const maxQuantity = product?.quantityAvailable ?? product?.quantity_available ?? 99999;
+  const unitType = product?.unitType || 'unidade';
+  const isWeightOrVolume = unitType === 'kg' || unitType === 'litro';
+  const unitLabel = unitType === 'kg' ? 'kg' : unitType === 'litro' ? 'L' : '';
+  const step = isWeightOrVolume ? 0.5 : 1;
+  const minQty = isWeightOrVolume ? 0.5 : 1;
 
   return (
     <div className="space-y-6">
-      {/* Seletor de quantidade (se tiver mais de 1 unidade disponível) */}
-      {canSelectQuantity && (
-        <div className="space-y-2">
-          <Label className="text-base font-semibold text-slate-900 dark:text-white">
-            Quantidade
-          </Label>
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                if (quantity > 1) {
-                  setQuantity(quantity - 1);
-                }
-              }}
-              disabled={quantity <= 1}
-              className="h-10 w-10"
-            >
-              <Minus className="w-4 h-4" />
-            </Button>
-            <Input
-              type="number"
-              min="1"
-              max={maxQuantity}
-              value={quantity}
-              onChange={(e) => {
-                const value = parseInt(e.target.value) || 1;
-                if (value >= 1 && value <= maxQuantity) {
-                  setQuantity(value);
-                }
-              }}
-              className="w-20 text-center"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => {
-                if (quantity < maxQuantity) {
-                  setQuantity(quantity + 1);
-                }
-              }}
-              disabled={quantity >= maxQuantity}
-              className="h-10 w-10"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
+      {/* Seletor de quantidade */}
+      <div className="space-y-2">
+        <Label className="text-base font-semibold text-slate-900 dark:text-white">
+          Quantidade{unitLabel ? ` (${unitLabel})` : ''}
+        </Label>
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setQuantity(prev => Math.max(minQty, parseFloat((prev - step).toFixed(2))))}
+            disabled={quantity <= minQty}
+            className="h-10 w-10"
+          >
+            <Minus className="w-4 h-4" />
+          </Button>
+          <Input
+            type="number"
+            min={minQty}
+            max={maxQuantity}
+            step={step}
+            value={quantity}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value) || minQty;
+              if (value >= minQty && value <= maxQuantity) setQuantity(value);
+            }}
+            className="w-24 text-center"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setQuantity(prev => Math.min(maxQuantity, parseFloat((prev + step).toFixed(2))))}
+            disabled={quantity >= maxQuantity}
+            className="h-10 w-10"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+          {maxQuantity < 99999 && (
             <span className="text-sm text-slate-500 dark:text-slate-400">
-              Disponível: {maxQuantity} {maxQuantity === 1 ? 'unidade' : 'unidades'}
+              Disponível: {maxQuantity}{unitLabel ? ` ${unitLabel}` : maxQuantity === 1 ? ' unidade' : ' unidades'}
             </span>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       <div>
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
@@ -553,17 +548,17 @@ function PurchaseSummary({ product, deliveryMethod, shippingCost, quantity = 1 }
 
         <div className="space-y-3 pt-2 border-t">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600 dark:text-slate-300">
-              {quantity > 1 ? `${quantity}x ` : ''}Produto
-            </span>
+            <span className="text-slate-600 dark:text-slate-300">Produto</span>
             <span className="font-medium text-slate-900 dark:text-white">
               {formatCurrency(subtotal)}
             </span>
           </div>
-          
-          {quantity > 1 && (
+
+          {quantity > 0 && (
             <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 pl-4">
-              <span>{formatCurrency(unitPrice)} × {quantity}</span>
+              <span>
+                {formatCurrency(unitPrice)} × {quantity}{product?.unitType === 'kg' ? ' kg' : product?.unitType === 'litro' ? ' L' : ''}
+              </span>
             </div>
           )}
 
@@ -664,7 +659,8 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
   // Reset quantity when product changes or modal opens
   useEffect(() => {
     if (open && product) {
-      setQuantity(1);
+      const isWeightOrVolume = product.unitType === 'kg' || product.unitType === 'litro';
+      setQuantity(isWeightOrVolume ? 0.5 : 1);
     }
   }, [open, product?.id]);
 
