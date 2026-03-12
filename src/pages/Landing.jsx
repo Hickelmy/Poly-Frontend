@@ -72,32 +72,12 @@ export default function Landing() {
     { icon: Lock, title: "Transparência", desc: "Acompanhe cada centavo com escrow seguro" },
   ];
 
-  const cases = [
-    {
-      title: "Instalação de Câmeras",
-      description: "Moradores se uniram para instalar um sistema de monitoramento com 12 câmeras de segurança.",
-      raised: "R$ 15.420",
-      target: "R$ 18.000",
-      progress: 85,
-      image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop"
-    },
-    {
-      title: "Reforma da Praça",
-      description: "Revitalização completa da praça central com novos bancos, iluminação e playground.",
-      raised: "R$ 42.800",
-      target: "R$ 50.000",
-      progress: 86,
-      image: "https://images.unsplash.com/photo-1568454537842-d933259bb258?w=400&h=300&fit=crop"
-    },
-    {
-      title: "Muro de Contenção",
-      description: "Construção de muro de arrimo para prevenir deslizamentos na época de chuvas.",
-      raised: "R$ 28.000",
-      target: "R$ 28.000",
-      progress: 100,
-      image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&h=300&fit=crop"
-    }
-  ];
+  // DESABILITADO - Casos de Sucesso
+  // const cases = [
+  //   { title: "Instalação de Câmeras", description: "Moradores se uniram para instalar um sistema de monitoramento com 12 câmeras de segurança.", raised: "R$ 15.420", target: "R$ 18.000", progress: 85, image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop" },
+  //   { title: "Reforma da Praça", description: "Revitalização completa da praça central com novos bancos, iluminação e playground.", raised: "R$ 42.800", target: "R$ 50.000", progress: 86, image: "https://images.unsplash.com/photo-1568454537842-d933259bb258?w=400&h=300&fit=crop" },
+  //   { title: "Muro de Contenção", description: "Construção de muro de arrimo para prevenir deslizamentos na época de chuvas.", raised: "R$ 28.000", target: "R$ 28.000", progress: 100, image: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400&h=300&fit=crop" }
+  // ];
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'dark bg-slate-950' : 'bg-white'}`}>
@@ -427,8 +407,8 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Use Cases */}
-      <section id="casos" className={`py-24 px-6 transition-colors duration-300 ${
+      {/* DESABILITADO - Casos de Sucesso */}
+      {/* <section id="casos" className={`py-24 px-6 transition-colors duration-300 ${
         darkMode ? 'bg-slate-900' : 'bg-white'
       }`}>
         <div className="max-w-7xl mx-auto">
@@ -454,7 +434,7 @@ export default function Landing() {
                   darkMode ? 'bg-slate-800' : 'bg-white'
                 }`}>
                   <div className="relative h-48 overflow-hidden">
-                    <img 
+                    <img
                       src={item.image}
                       alt={item.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -480,7 +460,7 @@ export default function Landing() {
                       <div className={`h-2 rounded-full overflow-hidden ${
                         darkMode ? 'bg-slate-700' : 'bg-slate-100'
                       }`}>
-                        <div 
+                        <div
                           className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full"
                           style={{ width: `${item.progress}%` }}
                         />
@@ -495,7 +475,7 @@ export default function Landing() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Security Section */}
       <section className={`py-24 px-6 text-white ${
