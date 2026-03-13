@@ -466,444 +466,410 @@ export default function CreateProjectModal({ open, onClose, user }) {
     }
   };
 
+  const fmtBRL = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const minVotes = calculateMinVotes(totalExpenses);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Cadastro de Projeto Comunitário</DialogTitle>
-          <DialogDescription>
-            Cadastre um projeto de melhoria para sua comunidade.
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0">
+
+        {/* ── Header ── */}
+        <div className="px-6 pt-6 pb-4 border-b bg-white dark:bg-slate-900 shrink-0">
+          <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
+            Novo Projeto Comunitário
+          </DialogTitle>
+          <DialogDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            Proponha uma melhoria para sua comunidade. A meta é calculada automaticamente pelas despesas.
           </DialogDescription>
-        </DialogHeader>
-        
-        <div className="overflow-y-auto flex-1 pr-2 -mr-2">
-        
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <Label>Título *</Label>
-            <Input
-              value={formData.title}
-              onChange={handleChange('title')}
-              placeholder="Ex: Iluminação da Praça Central"
-            />
-          </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label>Resumo curto</Label>
-            <Input
-              value={formData.short_description}
-              onChange={handleChange('short_description')}
-              placeholder="Frase rápida explicando o objetivo do projeto"
-            />
-          </div>
+        {/* ── Body (two columns) ── */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-slate-700">
 
-          <div className="space-y-2">
-            <Label>Descrição detalhada</Label>
-            <Textarea
-              value={formData.description}
-              onChange={handleChange('description')}
-              rows={4}
-              placeholder="Descreva o problema, a proposta de solução e o impacto esperado..."
-            />
-          </div>
+              {/* ══ LEFT column ══ */}
+              <div className="p-6 space-y-5">
 
-          {/* Localização */}
-          <LocationPicker
-            value={location}
-            onChange={setLocation}
-          />
-
-          {/* Evidências / Imagens */}
-          <div className="space-y-3 border rounded-lg p-4 bg-slate-50/70 dark:bg-slate-900/30">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div>
-                <Label className="font-semibold">Evidências do problema</Label>
-                <p className="text-xs text-slate-500 mt-1 max-w-xl">
-                  Adicione fotos, prints ou imagens que comprovem a necessidade do projeto.
-                </p>
-              </div>
-              <label className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800">
-                {uploadingEvidence ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4" />
-                )}
-                <span>{uploadingEvidence ? 'Enviando...' : 'Carregar imagem'}</span>
-                <input
-                  type="file"
-                  accept=".png,.jpg,.jpeg,.webp,.gif"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-
-                    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-                    if (!allowedTypes.includes(file.type)) {
-                      toast.error('Formato de imagem não suportado. Use JPG, JPEG, PNG, WEBP ou GIF.');
-                      e.target.value = '';
-                      return;
-                    }
-
-                    setUploadingEvidence(true);
-                    try {
-                      const { file_url } = await polysApi.integrations.Core.UploadFile({ file });
-                      setEvidences((prev) => [...prev, file_url]);
-                    } catch (err) {
-                      console.error(err);
-                      toast.error('Erro ao enviar imagem de evidência');
-                    }
-                    setUploadingEvidence(false);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-            </div>
-
-            {evidences.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
-                {evidences.map((img, i) => (
-                  <div key={i} className="relative group rounded-lg overflow-hidden border">
-                    <img
-                      src={img}
-                      alt={`Evidência ${i + 1}`}
-                      className="w-full h-28 object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEvidences((prev) => prev.filter((_, index) => index !== i))
-                      }
-                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Despesas previstas */}
-          <div className="space-y-3 border rounded-lg p-4 bg-slate-50/70 dark:bg-slate-900/30">
-            <div>
-              <Label className="font-semibold">Despesas previstas do projeto</Label>
-              <p className="text-xs text-slate-500 mt-1">
-                Cadastre os principais custos (produtos, serviços, impostos, etc.) relacionados à execução do projeto.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-              <div className="space-y-1 md:col-span-1">
-                <Label>Tipo</Label>
-                <Select
-                  value={expenseDraft.type}
-                  onValueChange={(value) =>
-                    setExpenseDraft((prev) => ({ ...prev, type: value }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EXPENSE_TYPE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1 md:col-span-1">
-                <Label>Descrição</Label>
-                <Input
-                  value={expenseDraft.description}
-                  onChange={handleExpenseChange('description')}
-                  placeholder='Ex: "Lixeira de metal"'
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label>Custo (R$)</Label>
-                <CurrencyInput
-                  value={expenseDraft.cost}
-                  onChange={handleExpenseCostChange}
-                  placeholder="0,00"
-                  className="text-sm"
-                />
-              </div>
-
-              <div className="flex flex-col md:flex-row gap-3">
-                <div className="space-y-1 md:w-40 w-full">
-                  <Label>Quantidade</Label>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={decrementQuantity}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <Input
-                      className="text-center"
-                      inputMode="numeric"
-                      value={expenseDraft.quantity}
-                      onChange={(e) => handleQuantityChange(e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={incrementQuantity}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
+                {/* Localização */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Localização do problema *
+                  </Label>
+                  <LocationPicker value={location} onChange={setLocation} />
                 </div>
-                <Button
-                  type="button"
-                  className="mt-2 md:mt-5 w-full md:w-auto bg-teal-600 hover:bg-teal-700"
-                  onClick={handleAddExpense}
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Adicionar
-                </Button>
-              </div>
-            </div>
 
-            {expenses.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <div className="flex justify-between text-xs font-semibold text-slate-500">
-                  <span>Itens cadastrados</span>
-                  <span>
-                    Total previsto:{' '}
-                    {new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                    }).format(totalExpenses)}
-                  </span>
+                {/* Título */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Título *</Label>
+                  <Input
+                    value={formData.title}
+                    onChange={handleChange('title')}
+                    placeholder="Ex: Iluminação da Praça Central"
+                    className="h-9"
+                  />
                 </div>
-                <div className="border rounded-md max-h-60 overflow-y-auto bg-white dark:bg-slate-900 divide-y">
-                  {expenses.map((exp) => (
-                    <div key={exp.id} className="px-3 py-2 text-xs sm:text-sm">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-slate-500">Tipo</Label>
-                          <Select
-                            value={exp.type}
-                            onValueChange={(value) =>
-                              handleEditExpense(exp.id, 'type', value)
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {EXPENSE_TYPE_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-slate-500">Descrição</Label>
-                          <Input
-                            value={exp.description}
-                            onChange={(e) =>
-                              handleEditExpense(exp.id, 'description', e.target.value)
-                            }
-                          />
-                        </div>
+                {/* Resumo */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Resumo curto</Label>
+                  <Input
+                    value={formData.short_description}
+                    onChange={handleChange('short_description')}
+                    placeholder="Frase rápida explicando o objetivo"
+                    className="h-9"
+                  />
+                </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-slate-500">Custo (R$)</Label>
-                          <CurrencyInput
-                            value={exp.cost}
-                            onChange={(value) => handleEditExpenseCost(exp.id, value)}
-                            className="text-xs"
-                          />
-                        </div>
+                {/* Descrição */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Descrição detalhada</Label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={handleChange('description')}
+                    rows={3}
+                    placeholder="Descreva o problema, a proposta de solução e o impacto esperado..."
+                    className="resize-none"
+                  />
+                </div>
 
-                        <div className="flex items-end gap-2">
-                          <div className="space-y-1 flex-1">
-                            <Label className="text-[11px] text-slate-500">Qtd.</Label>
-                            <Input
-                              value={exp.quantity}
-                              inputMode="numeric"
-                              onChange={(e) =>
-                                handleEditExpense(exp.id, 'quantity', e.target.value)
-                              }
-                            />
-                          </div>
+                {/* Categoria + Status */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Categoria *</Label>
+                    <Select
+                      value={formData.category}
+                      onValueChange={(v) => setFormData((p) => ({ ...p, category: v }))}
+                    >
+                      <SelectTrigger className="h-9"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {CATEGORY_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {isAdminOrGestor ? (
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Status inicial</Label>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(v) => setFormData((p) => ({ ...p, status: v }))}
+                      >
+                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {STATUS_OPTIONS.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Prazo de arrecadação</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <Button
                             type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                            onClick={() => handleRemoveExpense(exp.id)}
+                            variant="outline"
+                            className={cn('w-full h-9 justify-start text-left font-normal', !fundingDate && 'text-muted-foreground')}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {fundingDate ? fundingDate.toLocaleDateString('pt-BR') : 'Escolha uma data'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={fundingDate}
+                            onSelect={setFundingDate}
+                            disabled={(d) => {
+                              const t = new Date(); t.setHours(0,0,0,0);
+                              const x = new Date(d); x.setHours(0,0,0,0);
+                              return x < t;
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                </div>
+
+                {isAdminOrGestor && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Prazo de arrecadação</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn('w-full h-9 justify-start text-left font-normal', !fundingDate && 'text-muted-foreground')}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {fundingDate ? fundingDate.toLocaleDateString('pt-BR') : 'Escolha uma data'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={fundingDate}
+                          onSelect={setFundingDate}
+                          disabled={(d) => {
+                            const t = new Date(); t.setHours(0,0,0,0);
+                            const x = new Date(d); x.setHours(0,0,0,0);
+                            return x < t;
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                {/* Aviso usuário comum */}
+                {!isAdminOrGestor && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+                    <span className="text-base shrink-0">⚠️</span>
+                    <p className="text-xs text-amber-800 dark:text-amber-200 leading-snug">
+                      Seu projeto será criado como <strong>Proposto</strong> e precisará de votos da comunidade antes de iniciar a arrecadação.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* ══ RIGHT column ══ */}
+              <div className="p-6 space-y-5">
+
+                {/* Evidências */}
+                <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-semibold">Evidências do problema</Label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Fotos ou prints que comprovem a necessidade
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                      {uploadingEvidence ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      <span>{uploadingEvidence ? 'Enviando...' : 'Adicionar foto'}</span>
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.webp,.gif"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+                          if (!allowed.includes(file.type)) {
+                            toast.error('Formato não suportado. Use JPG, PNG, WEBP ou GIF.');
+                            e.target.value = '';
+                            return;
+                          }
+                          setUploadingEvidence(true);
+                          try {
+                            const { file_url } = await polysApi.integrations.Core.UploadFile({ file });
+                            setEvidences((prev) => [...prev, file_url]);
+                          } catch (err) {
+                            console.error(err);
+                            toast.error('Erro ao enviar imagem');
+                          }
+                          setUploadingEvidence(false);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+                  {evidences.length > 0 ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {evidences.map((img, i) => (
+                        <div key={i} className="relative group rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600 aspect-video">
+                          <img src={img} alt={`Evidência ${i + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setEvidences((prev) => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-lg h-20 flex items-center justify-center">
+                      <p className="text-xs text-slate-400">Nenhuma evidência adicionada</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Despesas */}
+                <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
+                  <div>
+                    <Label className="text-sm font-semibold">Despesas previstas *</Label>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      A meta de arrecadação é calculada pela soma das despesas
+                    </p>
+                  </div>
+
+                  {/* Form de nova despesa */}
+                  <div className="space-y-2 p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Tipo</Label>
+                        <Select
+                          value={expenseDraft.type}
+                          onValueChange={(v) => setExpenseDraft((p) => ({ ...p, type: v }))}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {EXPENSE_TYPE_OPTIONS.map((o) => (
+                              <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Descrição</Label>
+                        <Input
+                          value={expenseDraft.description}
+                          onChange={handleExpenseChange('description')}
+                          placeholder='Ex: "Lixeira de metal"'
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 items-end">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Custo (R$)</Label>
+                        <CurrencyInput
+                          value={expenseDraft.cost}
+                          onChange={handleExpenseCostChange}
+                          placeholder="0,00"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Qtd.</Label>
+                        <div className="flex items-center gap-1">
+                          <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={decrementQuantity}>
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <Input
+                            className="h-8 text-center text-xs"
+                            inputMode="numeric"
+                            value={expenseDraft.quantity}
+                            onChange={(e) => handleQuantityChange(e.target.value)}
+                          />
+                          <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={incrementQuantity}>
+                            <Plus className="w-3 h-3" />
                           </Button>
                         </div>
                       </div>
+                      <Button type="button" className="h-8 text-xs bg-teal-600 hover:bg-teal-700" onClick={handleAddExpense}>
+                        <Plus className="w-3 h-3 mr-1" />
+                        Adicionar
+                      </Button>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Lista de despesas */}
+                  {expenses.length > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-semibold text-slate-500 dark:text-slate-400 px-0.5">
+                        <span>{expenses.length} {expenses.length === 1 ? 'item' : 'itens'}</span>
+                        <span className="text-teal-600 dark:text-teal-400">{fmtBRL(totalExpenses)}</span>
+                      </div>
+                      <div className="border border-slate-200 dark:border-slate-600 rounded-lg max-h-44 overflow-y-auto bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
+                        {expenses.map((exp) => (
+                          <div key={exp.id} className="px-3 py-2">
+                            <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-1.5 items-center">
+                              <Select
+                                value={exp.type}
+                                onValueChange={(v) => handleEditExpense(exp.id, 'type', v)}
+                              >
+                                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {EXPENSE_TYPE_OPTIONS.map((o) => (
+                                    <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                value={exp.description}
+                                onChange={(e) => handleEditExpense(exp.id, 'description', e.target.value)}
+                                className="h-7 text-xs"
+                              />
+                              <CurrencyInput
+                                value={exp.cost}
+                                onChange={(v) => handleEditExpenseCost(exp.id, v)}
+                                className="h-7 text-xs w-20"
+                              />
+                              <Input
+                                value={exp.quantity}
+                                inputMode="numeric"
+                                onChange={(e) => handleEditExpense(exp.id, 'quantity', e.target.value)}
+                                className="h-7 text-xs w-12 text-center"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                onClick={() => handleRemoveExpense(exp.id)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Resumo financeiro */}
+                {totalExpenses > 0 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700 text-center">
+                      <p className="text-xs text-teal-600 dark:text-teal-400 font-medium mb-0.5">Meta de arrecadação</p>
+                      <p className="text-lg font-bold text-teal-700 dark:text-teal-300">{fmtBRL(totalExpenses)}</p>
+                      <p className="text-[10px] text-teal-500 dark:text-teal-500">soma das despesas</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-0.5">Votos mínimos</p>
+                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">📊 {minVotes}</p>
+                      <p className="text-[10px] text-slate-400">calculado pelo valor</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Categoria *</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+          {/* ── Pinned footer ── */}
+          <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 shrink-0 flex items-center justify-between gap-3">
+            <p className="text-xs text-slate-400 hidden sm:block">
+              * campos obrigatórios
+            </p>
+            <div className="flex items-center gap-3 ml-auto">
+              <Button type="button" variant="outline" onClick={onClose} className="h-9">
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                className="h-9 bg-teal-600 hover:bg-teal-700 px-6"
+                disabled={saving}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {saving ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+                ) : (
+                  'Criar Projeto'
+                )}
+              </Button>
             </div>
-
-            {/* Status inicial - apenas para admin/gestor */}
-            {isAdminOrGestor && (
-              <div className="space-y-2">
-                <Label>Status inicial</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          
-          {/* Aviso para usuários comuns */}
-          {!isAdminOrGestor && (
-            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                <strong>Atenção:</strong> Seu projeto será criado como "Proposto" e precisará ser aprovado pela comunidade através de votação antes de seguir para arrecadação.
-              </p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Meta financeira (R$)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
-                  R$
-                </span>
-                <Input
-                  type="text"
-                  value={new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  }).format(totalExpenses)}
-                  readOnly
-                  className="pl-9 bg-slate-100 dark:bg-slate-800 cursor-default"
-                />
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Calculada automaticamente pela soma de todas as despesas x quantidades.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Votos mínimos necessários</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
-                  📊
-                </span>
-                <Input
-                  type="text"
-                  value={calculateMinVotes(totalExpenses)}
-                  readOnly
-                  className="pl-9 bg-slate-100 dark:bg-slate-800 cursor-default font-semibold"
-                />
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Calculado automaticamente baseado no valor do projeto para garantir justiça e evitar fraudes.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Prazo de arrecadação</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !fundingDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {fundingDate
-                      ? fundingDate.toLocaleDateString('pt-BR')
-                      : "Escolha uma data"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={fundingDate}
-                    onSelect={setFundingDate}
-                    disabled={(date) => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const d = new Date(date);
-                      d.setHours(0, 0, 0, 0);
-                      return d < today;
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              className="bg-teal-600 hover:bg-teal-700"
-              disabled={saving}
-            >
-              {saving ? 'Salvando...' : 'Criar Projeto'}
-            </Button>
           </div>
         </form>
-        </div>
       </DialogContent>
     </Dialog>
   );
