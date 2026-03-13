@@ -24,24 +24,32 @@ export default function Landing() {
     return false;
   });
 
+  // Sincroniza a classe 'dark' no document na montagem
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, []);
+
   // Escuta mudanças na preferência do sistema
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e) => {
       const saved = localStorage.getItem('landing-theme');
       if (!saved) {
-        setDarkMode(e.matches);
+        const newMode = e.matches;
+        setDarkMode(newMode);
+        document.documentElement.classList.toggle('dark', newMode);
       }
     };
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Salva preferência no localStorage
+  // Salva preferência no localStorage e sincroniza a classe 'dark' no document
   const toggleTheme = () => {
     const newMode = !darkMode;
     setDarkMode(newMode);
     localStorage.setItem('landing-theme', newMode ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', newMode);
   };
 
   const features = [
@@ -103,9 +111,6 @@ export default function Landing() {
             <a href="#beneficios" className={`transition-colors ${
               darkMode ? 'text-slate-400 hover:text-teal-400' : 'text-slate-600 hover:text-teal-600'
             }`}>Benefícios</a>
-            <a href="#casos" className={`transition-colors ${
-              darkMode ? 'text-slate-400 hover:text-teal-400' : 'text-slate-600 hover:text-teal-600'
-            }`}>Casos de Uso</a>
           </div>
           <div className="flex items-center gap-3">
             {/* Theme Toggle */}
@@ -478,22 +483,22 @@ export default function Landing() {
       </section> */}
 
       {/* Security Section */}
-      <section className={`py-24 px-6 text-white ${
-        darkMode 
-          ? 'bg-gradient-to-br from-slate-950 to-slate-900' 
-          : 'bg-gradient-to-br from-slate-900 to-slate-800'
+      <section className={`py-24 px-6 transition-colors duration-300 ${
+        darkMode
+          ? 'bg-gradient-to-br from-slate-950 to-slate-900'
+          : 'bg-gradient-to-br from-teal-50 via-slate-50 to-emerald-50'
       }`}>
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-4xl font-bold mb-6">
+              <h2 className={`text-4xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
                 Segurança e Transparência
               </h2>
-              <p className="text-xl text-slate-300 mb-8">
-                Seus pagamentos ficam em escrow até a meta ser atingida. 
+              <p className={`text-xl mb-8 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                Seus pagamentos ficam em escrow até a meta ser atingida.
                 Se o projeto não for financiado, você recebe o reembolso automático.
               </p>
-              
+
               <ul className="space-y-4">
                 {[
                   "Pagamentos via PIX, Cartão ou Boleto",
@@ -503,47 +508,58 @@ export default function Landing() {
                   "Comissão transparente de 10%"
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center">
-                      <Check className="w-4 h-4" />
+                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
+                      <Check className="w-4 h-4 text-white" />
                     </div>
-                    <span className="text-slate-200">{item}</span>
+                    <span className={darkMode ? 'text-slate-200' : 'text-slate-700'}>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
             <div className="relative">
-              <div className={`backdrop-blur-lg rounded-3xl p-8 border ${
-                darkMode 
-                  ? 'bg-slate-800/50 border-slate-700' 
-                  : 'bg-white/10 border-white/20'
+              <div className={`rounded-3xl p-8 border shadow-xl ${
+                darkMode
+                  ? 'bg-slate-800/60 border-slate-700 backdrop-blur-lg'
+                  : 'bg-white border-slate-200'
               }`}>
                 <div className="flex items-center gap-4 mb-6">
-                  <Shield className="w-12 h-12 text-teal-400" />
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                    darkMode ? 'bg-teal-900/50' : 'bg-teal-100'
+                  }`}>
+                    <Shield className="w-8 h-8 text-teal-500" />
+                  </div>
                   <div>
-                    <h3 className="text-xl font-bold">Escrow Protegido</h3>
-                    <p className="text-slate-400">Seus fundos estão seguros</p>
+                    <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                      Escrow Protegido
+                    </h3>
+                    <p className={darkMode ? 'text-slate-400' : 'text-slate-500'}>
+                      Seus fundos estão seguros
+                    </p>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className={`rounded-xl p-4 ${darkMode ? 'bg-slate-700/50' : 'bg-white/5'}`}>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-slate-400">Projeto Câmeras</span>
-                      <span className="text-teal-400">85%</span>
+                  {[
+                    { label: 'Projeto Câmeras', pct: 85 },
+                    { label: 'Reforma Praça',   pct: 100 },
+                  ].map(({ label, pct }) => (
+                    <div key={label} className={`rounded-xl p-4 ${
+                      darkMode ? 'bg-slate-700/50' : 'bg-slate-50 border border-slate-100'
+                    }`}>
+                      <div className="flex justify-between mb-2">
+                        <span className={darkMode ? 'text-slate-400' : 'text-slate-600'}>{label}</span>
+                        <span className="text-teal-500 font-semibold">{pct}%</span>
+                      </div>
+                      <div className={`h-2 rounded-full overflow-hidden ${
+                        darkMode ? 'bg-slate-600' : 'bg-slate-200'
+                      }`}>
+                        <div
+                          className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className={`h-2 rounded-full ${darkMode ? 'bg-slate-600' : 'bg-white/10'}`}>
-                      <div className="h-full w-[85%] bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full" />
-                    </div>
-                  </div>
-                  <div className={`rounded-xl p-4 ${darkMode ? 'bg-slate-700/50' : 'bg-white/5'}`}>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-slate-400">Reforma Praça</span>
-                      <span className="text-teal-400">100%</span>
-                    </div>
-                    <div className={`h-2 rounded-full ${darkMode ? 'bg-slate-600' : 'bg-white/10'}`}>
-                      <div className="h-full w-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full" />
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
