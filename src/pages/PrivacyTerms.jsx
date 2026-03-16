@@ -1,5 +1,6 @@
 import React from 'react';
 import { Shield, FileText, Lock, Eye, CheckCircle } from 'lucide-react';
+import SEO from '@/components/SEO';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PublicNavbar from "@/components/shared/PublicNavbar";
@@ -7,6 +8,11 @@ import PublicNavbar from "@/components/shared/PublicNavbar";
 export default function PrivacyTerms() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
+      <SEO
+        title="Privacidade e Termos de Uso"
+        description="Leia nossa política de privacidade e termos de uso. Saiba como a Polys coleta, usa e protege seus dados pessoais."
+        path="/PrivacyTerms"
+      />
       <PublicNavbar />
       <div className="pt-24 pb-16 px-6">
         <div className="max-w-4xl mx-auto space-y-8">

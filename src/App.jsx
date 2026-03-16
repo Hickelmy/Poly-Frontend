@@ -3,6 +3,7 @@ import Pages from "@/pages/index.jsx"
 import { Toaster } from "@/components/ui/sonner"
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SelectedZoneProvider } from '@/contexts/SelectedZoneContext'
+import { HelmetProvider } from 'react-helmet-async'
 
 // Configuração otimizada do QueryClient para melhor performance
 const queryClient = new QueryClient({
@@ -26,12 +27,14 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <SelectedZoneProvider>
-        <Pages />
-        <Toaster />
-      </SelectedZoneProvider>
-    </QueryClientProvider>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <SelectedZoneProvider>
+          <Pages />
+          <Toaster />
+        </SelectedZoneProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
   )
 }
 

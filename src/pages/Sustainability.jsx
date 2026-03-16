@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import SEO from '@/components/SEO';
 import { createPageUrl } from '../utils';
 import { Leaf, Recycle, TreePine, Droplets, Sun, Heart } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,11 @@ import PublicNavbar from "@/components/shared/PublicNavbar";
 export default function Sustainability() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
+      <SEO
+        title="Sustentabilidade"
+        description="Descubra as iniciativas ambientais e sociais da Polys. Nosso compromisso com um marketplace mais sustentável e responsável."
+        path="/Sustainability"
+      />
       <PublicNavbar />
       <div className="pt-24 pb-16 px-6">
         <div className="max-w-4xl mx-auto space-y-8">

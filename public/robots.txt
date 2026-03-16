@@ -1,0 +1,24 @@
+User-agent: *
+Allow: /
+Allow: /About
+Allow: /CompanyNews
+Allow: /PrivacyTerms
+Allow: /Accessibility
+Allow: /Sustainability
+
+Disallow: /Dashboard
+Disallow: /Projects
+Disallow: /CreateProject
+Disallow: /Store
+Disallow: /Profile
+Disallow: /UserManagement
+Disallow: /SellerDashboard
+Disallow: /MyOrders
+Disallow: /AppSettings
+Disallow: /AuditLogs
+Disallow: /FinancialReport
+Disallow: /ZoneManagement
+Disallow: /InviteLinks
+Disallow: /payment/
+
+Sitemap: https://poly-frontend-production.up.railway.app/sitemap.xml

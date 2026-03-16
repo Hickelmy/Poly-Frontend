@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import SEO from '@/components/SEO';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { motion } from 'framer-motion';
@@ -89,6 +90,11 @@ export default function Landing() {
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'dark bg-slate-950' : 'bg-white'}`}>
+      <SEO
+        title="Marketplace Colaborativo de Comunidades"
+        description="Polys conecta comunidades, vendedores e compradores em um ecossistema de marketplace colaborativo. Compre, venda e gerencie projetos em um só lugar."
+        path="/"
+      />
       {/* Navbar */}
       <nav className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b transition-colors duration-300 ${
         darkMode 

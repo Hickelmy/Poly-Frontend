@@ -1,11 +1,17 @@
 import React from 'react';
 import { Accessibility as AccessibilityIcon, Eye, MousePointer, Volume2, Keyboard } from 'lucide-react';
+import SEO from '@/components/SEO';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import PublicNavbar from "@/components/shared/PublicNavbar";
 
 export default function Accessibility() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
+      <SEO
+        title="Acessibilidade"
+        description="Conheça as funcionalidades de acessibilidade da Polys. Nossa plataforma foi desenvolvida para ser inclusiva e acessível a todos os usuários."
+        path="/Accessibility"
+      />
       <PublicNavbar />
       <div className="pt-24 pb-16 px-6">
         <div className="max-w-4xl mx-auto space-y-8">

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Newspaper, Calendar, ExternalLink } from 'lucide-react';
+import SEO from '@/components/SEO';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,11 @@ export default function CompanyNews() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
+      <SEO
+        title="Notícias da Empresa"
+        description="Fique por dentro das últimas novidades, conquistas e atualizações da Polys. Acompanhe o crescimento do nosso marketplace colaborativo."
+        path="/CompanyNews"
+      />
       <PublicNavbar />
       <div className="pt-24 pb-16 px-6">
         <div className="max-w-6xl mx-auto space-y-8">

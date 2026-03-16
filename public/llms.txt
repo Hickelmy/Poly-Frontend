@@ -1,0 +1,25 @@
+# Polys APP
+
+> Polys is a platform connecting communities, sellers, and buyers in a collaborative marketplace ecosystem.
+
+## Public Pages
+
+- [Home](https://poly-frontend-production.up.railway.app/): Landing page with platform overview
+- [About](https://poly-frontend-production.up.railway.app/About): Company information and mission
+- [Company News](https://poly-frontend-production.up.railway.app/CompanyNews): Latest news and updates
+- [Privacy Terms](https://poly-frontend-production.up.railway.app/PrivacyTerms): Privacy policy and terms of service
+- [Accessibility](https://poly-frontend-production.up.railway.app/Accessibility): Accessibility statement and features
+- [Sustainability](https://poly-frontend-production.up.railway.app/Sustainability): Environmental and social initiatives
+
+## Platform Features
+
+- Community marketplace for local and regional commerce
+- Seller dashboard for managing products and orders
+- Project management tools for collaborative work
+- Zone-based delivery and logistics management
+- Financial reporting and audit tools for administrators
+
+## Authentication
+
+- Users must register and log in to access the full platform
+- Multiple roles: buyer, seller, administrator
