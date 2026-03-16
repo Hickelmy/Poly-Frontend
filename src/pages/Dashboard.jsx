@@ -61,19 +61,43 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Custom marker icons
-const createIcon = (color) => new L.DivIcon({
-  className: 'custom-marker',
-  html: `<div style="background: ${color}; width: 32px; height: 32px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32]
+// Custom marker icon com prévia de imagem
+const createImageIcon = (imageUrl, color) => new L.DivIcon({
+  className: '',
+  html: `
+    <div style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.35))">
+      <div style="
+        width:44px;height:44px;border-radius:50%;
+        border:3px solid white;outline:2.5px solid ${color};
+        overflow:hidden;background:${color};
+        box-shadow:0 2px 8px rgba(0,0,0,0.25);
+      ">
+        ${imageUrl
+          ? `<img src="${imageUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.style.background='${color}';this.remove()" />`
+          : `<div style="width:100%;height:100%;background:${color};opacity:0.7;"></div>`
+        }
+      </div>
+      <div style="
+        width:0;height:0;
+        border-left:7px solid transparent;
+        border-right:7px solid transparent;
+        border-top:10px solid ${color};
+        margin-top:-1px;
+      "></div>
+    </div>
+  `,
+  iconSize: [50, 60],
+  iconAnchor: [25, 60],
+  popupAnchor: [0, -62],
 });
 
-const projectIcon = createIcon('#14b8a6');
-const productIcon = createIcon('#8b5cf6');
-const serviceIcon = createIcon('#f59e0b');
-const homeIcon = createIcon('#ef4444');
+const homeIcon = new L.DivIcon({
+  className: 'custom-marker',
+  html: `<div style="background:#ef4444;width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32],
+});
 
 // User location marker (blue pulsing dot)
 const userLocationIcon = new L.DivIcon({
@@ -620,7 +644,8 @@ export default function Dashboard() {
         projects, userLocationObj, radiusKm, 'zone_id', 'lat', 'lng', selectedZone
       );
       markers = [...markers, ...filteredProjects.filter(p => p.lat && p.lng).map(p => ({
-        ...p, type: 'project', icon: projectIcon
+        ...p, type: 'project',
+        icon: createImageIcon(p.image_url || p.evidences?.[0] || null, '#14b8a6'),
       }))];
     }
 
@@ -629,7 +654,8 @@ export default function Dashboard() {
         products, userLocationObj, radiusKm, 'zone_id', 'lat', 'lng', selectedZone
       );
       markers = [...markers, ...filteredProducts.filter(p => p.lat && p.lng).map(p => ({
-        ...p, type: 'product', icon: productIcon
+        ...p, type: 'product',
+        icon: createImageIcon(p.images?.[0] || null, '#8b5cf6'),
       }))];
     }
 
@@ -638,7 +664,8 @@ export default function Dashboard() {
         services, userLocationObj, radiusKm, 'zone_id', 'lat', 'lng', selectedZone
       );
       markers = [...markers, ...filteredServices.filter(s => s.lat && s.lng).map(s => ({
-        ...s, type: 'service', icon: serviceIcon
+        ...s, type: 'service',
+        icon: createImageIcon(s.images?.[0] || null, '#f59e0b'),
       }))];
     }
 
