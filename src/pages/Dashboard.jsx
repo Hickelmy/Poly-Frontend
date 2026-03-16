@@ -426,6 +426,7 @@ export default function Dashboard() {
     () => parseInt(localStorage.getItem('map_proximity_radius') || '5000', 10)
   );
   const [markerPreview, setMarkerPreview] = useState(null);
+  const [modalItem, setModalItem] = useState(null); // item mantido ao abrir o modal completo
   const [showItemModal, setShowItemModal] = useState(false);
 
   useEffect(() => {
@@ -975,7 +976,7 @@ export default function Dashboard() {
                     <Button
                       size="sm"
                       className="w-full h-8 text-xs bg-teal-600 hover:bg-teal-700"
-                      onClick={() => setShowItemModal(true)}
+                      onClick={() => { setModalItem(markerPreview); setMarkerPreview(null); setShowItemModal(true); }}
                     >
                       <Eye className="w-3.5 h-3.5 mr-1.5" />
                       Ver prévia
@@ -1112,15 +1113,15 @@ export default function Dashboard() {
       </div>
 
       {/* Item Detail Modal */}
-      {markerPreview && (
-        <Dialog open={showItemModal} onOpenChange={setShowItemModal}>
+      {modalItem && (
+        <Dialog open={showItemModal} onOpenChange={(open) => { setShowItemModal(open); if (!open) setModalItem(null); }}>
           <DialogContent className="max-w-md p-0 overflow-hidden">
             {/* Image */}
             <div className="relative h-52 bg-slate-100 dark:bg-slate-800">
-              {getItemImage(markerPreview) ? (
+              {getItemImage(modalItem) ? (
                 <img
-                  src={getItemImage(markerPreview)}
-                  alt={getItemTitle(markerPreview)}
+                  src={getItemImage(modalItem)}
+                  alt={getItemTitle(modalItem)}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -1129,8 +1130,8 @@ export default function Dashboard() {
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <span className={`absolute bottom-3 left-4 text-xs font-semibold text-white px-2 py-0.5 rounded-full ${TYPE_META[markerPreview.type]?.color || 'bg-slate-500'}`}>
-                {TYPE_META[markerPreview.type]?.label}
+              <span className={`absolute bottom-3 left-4 text-xs font-semibold text-white px-2 py-0.5 rounded-full ${TYPE_META[modalItem.type]?.color || 'bg-slate-500'}`}>
+                {TYPE_META[modalItem.type]?.label}
               </span>
             </div>
 
@@ -1138,54 +1139,54 @@ export default function Dashboard() {
             <div className="p-5 space-y-3">
               <DialogHeader>
                 <DialogTitle className="text-lg leading-snug">
-                  {getItemTitle(markerPreview)}
+                  {getItemTitle(modalItem)}
                 </DialogTitle>
-                {getItemSubtitle(markerPreview) && (
+                {getItemSubtitle(modalItem) && (
                   <DialogDescription className="text-sm leading-relaxed">
-                    {getItemSubtitle(markerPreview)}
+                    {getItemSubtitle(modalItem)}
                   </DialogDescription>
                 )}
               </DialogHeader>
 
               {/* Extra info per type */}
-              {markerPreview.type === 'project' && markerPreview.target_amount > 0 && (
+              {modalItem.type === 'project' && modalItem.target_amount > 0 && (
                 <div className="flex items-center gap-4 p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800">
                   <div className="text-center">
                     <p className="text-[10px] text-teal-500 uppercase font-semibold">Meta</p>
                     <p className="text-sm font-bold text-teal-700 dark:text-teal-300">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(markerPreview.target_amount)}
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(modalItem.target_amount)}
                     </p>
                   </div>
                   <div className="h-8 w-px bg-teal-200 dark:bg-teal-700" />
                   <div className="text-center">
                     <p className="text-[10px] text-teal-500 uppercase font-semibold">Votos</p>
                     <p className="text-sm font-bold text-teal-700 dark:text-teal-300">
-                      {markerPreview.votes_count || 0}/{markerPreview.min_votes || 10}
+                      {modalItem.votes_count || 0}/{modalItem.min_votes || 10}
                     </p>
                   </div>
                 </div>
               )}
 
-              {markerPreview.type === 'product' && markerPreview.price != null && (
+              {modalItem.type === 'product' && modalItem.price != null && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800">
                   <ShoppingBag className="w-4 h-4 text-purple-500" />
                   <span className="text-sm font-bold text-purple-700 dark:text-purple-300">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(markerPreview.price)}
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(modalItem.price)}
                   </span>
-                  {markerPreview.quantity_available != null && (
-                    <span className="text-xs text-purple-500 ml-auto">{markerPreview.quantity_available} disponíveis</span>
+                  {modalItem.quantity_available != null && (
+                    <span className="text-xs text-purple-500 ml-auto">{modalItem.quantity_available} disponíveis</span>
                   )}
                 </div>
               )}
 
-              {markerPreview.location_address && (
+              {modalItem.location_address && (
                 <div className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400">
                   <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
-                  <span className="line-clamp-2">{markerPreview.location_address}</span>
+                  <span className="line-clamp-2">{modalItem.location_address}</span>
                 </div>
               )}
 
-              <Link to={getItemUrl(markerPreview)} onClick={() => setShowItemModal(false)}>
+              <Link to={getItemUrl(modalItem)} onClick={() => { setShowItemModal(false); setModalItem(null); }}>
                 <Button className="w-full bg-teal-600 hover:bg-teal-700 mt-1">
                   <ChevronRight className="w-4 h-4 mr-2" />
                   Ver mais detalhes
