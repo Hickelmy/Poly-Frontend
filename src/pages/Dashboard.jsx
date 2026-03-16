@@ -244,11 +244,22 @@ function MapView({
         }).addTo(mapRef.current);
       } else {
         radiusCircleRef.current.setLatLng(coords);
+        radiusCircleRef.current.setRadius(proximityRadius);
       }
     } catch (error) {
       console.error('Erro ao desenhar raio:', error);
     }
   }, [userLocation, proximityRadius]);
+
+  // Atualiza apenas o raio quando o slider muda (sem depender de userLocation)
+  useEffect(() => {
+    if (!radiusCircleRef.current) return;
+    try {
+      radiusCircleRef.current.setRadius(proximityRadius);
+    } catch (error) {
+      console.error('Erro ao atualizar raio:', error);
+    }
+  }, [proximityRadius]);
 
   // Polígonos das zonas - agora com clique para selecionar
   useEffect(() => {
@@ -386,10 +397,16 @@ export default function Dashboard() {
   const [userZone, setUserZone] = useState(null);
   const [initialLocationSet, setInitialLocationSet] = useState(false);
 
-  // Map interaction
-  const [proximityRadius, setProximityRadius] = useState(5000); // metros
-  const [markerPreview, setMarkerPreview] = useState(null); // item selecionado no mapa
+  // Map interaction — radius persiste no localStorage
+  const [proximityRadius, setProximityRadius] = useState(
+    () => parseInt(localStorage.getItem('map_proximity_radius') || '5000', 10)
+  );
+  const [markerPreview, setMarkerPreview] = useState(null);
   const [showItemModal, setShowItemModal] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('map_proximity_radius', String(proximityRadius));
+  }, [proximityRadius]);
 
   // Welcome message after registration
   useEffect(() => {
