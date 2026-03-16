@@ -103,12 +103,14 @@ function MapView({
   onMarkerClick,
   selectedZone,
   onZoneClick,
+  proximityRadius = 5000, // metros
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersLayerRef = useRef(null);
   const zonesLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
+  const radiusCircleRef = useRef(null);
 
   // Inicializa o mapa apenas uma vez
   useEffect(() => {
@@ -210,7 +212,6 @@ function MapView({
         userMarkerRef.current.setLatLng(coords);
       } catch (error) {
         console.error('Erro ao atualizar marcador:', error);
-        // Se falhar, tentar recriar o marcador
         try {
           mapRef.current.removeLayer(userMarkerRef.current);
           userMarkerRef.current = L.marker(coords, { icon: userLocationIcon }).addTo(mapRef.current);
@@ -219,7 +220,27 @@ function MapView({
         }
       }
     }
-  }, [userLocation]);
+
+    // Raio de alcance ao redor do usuário
+    try {
+      if (!radiusCircleRef.current) {
+        radiusCircleRef.current = L.circle(coords, {
+          radius: proximityRadius,
+          color: '#3b82f6',
+          weight: 1.5,
+          opacity: 0.6,
+          fillColor: '#3b82f6',
+          fillOpacity: 0.04,
+          dashArray: '10, 8',
+          interactive: false,
+        }).addTo(mapRef.current);
+      } else {
+        radiusCircleRef.current.setLatLng(coords);
+      }
+    } catch (error) {
+      console.error('Erro ao desenhar raio:', error);
+    }
+  }, [userLocation, proximityRadius]);
 
   // Polígonos das zonas - agora com clique para selecionar
   useEffect(() => {
@@ -234,11 +255,13 @@ function MapView({
       const isUserZone = userZone?.id === zone.id;
 
       const polygon = L.polygon(poly, {
-        color: isSelected ? '#14b8a6' : isUserZone ? '#1e3a5f' : '#94a3b8',
-        weight: isSelected ? 4 : isUserZone ? 3 : 2,
-        fillColor: isSelected ? '#14b8a6' : '#94a3b8',
-        fillOpacity: isSelected ? 0.15 : 0.05,
-        dashArray: isSelected || isUserZone ? null : '5, 5',
+        color: isSelected ? '#14b8a6' : isUserZone ? '#14b8a6' : '#94a3b8',
+        weight: isSelected ? 3 : isUserZone ? 2.5 : 1.5,
+        opacity: isSelected ? 1 : isUserZone ? 0.9 : 0.5,
+        fillColor: isSelected ? '#14b8a6' : isUserZone ? '#14b8a6' : '#94a3b8',
+        fillOpacity: isSelected ? 0.18 : isUserZone ? 0.1 : 0.04,
+        dashArray: isSelected ? null : isUserZone ? '8, 5' : '5, 8',
+        interactive: true,
       });
 
       // Popup de seleção ao clicar na zona
@@ -755,34 +778,43 @@ export default function Dashboard() {
               />
 
               {/* Legend */}
-              <div className="absolute bottom-4 left-4 bg-white dark:bg-slate-800 rounded-lg shadow-lg p-3 z-[1000]">
-                <p className="text-xs font-medium text-slate-500 mb-2">Legenda</p>
+              <div className="absolute bottom-4 left-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-xl shadow-lg p-3 z-[1000]">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Legenda</p>
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
                     <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white shadow" />
                     <span>Você</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="w-3 h-3 rounded-full bg-teal-500" />
-                    <span>Projetos</span>
+                  <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                    <div className="w-4 h-px border border-dashed border-blue-400" style={{ borderWidth: '1.5px' }} />
+                    <span>Raio de alcance (5km)</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="w-3 h-3 rounded-full bg-purple-500" />
-                    <span>Produtos</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <div className="w-3 h-3 rounded-full bg-amber-500" />
-                    <span>Serviços</span>
+                  <div className="border-t border-slate-100 dark:border-slate-700 pt-1.5 mt-0.5 space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                      <div className="w-3 h-3 rounded-full bg-teal-500" />
+                      <span>Projetos</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                      <div className="w-3 h-3 rounded-full bg-purple-500" />
+                      <span>Produtos</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                      <div className="w-3 h-3 rounded-full bg-amber-500" />
+                      <span>Serviços</span>
+                    </div>
                   </div>
                   {userZone && (
-                    <div className="flex items-center gap-2 text-xs pt-1 border-t mt-1">
-                      <div className="w-4 h-0.5 bg-[#1e3a5f]" />
-                      <span>Sua área</span>
+                    <div className="border-t border-slate-100 dark:border-slate-700 pt-1.5 mt-0.5 space-y-1">
+                      <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+                        <div className="w-4 h-px border border-dashed border-teal-500" style={{ borderWidth: '2px' }} />
+                        <span className="font-medium text-teal-600 dark:text-teal-400">Sua zona</span>
+                      </div>
+                      <p className="text-[10px] text-teal-500 pl-6">{userZone.name}</p>
                     </div>
                   )}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-2 pt-2 border-t">
-                  Clique em uma área para filtrar
+                <p className="text-[10px] text-slate-400 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                  Clique em uma zona para filtrar
                 </p>
               </div>
 

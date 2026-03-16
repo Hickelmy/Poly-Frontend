@@ -97,31 +97,31 @@ export default function ProjectCard({ project, onVote, onDonate, userVoted, curr
           </Badge>
         </div>
 
-        {/* Image slider controls */}
+        {/* Image slider controls - setas nas laterais, contador na base */}
         {hasMultipleImages && (
-          <div className="absolute inset-x-3 bottom-3 flex items-center justify-between text-white text-xs">
+          <>
             <button
               type="button"
               onClick={goPrevImage}
-              className="flex items-center justify-center w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 transition pointer-events-auto"
+              className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 transition pointer-events-auto text-white"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="px-2 py-0.5 rounded-full bg-black/40">
-              {currentImageIndex + 1} / {images.length}
-            </span>
             <button
               type="button"
               onClick={goNextImage}
-              className="flex items-center justify-center w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 transition pointer-events-auto"
+              className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 transition pointer-events-auto text-white"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
-          </div>
+            <span className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/40 text-white text-xs pointer-events-none">
+              {currentImageIndex + 1} / {images.length}
+            </span>
+          </>
         )}
 
-        {/* Title overlay */}
-        <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
+        {/* Title overlay - acima do contador */}
+        <div className="absolute bottom-8 left-4 right-4 pointer-events-none">
           <h3 className="text-lg font-bold text-white line-clamp-2">
             {project.title}
           </h3>

@@ -471,11 +471,11 @@ export default function CreateProjectModal({ open, onClose, user }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-5xl w-[95vw] max-h-[92vh] overflow-hidden flex flex-col p-0 gap-0">
 
         {/* ── Header ── */}
-        <div className="px-6 pt-6 pb-4 border-b bg-white dark:bg-slate-900 shrink-0">
-          <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white">
+        <div className="px-6 pt-5 pb-4 border-b bg-white dark:bg-slate-900 shrink-0">
+          <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
             Novo Projeto Comunitário
           </DialogTitle>
           <DialogDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
@@ -484,20 +484,12 @@ export default function CreateProjectModal({ open, onClose, user }) {
         </div>
 
         {/* ── Body (two columns) ── */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-slate-700">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-slate-200 dark:divide-slate-700">
 
               {/* ══ LEFT column ══ */}
-              <div className="p-6 space-y-5">
-
-                {/* Localização */}
-                <div className="space-y-1">
-                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Localização do problema *
-                  </Label>
-                  <LocationPicker value={location} onChange={setLocation} />
-                </div>
+              <div className="p-5 space-y-4">
 
                 {/* Título */}
                 <div className="space-y-1.5">
@@ -527,10 +519,16 @@ export default function CreateProjectModal({ open, onClose, user }) {
                   <Textarea
                     value={formData.description}
                     onChange={handleChange('description')}
-                    rows={3}
+                    rows={2}
                     placeholder="Descreva o problema, a proposta de solução e o impacto esperado..."
                     className="resize-none"
                   />
+                </div>
+
+                {/* Localização */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Localização do problema *</Label>
+                  <LocationPicker value={location} onChange={setLocation} />
                 </div>
 
                 {/* Categoria + Status */}
@@ -640,7 +638,7 @@ export default function CreateProjectModal({ open, onClose, user }) {
               </div>
 
               {/* ══ RIGHT column ══ */}
-              <div className="p-6 space-y-5">
+              <div className="p-5 space-y-4">
 
                 {/* Evidências */}
                 <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40">
