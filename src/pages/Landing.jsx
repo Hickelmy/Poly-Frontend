@@ -112,28 +112,29 @@ export default function Landing() {
               darkMode ? 'text-slate-400 hover:text-teal-400' : 'text-slate-600 hover:text-teal-600'
             }`}>Benefícios</a>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Theme Toggle */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className={`rounded-full ${darkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900'}`}
+              className={`rounded-full shrink-0 ${darkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900'}`}
             >
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
-            <Button 
-              variant="ghost" 
-              className={darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600'}
+            <Button
+              variant="ghost"
+              className={`hidden sm:inline-flex ${darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600'}`}
               onClick={() => polysApi.auth.redirectToLogin(createPageUrl('Dashboard'))}
             >
               Entrar
             </Button>
-            <Button 
-              className="bg-teal-600 hover:bg-teal-700 text-white rounded-full px-6"
+            <Button
+              className="bg-teal-600 hover:bg-teal-700 text-white rounded-full px-4 sm:px-6 text-sm sm:text-base shrink-0"
               onClick={() => polysApi.auth.redirectToLogin(createPageUrl('Dashboard'))}
             >
-              Começar Agora
+              <span className="sm:hidden">Entrar</span>
+              <span className="hidden sm:inline">Começar Agora</span>
             </Button>
           </div>
         </div>

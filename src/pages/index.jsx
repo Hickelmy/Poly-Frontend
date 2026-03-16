@@ -62,6 +62,7 @@ import Accessibility from "./Accessibility";
 import Sustainability from "./Sustainability";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import ScrollToTop from '@/components/ScrollToTop';
 
 const PAGES = {
     
@@ -145,6 +146,7 @@ function PagesContent() {
     
     return (
         <Layout currentPageName={currentPage}>
+            <ScrollToTop />
             <Routes>            
                 
                     <Route path="/" element={<Landing />} />
