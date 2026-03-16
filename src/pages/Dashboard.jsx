@@ -19,6 +19,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -365,11 +373,10 @@ export default function Dashboard() {
   const [mapZoom, setMapZoom] = useState(4); // Zoom inicial baixo para mostrar o Brasil
   const [mapStyle, setMapStyle] = useState('dark'); // Padrão: Escuro
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedMarker, setSelectedMarker] = useState(null);
   
   // Zone selection context (apenas para condomínios privados)
   const { selectedZone, setSelectedZone, zones: contextZones } = useSelectedZone();
-  
+
   // Location states
   const [userLocation, setUserLocation] = useState(null);
   const [locationError, setLocationError] = useState(null);
@@ -378,6 +385,11 @@ export default function Dashboard() {
   const [userResidence, setUserResidence] = useState(null);
   const [userZone, setUserZone] = useState(null);
   const [initialLocationSet, setInitialLocationSet] = useState(false);
+
+  // Map interaction
+  const [proximityRadius, setProximityRadius] = useState(5000); // metros
+  const [markerPreview, setMarkerPreview] = useState(null); // item selecionado no mapa
+  const [showItemModal, setShowItemModal] = useState(false);
 
   // Welcome message after registration
   useEffect(() => {
@@ -581,61 +593,74 @@ export default function Dashboard() {
   } : null;
 
   // Filter markers by category and proximity
+  const radiusKm = proximityRadius / 1000;
+
   const getFilteredMarkers = () => {
     let markers = [];
-    
+
     if (selectedCategory === 'all' || selectedCategory === 'projects') {
       const filteredProjects = filterByProximity(
-        projects,
-        userLocationObj,
-        5, // 5km
-        'zone_id',
-        'lat',
-        'lng',
-        selectedZone
+        projects, userLocationObj, radiusKm, 'zone_id', 'lat', 'lng', selectedZone
       );
       markers = [...markers, ...filteredProjects.filter(p => p.lat && p.lng).map(p => ({
-        ...p,
-        type: 'project',
-        icon: projectIcon
+        ...p, type: 'project', icon: projectIcon
       }))];
     }
-    
+
     if (selectedCategory === 'all' || selectedCategory === 'products') {
       const filteredProducts = filterByProximity(
-        products,
-        userLocationObj,
-        5, // 5km
-        'zone_id',
-        'lat',
-        'lng',
-        selectedZone
+        products, userLocationObj, radiusKm, 'zone_id', 'lat', 'lng', selectedZone
       );
       markers = [...markers, ...filteredProducts.filter(p => p.lat && p.lng).map(p => ({
-        ...p,
-        type: 'product',
-        icon: productIcon
+        ...p, type: 'product', icon: productIcon
       }))];
     }
-    
+
     if (selectedCategory === 'all' || selectedCategory === 'services') {
       const filteredServices = filterByProximity(
-        services,
-        userLocationObj,
-        5, // 5km
-        'zone_id',
-        'lat',
-        'lng',
-        selectedZone
+        services, userLocationObj, radiusKm, 'zone_id', 'lat', 'lng', selectedZone
       );
       markers = [...markers, ...filteredServices.filter(s => s.lat && s.lng).map(s => ({
-        ...s,
-        type: 'service',
-        icon: serviceIcon
+        ...s, type: 'service', icon: serviceIcon
       }))];
     }
-    
+
     return markers;
+  };
+
+  // Helpers para o preview de marcadores
+  const getItemImage = (item) => {
+    if (!item) return null;
+    if (item.type === 'project') return item.image_url || item.evidences?.[0] || null;
+    return item.images?.[0] || null;
+  };
+
+  const getItemTitle = (item) => item?.title || item?.name || 'Sem título';
+
+  const getItemSubtitle = (item) => {
+    if (!item) return '';
+    if (item.type === 'project') return item.short_description || item.description?.slice(0, 80) || '';
+    if (item.type === 'product') {
+      const price = item.price != null
+        ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.price)
+        : null;
+      return price || item.description?.slice(0, 60) || '';
+    }
+    return item.description?.slice(0, 80) || '';
+  };
+
+  const getItemUrl = (item) => {
+    if (!item) return '#';
+    if (item.type === 'project') return createPageUrl(`ProjectDetail?id=${item.id}`);
+    if (item.type === 'product') return createPageUrl(`ProductDetail?id=${item.id}`);
+    if (item.type === 'service') return createPageUrl(`ServiceDetail?id=${item.id}`);
+    return '#';
+  };
+
+  const TYPE_META = {
+    project:  { label: 'Projeto',  color: 'bg-teal-500' },
+    product:  { label: 'Produto',  color: 'bg-purple-500' },
+    service:  { label: 'Serviço',  color: 'bg-amber-500' },
   };
 
   const formatCurrency = (value) => {
@@ -724,16 +749,33 @@ export default function Dashboard() {
         <div className="lg:col-span-2">
           <Card className="overflow-hidden border-0 shadow-lg">
             <CardHeader className="p-4 border-b bg-white dark:bg-slate-900">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Map className="w-5 h-5 text-teal-600" />
                   <CardTitle className="text-lg">Mapa da Comunidade</CardTitle>
                 </div>
-                
-                <div className="flex items-center gap-2">
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Raio de alcance */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                    <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                    <span className="text-xs text-slate-500 whitespace-nowrap">Raio:</span>
+                    <Slider
+                      min={1000}
+                      max={20000}
+                      step={1000}
+                      value={[proximityRadius]}
+                      onValueChange={([v]) => setProximityRadius(v)}
+                      className="w-24"
+                    />
+                    <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 w-8 text-right">
+                      {radiusKm}km
+                    </span>
+                  </div>
+
                   {/* Category Filter */}
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="w-36">
+                    <SelectTrigger className="w-36 h-9">
                       <Filter className="w-4 h-4 mr-2" />
                       <SelectValue placeholder="Filtrar" />
                     </SelectTrigger>
@@ -747,7 +789,7 @@ export default function Dashboard() {
 
                   {/* Map Style */}
                   <Select value={mapStyle} onValueChange={setMapStyle}>
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger className="w-32 h-9">
                       <Layers className="w-4 h-4 mr-2" />
                       <SelectValue />
                     </SelectTrigger>
@@ -772,9 +814,10 @@ export default function Dashboard() {
                 zones={zones}
                 getZonePolygon={getZonePolygon}
                 markers={getFilteredMarkers()}
-                onMarkerClick={setSelectedMarker}
+                onMarkerClick={(item) => { setMarkerPreview(item); setShowItemModal(false); }}
                 selectedZone={selectedZone}
                 onZoneClick={setSelectedZone}
+                proximityRadius={proximityRadius}
               />
 
               {/* Legend */}
@@ -833,7 +876,7 @@ export default function Dashboard() {
               )}
 
               {/* Center on user button */}
-              {userLocation && (
+              {userLocation && !markerPreview && (
                 <Button
                   size="sm"
                   variant="secondary"
@@ -846,6 +889,55 @@ export default function Dashboard() {
                   <Navigation className="w-4 h-4 mr-2" />
                   Minha Localização
                 </Button>
+              )}
+
+              {/* Floating item preview card */}
+              {markerPreview && (
+                <div className="absolute top-4 right-4 z-[1001] w-60 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  {/* Thumbnail */}
+                  <div className="relative h-28 bg-slate-100 dark:bg-slate-700">
+                    {getItemImage(markerPreview) ? (
+                      <img
+                        src={getItemImage(markerPreview)}
+                        alt={getItemTitle(markerPreview)}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400">
+                        <Building2 className="w-8 h-8" />
+                      </div>
+                    )}
+                    {/* Type badge */}
+                    <span className={`absolute top-2 left-2 text-[10px] font-semibold text-white px-1.5 py-0.5 rounded-full ${TYPE_META[markerPreview.type]?.color || 'bg-slate-500'}`}>
+                      {TYPE_META[markerPreview.type]?.label}
+                    </span>
+                    {/* Close */}
+                    <button
+                      onClick={() => setMarkerPreview(null)}
+                      className="absolute top-2 right-2 w-5 h-5 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition"
+                    >
+                      <XIcon className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-3 space-y-2">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white line-clamp-1">
+                      {getItemTitle(markerPreview)}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                      {getItemSubtitle(markerPreview) || 'Sem descrição'}
+                    </p>
+                    <Button
+                      size="sm"
+                      className="w-full h-8 text-xs bg-teal-600 hover:bg-teal-700"
+                      onClick={() => setShowItemModal(true)}
+                    >
+                      <Eye className="w-3.5 h-3.5 mr-1.5" />
+                      Ver prévia
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
           </Card>
@@ -974,6 +1066,91 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Item Detail Modal */}
+      {markerPreview && (
+        <Dialog open={showItemModal} onOpenChange={setShowItemModal}>
+          <DialogContent className="max-w-md p-0 overflow-hidden">
+            {/* Image */}
+            <div className="relative h-52 bg-slate-100 dark:bg-slate-800">
+              {getItemImage(markerPreview) ? (
+                <img
+                  src={getItemImage(markerPreview)}
+                  alt={getItemTitle(markerPreview)}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-600">
+                  <Building2 className="w-14 h-14" />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <span className={`absolute bottom-3 left-4 text-xs font-semibold text-white px-2 py-0.5 rounded-full ${TYPE_META[markerPreview.type]?.color || 'bg-slate-500'}`}>
+                {TYPE_META[markerPreview.type]?.label}
+              </span>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-3">
+              <DialogHeader>
+                <DialogTitle className="text-lg leading-snug">
+                  {getItemTitle(markerPreview)}
+                </DialogTitle>
+                {getItemSubtitle(markerPreview) && (
+                  <DialogDescription className="text-sm leading-relaxed">
+                    {getItemSubtitle(markerPreview)}
+                  </DialogDescription>
+                )}
+              </DialogHeader>
+
+              {/* Extra info per type */}
+              {markerPreview.type === 'project' && markerPreview.target_amount > 0 && (
+                <div className="flex items-center gap-4 p-3 rounded-lg bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800">
+                  <div className="text-center">
+                    <p className="text-[10px] text-teal-500 uppercase font-semibold">Meta</p>
+                    <p className="text-sm font-bold text-teal-700 dark:text-teal-300">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(markerPreview.target_amount)}
+                    </p>
+                  </div>
+                  <div className="h-8 w-px bg-teal-200 dark:bg-teal-700" />
+                  <div className="text-center">
+                    <p className="text-[10px] text-teal-500 uppercase font-semibold">Votos</p>
+                    <p className="text-sm font-bold text-teal-700 dark:text-teal-300">
+                      {markerPreview.votes_count || 0}/{markerPreview.min_votes || 10}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {markerPreview.type === 'product' && markerPreview.price != null && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800">
+                  <ShoppingBag className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm font-bold text-purple-700 dark:text-purple-300">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(markerPreview.price)}
+                  </span>
+                  {markerPreview.quantity_available != null && (
+                    <span className="text-xs text-purple-500 ml-auto">{markerPreview.quantity_available} disponíveis</span>
+                  )}
+                </div>
+              )}
+
+              {markerPreview.location_address && (
+                <div className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <MapPin className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
+                  <span className="line-clamp-2">{markerPreview.location_address}</span>
+                </div>
+              )}
+
+              <Link to={getItemUrl(markerPreview)} onClick={() => setShowItemModal(false)}>
+                <Button className="w-full bg-teal-600 hover:bg-teal-700 mt-1">
+                  <ChevronRight className="w-4 h-4 mr-2" />
+                  Ver mais detalhes
+                </Button>
+              </Link>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Location Setup Modal */}
       <LocationSetupModal
