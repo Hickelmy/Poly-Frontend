@@ -4,12 +4,14 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useSelectedZone } from '@/contexts/SelectedZoneContext';
-import { 
-  Home, Map, Users, ShoppingBag, Wrench, Settings, Bell, 
-  LogOut, Menu, X, Sun, Moon, ChevronDown, Shield, 
+import { useCart } from '@/contexts/CartContext';
+import {
+  Home, Map, Users, ShoppingBag, Wrench, Settings, Bell,
+  LogOut, Menu, X, Sun, Moon, ChevronDown, Shield,
   HelpCircle, FileText, LayoutDashboard, UserCog, Link2, MapPinned,
-  BarChart3, MapPin, Check, Newspaper
+  BarChart3, MapPin, Check, Newspaper, ShoppingCart
 } from 'lucide-react';
+import CartDrawer from '@/components/cart/CartDrawer';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -33,6 +35,8 @@ import Footer from "@/components/shared/Footer";
 export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const { totalItems } = useCart();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -428,6 +432,17 @@ export default function Layout({ children, currentPageName }) {
               >
                 {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </Button>
+
+              {/* Cart */}
+              <button onClick={() => setCartOpen(true)} className="relative p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                <ShoppingCart className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+                {totalItems > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-teal-600 text-white text-[10px] font-bold px-1">
+                    {totalItems > 99 ? '99+' : totalItems}
+                  </span>
+                )}
+              </button>
+              <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
 
               {/* Notifications */}
               <DropdownMenu>

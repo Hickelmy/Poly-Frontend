@@ -166,7 +166,10 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     shipping_paid_by: 'buyer',
     images: [],
     lat: null,
-    lng: null
+    lng: null,
+    discount_percent: '',
+    payment_methods: [],
+    seller_delivery: false
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -245,7 +248,10 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         shipping_paid_by: product.shippingPaidBy || 'buyer',
         images: product.images || [],
         lat: product.lat || null,
-        lng: product.lng || null
+        lng: product.lng || null,
+        discount_percent: product.discountPercent?.toString() || '',
+        payment_methods: product.paymentMethods || [],
+        seller_delivery: product.sellerDelivery || false
       });
     } else {
       setFormData({
@@ -261,7 +267,10 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         shipping_paid_by: 'buyer',
         images: [],
         lat: null,
-        lng: null
+        lng: null,
+        discount_percent: '',
+        payment_methods: [],
+        seller_delivery: false
       });
     }
   }, [product, open]);
@@ -331,7 +340,10 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         images: formData.images,
         lat: formData.lat,
         lng: formData.lng,
-        active: true
+        active: true,
+        discountPercent: formData.discount_percent ? parseFloat(formData.discount_percent) : null,
+        paymentMethods: formData.payment_methods,
+        sellerDelivery: formData.seller_delivery,
       };
 
       if (product) {
@@ -350,6 +362,9 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         if (JSON.stringify(fullData.images || []) !== JSON.stringify(product.images || [])) changed.images = fullData.images;
         if (fullData.lat !== (product.lat ?? null)) changed.lat = fullData.lat;
         if (fullData.lng !== (product.lng ?? null)) changed.lng = fullData.lng;
+        if (fullData.discountPercent !== (product.discountPercent ?? null)) changed.discountPercent = fullData.discountPercent;
+        if (JSON.stringify(fullData.paymentMethods) !== JSON.stringify(product.paymentMethods || [])) changed.paymentMethods = fullData.paymentMethods;
+        if (fullData.sellerDelivery !== (product.sellerDelivery || false)) changed.sellerDelivery = fullData.sellerDelivery;
         const payload = Object.keys(changed).length > 0 ? changed : fullData;
         await polysApi.entities.Product.update(product.id, payload);
         toast.success('Produto atualizado');
@@ -784,6 +799,91 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                     })}
                   </div>
                 </div>
+              </div>
+
+              {/* Desconto */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Desconto (%)</Label>
+                <Input
+                  type="number"
+                  value={formData.discount_percent}
+                  onChange={(e) => setFormData({ ...formData, discount_percent: e.target.value })}
+                  min="0"
+                  max="100"
+                  step="1"
+                  placeholder="Ex: 10 para 10% de desconto"
+                  className="h-10"
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">Deixe vazio para sem desconto</p>
+              </div>
+
+              {/* Formas de Pagamento */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Formas de Pagamento Aceitas</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'pix', label: 'PIX', icon: '◈' },
+                    { value: 'credit_card', label: 'Cartão de crédito', icon: '💳' },
+                    { value: 'debit_card', label: 'Cartão de débito', icon: '💳' },
+                    { value: 'cash', label: 'Dinheiro', icon: '💵' },
+                    { value: 'transfer', label: 'Transferência', icon: '🏦' },
+                  ].map(({ value, label, icon }) => {
+                    const selected = formData.payment_methods.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          const methods = selected
+                            ? formData.payment_methods.filter(m => m !== value)
+                            : [...formData.payment_methods, value];
+                          setFormData({ ...formData, payment_methods: methods });
+                        }}
+                        className={`flex items-center gap-2 p-2.5 rounded-xl border-2 text-left transition-all ${
+                          selected
+                            ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                        }`}
+                      >
+                        <span className="text-base">{icon}</span>
+                        <span className={`text-xs font-medium flex-1 ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-700 dark:text-slate-300'}`}>
+                          {label}
+                        </span>
+                        <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                          selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
+                        }`}>
+                          {selected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Entrega Pessoal */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, seller_delivery: !formData.seller_delivery })}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                    formData.seller_delivery
+                      ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <span className="text-xl">🤝</span>
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${formData.seller_delivery ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                      Entrega pessoal pelo vendedor
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Eu mesmo faço a entrega</p>
+                  </div>
+                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                    formData.seller_delivery ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
+                  }`}>
+                    {formData.seller_delivery && <div className="w-2 h-2 rounded-full bg-white" />}
+                  </div>
+                </button>
               </div>
             </div>
 
