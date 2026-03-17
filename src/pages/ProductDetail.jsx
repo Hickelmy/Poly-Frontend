@@ -204,8 +204,8 @@ export default function ProductDetail() {
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
 
-        {/* Left: Image Carousel */}
-        <div className="lg:col-span-3">
+        {/* Left: Image Carousel + Description */}
+        <div className="lg:col-span-3 space-y-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden p-4">
             <ProductImageCarousel
               images={product.images || []}
@@ -214,6 +214,18 @@ export default function ProductDetail() {
               onIndexChange={setCurrentImageIndex}
             />
           </div>
+
+          {/* Description inside left column */}
+          {product.description && (
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 p-5">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-2">
+                Descrição completa
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                {product.description}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Right: Product details */}
@@ -406,17 +418,6 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      {/* Full description */}
-      {product.description && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 p-6">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">
-            Descrição completa
-          </h2>
-          <p className="text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed">
-            {product.description}
-          </p>
-        </div>
-      )}
 
       {/* Checkout Modal */}
       <CheckoutModal
