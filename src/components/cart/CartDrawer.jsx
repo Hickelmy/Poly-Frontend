@@ -12,6 +12,7 @@ export default function CartDrawer({ open, onClose, user }) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
         <SheetHeader className="px-5 pt-5 pb-4 border-b">
@@ -87,5 +88,6 @@ export default function CartDrawer({ open, onClose, user }) {
     </Sheet>
 
     <CartCheckoutModal open={checkoutOpen} onClose={() => setCheckoutOpen(false)} user={user} />
+    </>
   );
 }
