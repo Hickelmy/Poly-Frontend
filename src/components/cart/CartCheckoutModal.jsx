@@ -228,7 +228,7 @@ function DeliveryStep({ user, deliveryMethod, setDeliveryMethod, selectedAddress
 }
 
 // ─── Step 2: Pagamento ────────────────────────────────────────────────────────
-function PaymentStep({ total, onBack, onSuccess, user }) {
+function PaymentStep({ total, items, onBack, onSuccess, user }) {
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pixData, setPixData] = useState(null);
@@ -257,8 +257,9 @@ function PaymentStep({ total, onBack, onSuccess, user }) {
       const { polysApi } = await import('@/api/polysClient');
       const result = await polysApi.paymentGateway.createPixPayment({
         amount: total,
-        product_title: 'Carrinho de compras',
-        quantity: 1,
+        product_title: items?.length ? items.map(i => i.title).join(', ') : 'Carrinho de compras',
+        quantity: items?.reduce((acc, i) => acc + i.quantity, 0) || 1,
+        product_id: items?.[0]?.id,
       });
       if (result.success) {
         setPixData(result);
@@ -278,9 +279,10 @@ function PaymentStep({ total, onBack, onSuccess, user }) {
       const { polysApi } = await import('@/api/polysClient');
       const result = await polysApi.paymentGateway.createStripePayment({
         amount: total,
-        product_title: 'Carrinho de compras',
-        quantity: 1,
+        product_title: items?.length ? items.map(i => i.title).join(', ') : 'Carrinho de compras',
+        quantity: items?.reduce((acc, i) => acc + i.quantity, 0) || 1,
         currency: 'brl',
+        product_id: items?.[0]?.id,
       });
       if (result.success && result.checkout_url) {
         window.location.href = result.checkout_url;
@@ -508,6 +510,7 @@ export default function CartCheckoutModal({ open, onClose, user }) {
                 {currentStep === 2 && (
                   <PaymentStep
                     total={totalPrice}
+                    items={items}
                     onBack={() => setCurrentStep(1)}
                     onSuccess={handleSuccess}
                     user={user}
