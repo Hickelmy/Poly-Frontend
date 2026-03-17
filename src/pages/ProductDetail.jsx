@@ -181,19 +181,24 @@ export default function ProductDetail() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-        <Link to={createPageUrl('Store')} className="hover:text-teal-600 transition">
-          <ArrowLeft className="w-4 h-4 inline mr-1" />
-          Categorias
+      <nav className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 flex-wrap">
+        <Link to={createPageUrl('Store')} className="flex items-center gap-1 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Loja
         </Link>
         {categoryLabel && (
           <>
-            <span>/</span>
-            <span className="text-slate-400">{categoryLabel}</span>
+            <span className="text-slate-300 dark:text-slate-600">/</span>
+            <Link
+              to={`${createPageUrl('Store')}?category=${product.category}`}
+              className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+            >
+              {categoryLabel}
+            </Link>
           </>
         )}
-        <span>/</span>
-        <span className="text-slate-700 dark:text-slate-200 font-medium truncate max-w-[200px]">{product.title}</span>
+        <span className="text-slate-300 dark:text-slate-600">/</span>
+        <span className="text-slate-800 dark:text-slate-200 font-medium truncate max-w-[200px]">{product.title}</span>
       </nav>
 
       {/* Two-column layout */}

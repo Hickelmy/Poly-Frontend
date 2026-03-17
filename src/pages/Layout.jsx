@@ -358,11 +358,14 @@ export default function Layout({ children, currentPageName }) {
                 <Menu className="w-5 h-5" />
               </Button>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white hidden sm:block">
-                {currentPageName === 'Dashboard' ? 'Painel Principal' : 
+                {currentPageName === 'Dashboard' ? 'Painel Principal' :
                  currentPageName === 'Projects' ? 'Comunidade' :
                  currentPageName === 'Store' ? 'Loja Local' :
                  currentPageName === 'Services' ? 'Serviços' :
                  currentPageName === 'CreateProject' ? 'Criar Projeto' :
+                 currentPageName === 'ProductDetail' ? 'Produto' :
+                 currentPageName === 'ServiceDetail' ? 'Serviço' :
+                 currentPageName === 'ProjectDetail' ? 'Projeto' :
                  currentPageName}
               </h2>
             </div>

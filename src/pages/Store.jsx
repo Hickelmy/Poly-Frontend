@@ -38,7 +38,10 @@ export default function Store() {
   const [user, setUser] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('category') || 'all';
+  });
   const [conditionFilter, setConditionFilter] = useState('all');
   const [priceRange, setPriceRange] = useState([0, 10000]);
   const [viewMode, setViewMode] = useState('grid');
