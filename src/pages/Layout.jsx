@@ -445,7 +445,7 @@ export default function Layout({ children, currentPageName }) {
                   </span>
                 )}
               </button>
-              <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+              <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} user={user} />
 
               {/* Notifications */}
               <DropdownMenu>

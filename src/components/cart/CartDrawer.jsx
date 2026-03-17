@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useCart } from '@/contexts/CartContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
+import CartCheckoutModal from './CartCheckoutModal';
 
 const fmtBRL = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-export default function CartDrawer({ open, onClose }) {
+export default function CartDrawer({ open, onClose, user }) {
   const { items, removeItem, updateQuantity, totalItems, totalPrice, clearCart } = useCart();
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -71,7 +73,8 @@ export default function CartDrawer({ open, onClose }) {
                 <span className="text-sm text-slate-500">Total</span>
                 <span className="text-lg font-bold text-teal-600">{fmtBRL(totalPrice)}</span>
               </div>
-              <Button className="w-full bg-teal-600 hover:bg-teal-700 h-11">
+              <Button className="w-full bg-teal-600 hover:bg-teal-700 h-11"
+                onClick={() => { onClose(); setCheckoutOpen(true); }}>
                 Finalizar Compra
               </Button>
               <button onClick={clearCart} className="w-full text-xs text-slate-400 hover:text-red-500 transition text-center">
@@ -82,5 +85,7 @@ export default function CartDrawer({ open, onClose }) {
         )}
       </SheetContent>
     </Sheet>
+
+    <CartCheckoutModal open={checkoutOpen} onClose={() => setCheckoutOpen(false)} user={user} />
   );
 }
