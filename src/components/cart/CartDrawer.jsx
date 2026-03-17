@@ -78,8 +78,8 @@ export default function CartDrawer({ open, onClose, user }) {
                 onClick={() => { onClose(); setCheckoutOpen(true); }}>
                 Finalizar Compra
               </Button>
-              <button onClick={clearCart} className="w-full text-xs text-slate-400 hover:text-red-500 transition text-center">
-                Limpar carrinho
+              <button onClick={clearCart} className="flex items-center justify-center w-full gap-1.5 text-red-400 hover:text-red-600 transition">
+                <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </>
