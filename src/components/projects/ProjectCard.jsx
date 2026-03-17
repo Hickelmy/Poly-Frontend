@@ -4,7 +4,7 @@ import { createPageUrl } from '../../utils';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Vote, Heart, Users, Calendar, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Vote, Heart, Users, Calendar, ArrowRight, ChevronLeft, ChevronRight, UserCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ProgressBar from '../shared/ProgressBar';
@@ -132,6 +132,22 @@ export default function ProjectCard({ project, onVote, onDonate, userVoted, curr
         <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-4">
           {project.short_description || project.description}
         </p>
+
+        {/* Meta: criador + data */}
+        <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 mb-3 gap-2">
+          {(project.owner_name || project.owner_email) && (
+            <div className="flex items-center gap-1 min-w-0">
+              <UserCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{project.owner_name || project.owner_email?.split('@')[0]}</span>
+            </div>
+          )}
+          {project.created_date && (
+            <div className="flex items-center gap-1 shrink-0">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>{format(new Date(project.created_date), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}</span>
+            </div>
+          )}
+        </div>
 
         {/* Stats */}
         <div className="space-y-2 mb-4 text-sm">

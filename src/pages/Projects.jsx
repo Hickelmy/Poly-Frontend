@@ -5,9 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelectedZone } from '@/contexts/SelectedZoneContext';
 import { useProximityFilter } from '@/hooks/useProximityFilter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Search, Filter, Plus, Grid3X3, List, ChevronDown,
-  Vote, Heart, TrendingUp, Building2, MapPin
+  Vote, Heart, TrendingUp, Building2, MapPin, ArrowUpDown
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ export default function Projects() {
   const [userLocation, setUserLocation] = useState(null);
   const [activeTab, setActiveTab] = useState('active'); // 'active' ou 'voting'
   const [radiusKm, setRadiusKm] = useState(5);
+  const [sortBy, setSortBy] = useState('newest');
 
   // Zone context (para condomínios privados)
   const { selectedZone } = useSelectedZone();
@@ -211,6 +212,28 @@ export default function Projects() {
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
     const matchesCategory = categoryFilter === 'all' || project.category === categoryFilter;
     return matchesSearch && matchesStatus && matchesCategory;
+  });
+
+  const sortOptions = [
+    { value: 'newest', label: 'Mais recentes' },
+    { value: 'oldest', label: 'Mais antigos' },
+    { value: 'most_votes', label: 'Mais votados' },
+    { value: 'most_funded', label: 'Mais arrecadado' },
+  ];
+
+  const sortedProjects = [...filteredProjects].sort((a, b) => {
+    switch (sortBy) {
+      case 'oldest':
+        return new Date(a.created_date) - new Date(b.created_date);
+      case 'most_votes':
+        return ((b.up_votes_count ?? b.votes_count ?? 0) - (b.down_votes_count ?? 0)) -
+               ((a.up_votes_count ?? a.votes_count ?? 0) - (a.down_votes_count ?? 0));
+      case 'most_funded':
+        return (b.current_amount || 0) - (a.current_amount || 0);
+      case 'newest':
+      default:
+        return new Date(b.created_date) - new Date(a.created_date);
+    }
   });
 
   const categories = [
@@ -381,6 +404,18 @@ export default function Projects() {
                     </SelectContent>
                   </Select>
 
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-44">
+                      <ArrowUpDown className="w-4 h-4 mr-1 text-slate-400" />
+                      <SelectValue placeholder="Ordenar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
                   <div className="flex rounded-lg border">
                     <Button
                       variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -409,7 +444,7 @@ export default function Projects() {
             <ProjectCardSkeleton key={i} />
           ))}
         </div>
-      ) : filteredProjects.length === 0 ? (
+      ) : sortedProjects.length === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-12 text-center">
             <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -430,7 +465,7 @@ export default function Projects() {
           layout
         >
           <AnimatePresence mode="popLayout">
-            {filteredProjects.map((project) => (
+            {sortedProjects.map((project) => (
               <motion.div
                 key={project.id}
                 layout
@@ -510,6 +545,18 @@ export default function Projects() {
                     </SelectContent>
                   </Select>
 
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-44">
+                      <ArrowUpDown className="w-4 h-4 mr-1 text-slate-400" />
+                      <SelectValue placeholder="Ordenar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
                   <div className="flex rounded-lg border">
                     <Button
                       variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
@@ -538,7 +585,7 @@ export default function Projects() {
                 <ProjectCardSkeleton key={i} />
               ))}
             </div>
-          ) : filteredProjects.length === 0 ? (
+          ) : sortedProjects.length === 0 ? (
             <Card className="border-0 shadow-sm">
               <CardContent className="p-12 text-center">
                 <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -559,7 +606,7 @@ export default function Projects() {
               layout
             >
               <AnimatePresence mode="popLayout">
-                {filteredProjects.map((project) => (
+                {sortedProjects.map((project) => (
                   <motion.div
                     key={project.id}
                     layout
