@@ -1174,6 +1174,48 @@ const users = {
       body: JSON.stringify(data),
     });
   },
+
+  async updateRole(id: string, role: string): Promise<any> {
+    return apiRequest(`/users/${id}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    });
+  },
+
+  async block(id: string, reason?: string): Promise<any> {
+    return apiRequest(`/users/${id}/block`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async unblock(id: string): Promise<any> {
+    return apiRequest(`/users/${id}/unblock`, { method: 'POST', body: JSON.stringify({}) });
+  },
+
+  async ban(id: string, reason?: string): Promise<any> {
+    return apiRequest(`/users/${id}/ban`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async unban(id: string): Promise<any> {
+    return apiRequest(`/users/${id}/unban`, { method: 'POST', body: JSON.stringify({}) });
+  },
+
+  async getActivity(id: string): Promise<any> {
+    return apiRequest(`/users/${id}/activity`, { method: 'GET' });
+  },
+
+  async getAuditLogs(filters: { targetId?: string; actorId?: string; action?: string; limit?: number } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.targetId) params.set('targetId', filters.targetId);
+    if (filters.actorId) params.set('actorId', filters.actorId);
+    if (filters.action) params.set('action', filters.action);
+    if (filters.limit) params.set('limit', String(filters.limit));
+    return apiRequest(`/users/audit-logs/all?${params.toString()}`, { method: 'GET' });
+  },
 };
 
 // Feature Flags API
