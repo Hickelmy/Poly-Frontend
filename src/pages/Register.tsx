@@ -159,28 +159,46 @@ export default function Register() {
     handleRedirect();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // --- Helpers de validação ---
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  const isValidPhone = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 11;
+  };
+
+  const isValidCNPJ = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    if (digits.length !== 14) return false;
+    // Rejeita todos iguais (00000000000000, 11111111111111, etc.)
+    if (/^(\d)\1{13}$/.test(digits)) return false;
+    // Validação dos dígitos verificadores
+    const calc = (slice: string, weights: number[]) => {
+      const sum = weights.reduce((acc, w, i) => acc + parseInt(slice[i]) * w, 0);
+      const rest = sum % 11;
+      return rest < 2 ? 0 : 11 - rest;
+    };
+    const w1 = [5,4,3,2,9,8,7,6,5,4,3,2];
+    const w2 = [6,5,4,3,2,9,8,7,6,5,4,3,2];
+    const d1 = calc(digits, w1);
+    const d2 = calc(digits, w2);
+    return parseInt(digits[12]) === d1 && parseInt(digits[13]) === d2;
+  };
+
   // --- Validations per step ---
   const validateUserStep = (s: number): boolean => {
     if (s === 0) {
-      if (!formData.full_name || !formData.email || !formData.password) {
-        toast.error('Preencha todos os campos');
-        return false;
-      }
-      if (formData.password.length < 6) {
-        toast.error('A senha deve ter pelo menos 6 caracteres');
-        return false;
-      }
-      if (formData.password !== formData.confirm_password) {
-        toast.error('As senhas não coincidem');
-        return false;
-      }
+      if (!formData.full_name.trim()) { toast.error('Nome é obrigatório'); return false; }
+      if (!formData.email.trim()) { toast.error('Email é obrigatório'); return false; }
+      if (!isValidEmail(formData.email)) { toast.error('Email inválido'); return false; }
+      if (!formData.password) { toast.error('Senha é obrigatória'); return false; }
+      if (formData.password.length < 6) { toast.error('A senha deve ter pelo menos 6 caracteres'); return false; }
+      if (formData.password !== formData.confirm_password) { toast.error('As senhas não coincidem'); return false; }
       return true;
     }
     if (s === 1) {
-      if (!phone) {
-        toast.error('O telefone é obrigatório');
-        return false;
-      }
+      if (!phone.trim()) { toast.error('O telefone é obrigatório'); return false; }
+      if (!isValidPhone(phone)) { toast.error('Telefone inválido. Use (XX) XXXXX-XXXX'); return false; }
       if (!address.street || !address.house_number || !address.city || !address.state) {
         toast.error('Preencha todos os campos do endereço (rua, número, cidade e estado)');
         return false;
@@ -192,10 +210,10 @@ export default function Register() {
 
   const validateAdminStep = (s: number): boolean => {
     if (s === 0) {
-      if (!adminForm.name || !adminForm.email) {
-        toast.error('Nome e email são obrigatórios');
-        return false;
-      }
+      if (!adminForm.name.trim()) { toast.error('Nome é obrigatório'); return false; }
+      if (!adminForm.email.trim()) { toast.error('Email é obrigatório'); return false; }
+      if (!isValidEmail(adminForm.email)) { toast.error('Email inválido'); return false; }
+      if (adminForm.phone && !isValidPhone(adminForm.phone)) { toast.error('Telefone inválido. Use (XX) XXXXX-XXXX'); return false; }
       return true;
     }
     return true;
@@ -203,22 +221,16 @@ export default function Register() {
 
   const validateCompanyStep = (s: number): boolean => {
     if (s === 0) {
-      if (!companyForm.companyName || !companyForm.cnpj) {
-        toast.error('Nome da empresa e CNPJ são obrigatórios');
-        return false;
-      }
-      const cnpjDigits = companyForm.cnpj.replace(/\D/g, '');
-      if (cnpjDigits.length !== 14) {
-        toast.error('CNPJ deve ter 14 dígitos');
-        return false;
-      }
+      if (!companyForm.companyName.trim()) { toast.error('Nome da empresa é obrigatório'); return false; }
+      if (!companyForm.cnpj.trim()) { toast.error('CNPJ é obrigatório'); return false; }
+      if (!isValidCNPJ(companyForm.cnpj)) { toast.error('CNPJ inválido'); return false; }
       return true;
     }
     if (s === 1) {
-      if (!companyForm.name || !companyForm.email) {
-        toast.error('Nome do responsável e email são obrigatórios');
-        return false;
-      }
+      if (!companyForm.name.trim()) { toast.error('Nome do responsável é obrigatório'); return false; }
+      if (!companyForm.email.trim()) { toast.error('Email é obrigatório'); return false; }
+      if (!isValidEmail(companyForm.email)) { toast.error('Email inválido'); return false; }
+      if (companyForm.phone && !isValidPhone(companyForm.phone)) { toast.error('Telefone inválido. Use (XX) XXXXX-XXXX'); return false; }
       return true;
     }
     return true;
