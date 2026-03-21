@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { polysApi } from '@/api/polysClient';
+import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 import { createPageUrl } from '../utils';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ export default function CreateProject() {
     funding_deadline: '',
     status: 'proposed',
   });
+  const [publishZoneId, setPublishZoneId] = useState('');
   const [location, setLocation] = useState<any>({
     address: '',
     latitude: null,
@@ -330,7 +332,7 @@ export default function CreateProject() {
         longitude: location.longitude,
         lat: location.latitude,
         lng: location.longitude,
-        zone_id: zoneId,
+        zone_id: publishZoneId || zoneId,
         evidences,
         expenses: normalizedExpenses,
         expenses_total: expensesTotal,
@@ -782,6 +784,8 @@ export default function CreateProject() {
                 </Popover>
               </div>
             </div>
+
+            <ZonePublishSelector value={publishZoneId} onChange={setPublishZoneId} />
 
             <div className="flex justify-end gap-3">
               <Button

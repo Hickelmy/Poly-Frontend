@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
+import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 import { useQueryClient } from '@tanstack/react-query';
 import { MapPin, Upload, X, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -165,6 +166,7 @@ interface FormData {
   lat: number | null;
   lng: number | null;
   availability_schedule: any;
+  zone_id: string;
 }
 
 export default function CreateServiceModal({ open, onClose, service, user, onSuccess }: CreateServiceModalProps) {
@@ -179,7 +181,8 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
     images: [],
     lat: null,
     lng: null,
-    availability_schedule: null
+    availability_schedule: null,
+    zone_id: '',
   });
   const [uploading, setUploading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -300,7 +303,7 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
         provider_id: user.id,
         provider_email: user.email,
         provider_name: user.full_name,
-        zone_id: null,
+        zone_id: formData.zone_id || null,
         lat: formData.lat,
         lng: formData.lng,
         active: true,
@@ -554,7 +557,8 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50">
+        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 space-y-4">
+          <ZonePublishSelector value={formData.zone_id} onChange={(z) => setFormData({ ...formData, zone_id: z })} />
           <Button
             className="w-full bg-teal-600 hover:bg-teal-700 h-11 text-base font-semibold"
             onClick={handleSubmit}

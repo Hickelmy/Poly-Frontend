@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
+import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 import { useQueryClient } from '@tanstack/react-query';
 import { MapPin, Upload, X, Loader2, Search } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -170,6 +171,7 @@ interface FormData {
   discount_percent: string;
   payment_methods: string[];
   seller_delivery: boolean;
+  zone_id: string;
 }
 
 export default function CreateProductModal({ open, onClose, product, user, onSuccess }: CreateProductModalProps) {
@@ -190,7 +192,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     lng: null,
     discount_percent: '',
     payment_methods: [],
-    seller_delivery: false
+    seller_delivery: false,
+    zone_id: '',
   });
   const [uploading, setUploading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -362,6 +365,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         discountPercent: formData.discount_percent ? parseFloat(formData.discount_percent) : null,
         paymentMethods: formData.payment_methods,
         sellerDelivery: formData.seller_delivery,
+        zone_id: formData.zone_id || null,
       };
 
       if (product) {
@@ -887,7 +891,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50">
+        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 space-y-4">
+          <ZonePublishSelector value={formData.zone_id} onChange={(z) => setFormData({ ...formData, zone_id: z })} />
           <Button
             className="w-full bg-teal-600 hover:bg-teal-700 h-11 text-base font-semibold"
             onClick={handleSubmit}
