@@ -48,7 +48,7 @@ function PasswordStrengthIndicator({ password }: { password: string }) {
 const ACCOUNT_TYPES = [
   { value: 'USER', label: 'Morador / Usuário', desc: 'Compre, venda, participe de projetos comunitários', icon: Users },
   { value: 'ZONE_ADMIN', label: 'Administrador de Área', desc: 'Gerencie zonas exclusivas (condomínios, conjuntos)', icon: Shield },
-  { value: 'COMPANY', label: 'Empresa', desc: 'Ofereça serviços, licite em projetos (em breve)', icon: Building2, disabled: true },
+  { value: 'COMPANY', label: 'Empresa', desc: 'Ofereça serviços e licite em projetos', icon: Building2 },
 ];
 
 const USER_STEPS = [
@@ -60,6 +60,12 @@ const USER_STEPS = [
 const ADMIN_STEPS = [
   { label: 'Seus dados', icon: User },
   { label: 'Sobre a área', icon: MapPin },
+  { label: 'Enviar', icon: Check },
+];
+
+const COMPANY_STEPS = [
+  { label: 'Dados da empresa', icon: Building2 },
+  { label: 'Contato', icon: Phone },
   { label: 'Enviar', icon: Check },
 ];
 
@@ -110,6 +116,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [adminRequestSent, setAdminRequestSent] = useState(false);
+  const [companyRequestSent, setCompanyRequestSent] = useState(false);
 
   // User form
   const [formData, setFormData] = useState({ full_name: '', email: '', password: '', confirm_password: '' });
@@ -122,6 +129,11 @@ export default function Register() {
 
   // Admin form
   const [adminForm, setAdminForm] = useState({ name: '', email: '', phone: '', location: '', objective: '' });
+
+  // Company form
+  const [companyForm, setCompanyForm] = useState({
+    name: '', email: '', phone: '', companyName: '', cnpj: '', description: '',
+  });
 
   useEffect(() => {
     const handleRedirect = async () => {
@@ -189,11 +201,35 @@ export default function Register() {
     return true;
   };
 
+  const validateCompanyStep = (s: number): boolean => {
+    if (s === 0) {
+      if (!companyForm.companyName || !companyForm.cnpj) {
+        toast.error('Nome da empresa e CNPJ são obrigatórios');
+        return false;
+      }
+      const cnpjDigits = companyForm.cnpj.replace(/\D/g, '');
+      if (cnpjDigits.length !== 14) {
+        toast.error('CNPJ deve ter 14 dígitos');
+        return false;
+      }
+      return true;
+    }
+    if (s === 1) {
+      if (!companyForm.name || !companyForm.email) {
+        toast.error('Nome do responsável e email são obrigatórios');
+        return false;
+      }
+      return true;
+    }
+    return true;
+  };
+
   const nextStep = () => {
-    const valid = accountType === 'USER' ? validateUserStep(step) : validateAdminStep(step);
+    const valid = accountType === 'USER' ? validateUserStep(step)
+      : accountType === 'COMPANY' ? validateCompanyStep(step)
+      : validateAdminStep(step);
     if (!valid) return;
-    const maxStep = accountType === 'USER' ? 2 : 2;
-    if (step < maxStep) setStep(step + 1);
+    if (step < 2) setStep(step + 1);
   };
 
   const prevStep = () => {
@@ -240,6 +276,25 @@ export default function Register() {
       await polysApi.adminRequests.create(adminForm);
       setAdminRequestSent(true);
       toast.success('Solicitação enviada! Aguarde a aprovação de um gestor.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompanySubmit = async () => {
+    setLoading(true);
+    try {
+      await polysApi.adminRequests.create({
+        name: `${companyForm.companyName} (${companyForm.name})`,
+        email: companyForm.email,
+        phone: companyForm.phone,
+        location: `CNPJ: ${companyForm.cnpj}`,
+        objective: `[EMPRESA] ${companyForm.description || 'Cadastro de empresa'}`,
+      });
+      setCompanyRequestSent(true);
+      toast.success('Solicitação enviada! Aguarde a verificação.');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao enviar solicitação');
     } finally {
@@ -305,8 +360,9 @@ export default function Register() {
     );
   }
 
-  // --- Admin request sent screen ---
-  if (accountType === 'ZONE_ADMIN' && adminRequestSent) {
+  // --- Request sent screen (admin or company) ---
+  if ((accountType === 'ZONE_ADMIN' && adminRequestSent) || (accountType === 'COMPANY' && companyRequestSent)) {
+    const isCompany = accountType === 'COMPANY';
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
@@ -320,11 +376,13 @@ export default function Register() {
               </div>
               <h2 className="text-xl font-bold">Solicitação enviada!</h2>
               <p className="text-sm text-slate-500">
-                Sua solicitação para se tornar Administrador de Área foi enviada com sucesso.
-                Um gestor da plataforma irá analisá-la e você receberá acesso após a aprovação.
+                {isCompany
+                  ? 'Sua solicitação de cadastro empresarial foi enviada. Um gestor irá verificar os dados e aprovar seu acesso.'
+                  : 'Sua solicitação para se tornar Administrador de Área foi enviada com sucesso. Um gestor da plataforma irá analisá-la e você receberá acesso após a aprovação.'
+                }
               </p>
               <div className="flex gap-2 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => { setAccountType(null); setAdminRequestSent(false); setStep(0); }}>
+                <Button variant="outline" className="flex-1" onClick={() => { setAccountType(null); setAdminRequestSent(false); setCompanyRequestSent(false); setStep(0); }}>
                   <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
                 </Button>
                 <Link to={createPageUrl('Login')} className="flex-1">
@@ -339,7 +397,7 @@ export default function Register() {
   }
 
   // --- Stepper form screens ---
-  const steps = accountType === 'USER' ? USER_STEPS : ADMIN_STEPS;
+  const steps = accountType === 'USER' ? USER_STEPS : accountType === 'COMPANY' ? COMPANY_STEPS : ADMIN_STEPS;
   const isLastStep = step === steps.length - 1;
 
   return (
@@ -578,6 +636,112 @@ export default function Register() {
               </div>
             )}
 
+            {/* ========== COMPANY STEPS ========== */}
+            {accountType === 'COMPANY' && step === 0 && (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-500 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  Cadastre sua empresa para oferecer serviços e licitar em projetos comunitários.
+                </p>
+                <div className="space-y-2">
+                  <Label>Nome da Empresa / Razão Social *</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input placeholder="Razão social da empresa" value={companyForm.companyName}
+                      onChange={(e) => setCompanyForm({ ...companyForm, companyName: e.target.value })} className="pl-10" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>CNPJ *</Label>
+                  <Input placeholder="00.000.000/0000-00" value={companyForm.cnpj}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 14);
+                      let formatted = digits;
+                      if (digits.length > 12) formatted = `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12)}`;
+                      else if (digits.length > 8) formatted = `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8)}`;
+                      else if (digits.length > 5) formatted = `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5)}`;
+                      else if (digits.length > 2) formatted = `${digits.slice(0,2)}.${digits.slice(2)}`;
+                      setCompanyForm({ ...companyForm, cnpj: formatted });
+                    }} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição da empresa</Label>
+                  <textarea
+                    placeholder="Descreva os serviços que sua empresa oferece..."
+                    value={companyForm.description}
+                    onChange={(e) => setCompanyForm({ ...companyForm, description: e.target.value })}
+                    className="w-full min-h-[80px] px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {accountType === 'COMPANY' && step === 1 && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome do responsável *</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input placeholder="Seu nome completo" value={companyForm.name}
+                      onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} className="pl-10" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Email corporativo *</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input type="email" placeholder="contato@empresa.com" value={companyForm.email}
+                      onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} className="pl-10" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Telefone comercial</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input placeholder="(00) 00000-0000" value={companyForm.phone}
+                      onChange={(e) => setCompanyForm({ ...companyForm, phone: formatPhone(e.target.value) })} className="pl-10" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {accountType === 'COMPANY' && step === 2 && (
+              <div className="space-y-4">
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-4 space-y-3">
+                  <h3 className="font-semibold text-sm text-slate-700 dark:text-slate-300">Confirme os dados da empresa</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Empresa</span>
+                      <span className="font-medium">{companyForm.companyName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">CNPJ</span>
+                      <span className="font-medium">{companyForm.cnpj}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Responsável</span>
+                      <span className="font-medium">{companyForm.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Email</span>
+                      <span className="font-medium">{companyForm.email}</span>
+                    </div>
+                    {companyForm.phone && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Telefone</span>
+                        <span className="font-medium">{companyForm.phone}</span>
+                      </div>
+                    )}
+                    {companyForm.description && (
+                      <div>
+                        <span className="text-slate-500">Descrição</span>
+                        <p className="font-medium mt-1 text-slate-700 dark:text-slate-300">{companyForm.description}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ========== NAVIGATION BUTTONS ========== */}
             <div className="flex gap-3 mt-6">
               <Button variant="outline" className="flex-1" onClick={prevStep}>
@@ -587,7 +751,7 @@ export default function Register() {
 
               {isLastStep ? (
                 <Button className="flex-1 bg-teal-600 hover:bg-teal-700" disabled={loading}
-                  onClick={() => accountType === 'USER' ? handleUserSubmit() : handleAdminSubmit()}>
+                  onClick={() => accountType === 'USER' ? handleUserSubmit() : accountType === 'COMPANY' ? handleCompanySubmit() : handleAdminSubmit()}>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
                   {accountType === 'USER' ? 'Criar Conta' : 'Enviar Solicitação'}
                 </Button>
