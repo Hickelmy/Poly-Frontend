@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import { PolysLogo } from '@/components/shared/PolysLogo';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
 import { polysApi } from '@/api/polysClient';
 import { useSelectedZone } from '@/contexts/SelectedZoneContext';
 import { useCart } from '@/contexts/CartContext';
@@ -51,6 +52,7 @@ export default function Layout({ children, currentPageName }: { children: React.
   const [appSettings, setAppSettings] = useState<any>(null);
 
   const { selectedZone, setSelectedZone, zones, loading: zonesLoading } = useSelectedZone();
+  useActivityTracker();
 
   const publicPages = ['Landing', 'AdminRequestForm', 'AdminCompleteRegister', 'Login', 'Register', 'About', 'CompanyNews', 'PrivacyTerms', 'Accessibility', 'Sustainability'];
   const isPublicPage = publicPages.includes(currentPageName);
