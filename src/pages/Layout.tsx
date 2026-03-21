@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import logoComFonte from '@/assets/logo com fonte.png';
 import { createPageUrl } from '../utils';
+import { PolysLogo } from '@/components/shared/PolysLogo';
 import { polysApi } from '@/api/polysClient';
 import { useSelectedZone } from '@/contexts/SelectedZoneContext';
 import { useCart } from '@/contexts/CartContext';
@@ -237,7 +237,7 @@ export default function Layout({ children, currentPageName }: { children: React.
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
             <Link to={createPageUrl('Dashboard')} className="flex items-center">
-              <img src={logoComFonte} alt="Polys" className="h-12 w-auto object-contain" />
+              <PolysLogo size="sm" />
             </Link>
             <Button
               variant="ghost"

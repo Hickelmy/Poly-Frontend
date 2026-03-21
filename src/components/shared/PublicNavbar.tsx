@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { polysApi } from '@/api/polysClient';
-import { Map, Sun, Moon, Menu, X } from 'lucide-react';
+import { Sun, Moon, Menu, X } from 'lucide-react';
+import { PolysLogo } from '@/components/shared/PolysLogo';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -38,16 +39,8 @@ export default function PublicNavbar() {
         : 'bg-white/80 border-slate-100'
     )}>
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <Link to={createPageUrl('Landing')} className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
-            <Map className="w-6 h-6 text-white" />
-          </div>
-          <span className={cn(
-            "text-xl font-bold transition-colors",
-            darkMode ? 'text-white' : 'text-slate-900'
-          )}>
-            POLYS
-          </span>
+        <Link to={createPageUrl('Landing')} className="flex items-center">
+          <PolysLogo size="sm" />
         </Link>
 
         <div className="hidden md:flex items-center gap-8">

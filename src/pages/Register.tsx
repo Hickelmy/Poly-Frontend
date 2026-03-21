@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import logoComFonte from '@/assets/logo com fonte.png';
 import { createPageUrl } from '../utils';
+import { PolysLogo } from '@/components/shared/PolysLogo';
 import { polysApi } from '@/api/polysClient';
 import { signInWithGoogle, getGoogleRedirectResult, isFirebaseConfigured } from '@/lib/firebase';
 import { Map, Mail, Lock, Eye, EyeOff, User, Loader2, ArrowLeft, MapPin } from 'lucide-react';
@@ -192,7 +192,7 @@ export default function Register() {
         {/* Logo */}
         <div className="flex justify-center mb-8">
           <Link to={createPageUrl('Landing')}>
-            <img src={logoComFonte} alt="Polys" className="h-16 w-auto object-contain" />
+            <PolysLogo size="lg" />
           </Link>
         </div>
 
