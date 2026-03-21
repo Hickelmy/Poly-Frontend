@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import logoComFonte from '@/assets/logo com fonte.png';
 import { createPageUrl } from '../utils';
 import { polysApi } from '@/api/polysClient';
 import { useSelectedZone } from '@/contexts/SelectedZoneContext';
@@ -223,26 +224,20 @@ export default function Layout({ children, currentPageName }: { children: React.
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-[1001] lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside className={cn(
-        "fixed lg:static inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out",
+        "fixed lg:static inset-y-0 left-0 z-[1002] w-72 transform transition-transform duration-300 ease-in-out",
         "bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800",
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
-            <Link to={createPageUrl('Dashboard')} className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
-                <Map className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">POLYS</h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Melhoria Comunitária</p>
-              </div>
+            <Link to={createPageUrl('Dashboard')} className="flex items-center">
+              <img src={logoComFonte} alt="Polys" className="h-12 w-auto object-contain" />
             </Link>
             <Button
               variant="ghost"

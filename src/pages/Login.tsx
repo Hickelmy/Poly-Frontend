@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import logoComFonte from '@/assets/logo com fonte.png';
 import { Map, Mail, Lock, Eye, EyeOff, LogIn, Loader2 } from 'lucide-react';
 import { polysApi } from '@/api/polysClient';
 import { createPageUrl } from '../utils';
@@ -92,15 +93,9 @@ export default function Login() {
   <div className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4 transition-colors">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <Link to={createPageUrl('Landing')} className="inline-flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
-              <Map className="w-7 h-7 text-white" />
-            </div>
-            <div className="text-left">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">POLYS</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Melhoria Comunitária</p>
-            </div>
+        <div className="flex justify-center mb-8">
+          <Link to={createPageUrl('Landing')}>
+            <img src={logoComFonte} alt="Polys" className="h-16 w-auto object-contain" />
           </Link>
         </div>
 
