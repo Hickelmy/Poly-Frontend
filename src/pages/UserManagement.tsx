@@ -770,7 +770,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                             moderation={modMap[`service:${s.id}`]}
                             onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
                             details={{
-                              'Preço/hora': s.pricePerHour, Categoria: s.category,
+                              'Preço/hora': s.pricePerHour, Tipo: s.serviceType,
                               Descrição: s.description?.slice(0, 200),
                             }}
                           />
@@ -788,7 +788,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                             moderation={modMap[`project:${p.id}`]}
                             onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
                             details={{
-                              'Valor meta': p.goalValue, 'Valor atual': p.currentValue,
+                              'Valor meta': p.targetAmount, 'Valor atual': p.currentAmount,
                               Descrição: p.description?.slice(0, 200),
                             }}
                           />
