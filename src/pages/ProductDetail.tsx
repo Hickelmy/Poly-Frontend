@@ -8,8 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, Package, ShoppingCart, User, ChevronLeft, ChevronRight,
-  ImageOff, Minus, Plus, Shield, Truck, Star, CheckCircle2, HeartHandshake
+  ImageOff, Minus, Plus, Shield, Truck, Star, CheckCircle2, HeartHandshake,
+  AlertTriangle, Ban, Sparkles, Megaphone
 } from 'lucide-react';
+import verificadoImg from '@/assets/verificado.png';
+import aprovadoImg from '@/assets/aprovado.png';
 import CheckoutModal from '@/components/modals/CheckoutModal';
 import { useCart } from '@/contexts/CartContext';
 import { cn } from '@/lib/utils';
@@ -162,6 +165,13 @@ export default function ProductDetail() {
     );
   }
 
+  const mod = product._moderation;
+  const modStatus = mod?.status ?? 'active';
+  const isHighlighted = modStatus === 'highlighted';
+  const isApproved = modStatus === 'approved';
+  const isRestricted = modStatus === 'restricted';
+  const isRemoved = modStatus === 'removed';
+
   const discountedPrice = product.discountPercent
     ? product.price * (1 - product.discountPercent / 100)
     : null;
@@ -200,6 +210,55 @@ export default function ProductDetail() {
         <span className="text-slate-800 dark:text-slate-200 font-medium truncate max-w-[200px]">{product.title}</span>
       </nav>
 
+      {/* Moderation banners */}
+      {isHighlighted && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+          <Sparkles className="w-5 h-5 text-purple-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-purple-700 dark:text-purple-300">Produto em Destaque</p>
+            <p className="text-xs text-purple-600/70 dark:text-purple-400/70">Este produto foi destacado pela gestão da plataforma</p>
+          </div>
+        </div>
+      )}
+      {isApproved && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800">
+          <img src={aprovadoImg} alt="Aprovado" className="w-10 h-10 shrink-0 object-contain" />
+          <div>
+            <p className="text-sm font-semibold text-teal-700 dark:text-teal-300">Aprovado pela Gestão</p>
+            <p className="text-xs text-teal-600/70 dark:text-teal-400/70">
+              Este produto foi verificado e aprovado pela equipe de gestão
+              {mod?.approvedByEmail && <span> por {mod.approvedByEmail}</span>}
+            </p>
+          </div>
+        </div>
+      )}
+      {isRestricted && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Produto Restrito</p>
+            <p className="text-xs text-amber-600/70 dark:text-amber-400/70">Este produto possui restrições aplicadas pela moderação</p>
+          </div>
+        </div>
+      )}
+      {isRemoved && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+          <Ban className="w-5 h-5 text-red-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-red-700 dark:text-red-300">Produto Removido</p>
+            <p className="text-xs text-red-600/70 dark:text-red-400/70">Este produto foi removido pela moderação da plataforma</p>
+          </div>
+        </div>
+      )}
+
+      {/* Manager notice */}
+      {mod?.managerNotice && mod?.noticeVisible !== false && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+          <Megaphone className="w-5 h-5 text-amber-500 shrink-0" />
+          <p className="text-sm text-amber-700 dark:text-amber-300">{mod.managerNotice}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
 
         <div className="lg:col-span-3 space-y-4">
@@ -229,6 +288,9 @@ export default function ProductDetail() {
             <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <User className="w-3.5 h-3.5" />
               Vendido por <span className="font-medium text-slate-700 dark:text-slate-300">{product.sellerName}</span>
+              {product._sellerVerified && (
+                <img src={verificadoImg} alt="Vendedor verificado" title="Vendedor verificado" className="w-4 h-4 inline-block shrink-0 object-contain" />
+              )}
             </p>
           )}
 
