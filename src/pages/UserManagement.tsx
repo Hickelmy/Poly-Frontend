@@ -615,7 +615,12 @@ function ModerationConfigDialog({
   );
 }
 
-// ─── ContentItem (activity item with moderation actions) ──────────────────────
+// ─── ContentItem (activity card with image + moderation) ─────────────────────
+
+const ENTITY_TYPE_ICONS: Record<string, any> = {
+  product: Package, service: Wrench, project: FolderOpen,
+  news: Newspaper, comment: MessageSquare,
+};
 
 interface ContentItemProps {
   entityType: string;
@@ -624,145 +629,201 @@ interface ContentItemProps {
   date?: string;
   badge?: string;
   badgeColor?: string;
+  imageUrl?: string | null;
+  price?: number | null;
+  subtitle?: string;
   moderation: any;
   onOpenModConfig: (entityType: string, entityId: string, title: string, action: ModAction, moderation: any) => void;
 }
 
 function ContentItem({
   entityType, entityId, title, date, badge, badgeColor,
+  imageUrl, price, subtitle,
   moderation, onOpenModConfig,
   details,
 }: ContentItemProps & { details?: Record<string, any> }) {
   const [expanded, setExpanded] = useState(false);
-  const colorMap: Record<string, string> = {
-    emerald: 'bg-emerald-100 text-emerald-700',
-    slate: 'bg-slate-100 text-slate-600',
-    blue: 'bg-blue-100 text-blue-700',
-    teal: 'bg-teal-100 text-teal-700',
+  const badgeColors: Record<string, string> = {
+    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+    slate: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+    blue: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',
+    teal: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400',
   };
 
   const status = moderation?.status ?? 'active';
   const isApproved = status === 'approved';
   const isRemoved = status === 'removed';
   const isExpired = moderation?.expiresAt && new Date(moderation.expiresAt) < new Date();
+  const FallbackIcon = ENTITY_TYPE_ICONS[entityType] || Package;
 
   const open = (a: ModAction) => onOpenModConfig(entityType, entityId, title, a, moderation);
 
+  const borderClass =
+    isExpired ? 'border border-dashed border-slate-300 dark:border-slate-600' :
+    isRemoved ? 'border border-red-200 dark:border-red-800 opacity-50' :
+    isApproved ? 'border border-teal-300 dark:border-teal-700 shadow-teal-100 dark:shadow-teal-900/20 shadow-sm' :
+    status === 'highlighted' ? 'border border-purple-300 dark:border-purple-700 ring-2 ring-purple-200/50 dark:ring-purple-800/30 shadow-sm' :
+    status === 'restricted' ? 'border border-amber-300 dark:border-amber-700' :
+    'border border-slate-200 dark:border-slate-700/60';
+
   return (
-    <div className={`rounded-lg transition-all relative ${
-      isExpired ? 'bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-600' :
-      isRemoved ? 'bg-red-50 dark:bg-red-900/10 opacity-60' :
-      isApproved ? 'bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-800' :
-      status === 'highlighted' ? 'bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 ring-1 ring-purple-300 dark:ring-purple-700' :
-      status === 'restricted' ? 'bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800' :
-      'bg-slate-50 dark:bg-slate-800/50'
-    }`}>
-      <div className="flex items-center gap-3 p-2.5 cursor-pointer select-none"
-        onClick={() => setExpanded((v) => !v)}>
-        <ChevronRight className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
+    <div className={`rounded-xl overflow-hidden transition-all ${borderClass} bg-white dark:bg-slate-800/80 hover:shadow-md group`}>
+      {/* Main row */}
+      <div className="flex items-stretch cursor-pointer select-none" onClick={() => setExpanded((v) => !v)}>
+        {/* Image / Thumbnail */}
+        <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 relative overflow-hidden bg-slate-100 dark:bg-slate-700/50">
+          {imageUrl ? (
+            <img src={imageUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <FallbackIcon className="w-6 h-6 text-slate-300 dark:text-slate-500" />
+            </div>
+          )}
+          {/* Status overlay on image */}
+          {isApproved && (
+            <div className="absolute -bottom-1 -right-1">
+              <ApprovalSeal small approvedByEmail={moderation?.approvedByEmail} approvedAt={moderation?.approvedAt} />
+            </div>
+          )}
+          {status === 'highlighted' && !isExpired && (
+            <div className="absolute top-0 left-0 w-full h-full bg-purple-500/10 flex items-start justify-start p-1">
+              <Sparkles className="w-3 h-3 text-purple-500" />
+            </div>
+          )}
+        </div>
 
-        {isApproved && <ApprovalSeal small approvedByEmail={moderation?.approvedByEmail} approvedAt={moderation?.approvedAt} />}
+        {/* Content */}
+        <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate flex-1">{title}</span>
+            <ChevronRight className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
+          </div>
 
-        <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 min-w-0 line-clamp-1 font-medium">{title}</span>
-
-        {moderation?.managerNotice && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5 shrink-0 max-w-[120px] truncate" title={moderation.managerNotice}>
-            <Megaphone className="w-2.5 h-2.5 flex-shrink-0" />{moderation.managerNotice}
-          </span>
-        )}
-
-        {isExpired && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500 font-medium shrink-0">Expirado</span>
-        )}
-
-        {!isExpired && status !== 'active' && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${MOD_STATUS_COLORS[status] ?? ''}`}>
-            {MOD_STATUS_LABELS[status]}
-            {moderation?.expiresAt && (
-              <span className="ml-1 opacity-70">({fmtDate(moderation.expiresAt).split(' ')[0]})</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {subtitle && <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-[200px]">{subtitle}</span>}
+            {price != null && price > 0 && (
+              <span className="text-[11px] font-bold text-teal-600 dark:text-teal-400">R$ {price.toFixed(2)}</span>
             )}
-          </span>
-        )}
+          </div>
 
-        {badge && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${colorMap[badgeColor || 'slate'] || colorMap.slate}`}>
-            {badge}
-          </span>
-        )}
-
-        {date && <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(date)}</span>}
-
-        {/* Moderation actions dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0" onClick={(e) => e.stopPropagation()}>
-              <MoreVertical className="w-3 h-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={() => open('highlighted')}>
-              <Sparkles className="w-3.5 h-3.5 mr-2 text-purple-500" />Destacar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => open('restricted')}>
-              <AlertOctagon className="w-3.5 h-3.5 mr-2 text-amber-500" />Restringir
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => open('removed')}>
-              <Trash2 className="w-3.5 h-3.5 mr-2 text-red-500" />Remover (soft)
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => open('notice')}>
-              <Megaphone className="w-3.5 h-3.5 mr-2 text-blue-500" />
-              {moderation?.managerNotice ? 'Editar aviso' : 'Adicionar aviso'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => open('edited')}>
-              <Edit3 className="w-3.5 h-3.5 mr-2 text-slate-500" />Marcar como editado
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {!isApproved ? (
-              <DropdownMenuItem onClick={() => open('approve')}>
-                <CheckSquare className="w-3.5 h-3.5 mr-2 text-teal-600" />Aprovar com selo
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={() => open('revoke')}>
-                <ShieldOff className="w-3.5 h-3.5 mr-2 text-slate-500" />Revogar aprovação
-              </DropdownMenuItem>
+          {/* Badges row */}
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {badge && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${badgeColors[badgeColor || 'slate'] || badgeColors.slate}`}>
+                {badge}
+              </span>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => open('clear')}>
-              <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-500" />Reativar / limpar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+
+            {isExpired && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-300 font-medium">Expirado</span>
+            )}
+
+            {!isExpired && status !== 'active' && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${MOD_STATUS_COLORS[status] ?? ''}`}>
+                {MOD_STATUS_LABELS[status]}
+              </span>
+            )}
+
+            {moderation?.managerNotice && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center gap-0.5 max-w-[140px] truncate" title={moderation.managerNotice}>
+                <Megaphone className="w-2.5 h-2.5 flex-shrink-0" />{moderation.managerNotice}
+              </span>
+            )}
+
+            {date && <span className="text-[10px] text-slate-400 ml-auto shrink-0">{fmtDate(date)}</span>}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="shrink-0 flex items-center pr-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost"
+                className="h-7 w-7 p-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}>
+                <MoreVertical className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => open('highlighted')}>
+                <Sparkles className="w-3.5 h-3.5 mr-2 text-purple-500" />Destacar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => open('restricted')}>
+                <AlertOctagon className="w-3.5 h-3.5 mr-2 text-amber-500" />Restringir
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => open('removed')}>
+                <Trash2 className="w-3.5 h-3.5 mr-2 text-red-500" />Remover (soft)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => open('notice')}>
+                <Megaphone className="w-3.5 h-3.5 mr-2 text-blue-500" />
+                {moderation?.managerNotice ? 'Editar aviso' : 'Adicionar aviso'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => open('edited')}>
+                <Edit3 className="w-3.5 h-3.5 mr-2 text-slate-500" />Marcar como editado
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {!isApproved ? (
+                <DropdownMenuItem onClick={() => open('approve')}>
+                  <CheckSquare className="w-3.5 h-3.5 mr-2 text-teal-600" />Aprovar com selo
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => open('revoke')}>
+                  <ShieldOff className="w-3.5 h-3.5 mr-2 text-slate-500" />Revogar aprovação
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => open('clear')}>
+                <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-500" />Reativar / limpar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Expanded details panel */}
       {expanded && details && (
-        <div className="px-4 pb-3 pt-1 border-t border-slate-200/50 dark:border-slate-700/50 text-xs space-y-1.5">
-          {Object.entries(details).map(([key, val]) => {
-            if (val == null || val === '' || (Array.isArray(val) && val.length === 0)) return null;
-            return (
-              <div key={key} className="flex gap-2">
-                <span className="text-slate-400 shrink-0 min-w-[80px] capitalize">{key}:</span>
-                <span className="text-slate-700 dark:text-slate-300 break-words min-w-0">
-                  {Array.isArray(val)
-                    ? val.join(', ')
-                    : typeof val === 'number' && key.toLowerCase().includes('prec')
-                    ? `R$ ${val.toFixed(2)}`
-                    : typeof val === 'number' && key.toLowerCase().includes('valor')
-                    ? `R$ ${val.toFixed(2)}`
-                    : String(val)}
-                </span>
-              </div>
-            );
-          })}
-          {/* Show moderation details if present */}
+        <div className="px-4 pb-3 pt-2 border-t border-slate-100 dark:border-slate-700/50 text-xs">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {Object.entries(details).map(([key, val]) => {
+              if (val == null || val === '' || (Array.isArray(val) && val.length === 0)) return null;
+              const isLong = typeof val === 'string' && val.length > 60;
+              return (
+                <div key={key} className={`flex flex-col ${isLong ? 'col-span-2' : ''}`}>
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">{key}</span>
+                  <span className="text-slate-700 dark:text-slate-300 break-words">
+                    {Array.isArray(val)
+                      ? val.join(', ')
+                      : typeof val === 'number' && (key.toLowerCase().includes('prec') || key.toLowerCase().includes('valor') || key.toLowerCase().includes('meta') || key.toLowerCase().includes('atual'))
+                      ? `R$ ${val.toFixed(2)}`
+                      : String(val)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {/* Moderation info */}
           {moderation && status !== 'active' && (
-            <div className="pt-1.5 mt-1.5 border-t border-slate-200/50 dark:border-slate-700/50">
-              <p className="text-[10px] font-semibold text-slate-500 mb-1">Moderação</p>
-              {moderation.actorEmail && <p className="text-slate-400">Moderado por: <span className="text-slate-600 dark:text-slate-300">{moderation.actorEmail}</span></p>}
-              {moderation.editNote && <p className="text-slate-400">Nota: <span className="text-slate-600 dark:text-slate-300">{moderation.editNote}</span></p>}
-              {moderation.expiresAt && <p className="text-slate-400">Expira: <span className="text-slate-600 dark:text-slate-300">{fmtDate(moderation.expiresAt)}</span></p>}
-              {moderation.updatedAt && <p className="text-slate-400">Atualizado: <span className="text-slate-600 dark:text-slate-300">{fmtDate(moderation.updatedAt)}</span></p>}
+            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/50 grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="col-span-2"><span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Moderação</span></div>
+              {moderation.actorEmail && (
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400">Moderado por</span>
+                  <span className="text-slate-600 dark:text-slate-300">{moderation.actorEmail}</span>
+                </div>
+              )}
+              {moderation.expiresAt && (
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-slate-400">Expira em</span>
+                  <span className="text-slate-600 dark:text-slate-300">{fmtDate(moderation.expiresAt)}</span>
+                </div>
+              )}
+              {moderation.editNote && (
+                <div className="flex flex-col col-span-2">
+                  <span className="text-[10px] text-slate-400">Nota interna</span>
+                  <span className="text-slate-600 dark:text-slate-300">{moderation.editNote}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1016,6 +1077,9 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                           <ContentItem key={p.id}
                             entityType="product" entityId={p.id}
                             title={p.title} date={p.createdAt}
+                            imageUrl={p.images?.[0]}
+                            price={p.price}
+                            subtitle={[p.category, p.condition].filter(Boolean).join(' · ')}
                             badge={p.active ? 'Ativo' : 'Inativo'} badgeColor={p.active ? 'emerald' : 'slate'}
                             moderation={modMap[`product:${p.id}`]}
                             onOpenModConfig={openModConfig}
@@ -1035,6 +1099,9 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                           <ContentItem key={s.id}
                             entityType="service" entityId={s.id}
                             title={s.title} date={s.createdAt}
+                            imageUrl={s.images?.[0]}
+                            price={s.pricePerHour}
+                            subtitle={s.serviceType || undefined}
                             badge={s.active ? 'Ativo' : 'Inativo'} badgeColor={s.active ? 'emerald' : 'slate'}
                             moderation={modMap[`service:${s.id}`]}
                             onOpenModConfig={openModConfig}
@@ -1053,6 +1120,8 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                           <ContentItem key={p.id}
                             entityType="project" entityId={p.id}
                             title={p.title} date={p.createdAt}
+                            imageUrl={p.imageUrl}
+                            subtitle={p.status}
                             badge={p.status} badgeColor="blue"
                             moderation={modMap[`project:${p.id}`]}
                             onOpenModConfig={openModConfig}
@@ -1071,6 +1140,8 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                           <ContentItem key={n.id}
                             entityType="news" entityId={n.id}
                             title={n.title} date={n.createdAt}
+                            imageUrl={n.imageUrl}
+                            subtitle={n.summary?.slice(0, 60)}
                             badge={n.isPublished ? 'Publicada' : 'Rascunho'} badgeColor={n.isPublished ? 'emerald' : 'slate'}
                             moderation={modMap[`news:${n.id}`]}
                             onOpenModConfig={openModConfig}
@@ -1090,6 +1161,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                             entityType="comment" entityId={c.id}
                             title={c.content?.slice(0, 100) + (c.content?.length > 100 ? '…' : '')}
                             date={c.createdAt}
+                            subtitle={c.news?.title ? `em: ${c.news.title}` : undefined}
                             moderation={modMap[`comment:${c.id}`]}
                             onOpenModConfig={openModConfig}
                             details={{
