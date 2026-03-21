@@ -19,6 +19,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import verificadoImg from '@/assets/verificado.png';
 
 const roleLabels: Record<string, string> = {
   usuario: 'Usuário',
@@ -507,8 +508,11 @@ export default function Profile() {
               </label>
             </div>
             <div className="flex-1 pb-4">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 {user?.full_name || 'Seu Nome'}
+                {user?.isVerified && (
+                  <img src={verificadoImg} alt="Perfil verificado" title="Perfil verificado" className="w-6 h-6 inline-block shrink-0 object-contain" />
+                )}
               </h1>
               <p className="text-slate-500">{user?.email}</p>
               <div className="flex items-center gap-2 mt-2">

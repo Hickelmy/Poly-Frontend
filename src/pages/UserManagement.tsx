@@ -1563,208 +1563,154 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
               <TabsContent value="audit" className="mt-0">
                 {(auditLogs as any[]).length === 0 ? (
                   <div className="text-center py-8 text-slate-400">Nenhum registro de auditoria para este usuário</div>
-                ) : (
-                  <div className="space-y-4">
-                    {(auditLogs as any[]).map((log: any) => {
-                      const isContentAction = log.action?.startsWith('content_');
-                      const entityType = log.entity;
-                      const content = log._content; // enriched entity data from backend
-                      const currentMod = log._currentModeration;
-                      const contentTitle = content?.title || log.details?.contentTitle || null;
-                      const contentImage = content?.images?.[0] || content?.imageUrl || null;
-                      const contentDesc = content?.description || content?.summary || null;
-                      const contentPrice = content?.price ?? content?.pricePerHour ?? content?.targetAmount ?? null;
-                      const entityLabel = content?._entityLabel || ({ product: 'Produto', service: 'Serviço', project: 'Projeto', news: 'Notícia', comment: 'Comentário' }[entityType] || entityType);
-                      const ownerName = content?.sellerName || content?.providerName || content?.sellerEmail || content?.providerEmail || content?.ownerEmail || log.targetEmail || null;
-                      const EntityIcon = entityType ? (ENTITY_TYPE_ICONS[entityType] || ClipboardList) : ClipboardList;
+                ) : (() => {
+                  const logs = auditLogs as any[];
+                  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-                      const actionColor =
-                        log.action === 'content_removed' ? 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20' :
-                        log.action === 'content_restricted' ? 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20' :
-                        log.action === 'content_highlighted' ? 'border-l-purple-500 bg-purple-50/50 dark:bg-purple-950/20' :
-                        log.action === 'content_approved' ? 'border-l-teal-500 bg-teal-50/50 dark:bg-teal-950/20' :
-                        log.action === 'content_active' ? 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' :
-                        log.action?.includes('ban') ? 'border-l-red-500' :
-                        log.action?.includes('block') ? 'border-l-amber-500' :
-                        log.action?.includes('verify') ? 'border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20' :
-                        'border-l-slate-300';
+                  // Group content logs by entity key, keep non-content logs separate
+                  const groups: { key: string; entityType?: string; entityId?: string; content?: any; currentMod?: any; logs: any[] }[] = [];
+                  const entityGroupMap: Record<string, number> = {};
 
-                      const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+                  for (const log of logs) {
+                    const isContent = log.action?.startsWith('content_');
+                    if (isContent && log.entity && log.entityId) {
+                      const gk = `${log.entity}:${log.entityId}`;
+                      if (entityGroupMap[gk] != null) {
+                        groups[entityGroupMap[gk]].logs.push(log);
+                        // Update currentMod to the latest enriched one
+                        if (log._currentModeration) groups[entityGroupMap[gk]].currentMod = log._currentModeration;
+                        if (log._content) groups[entityGroupMap[gk]].content = log._content;
+                      } else {
+                        entityGroupMap[gk] = groups.length;
+                        groups.push({ key: gk, entityType: log.entity, entityId: log.entityId, content: log._content, currentMod: log._currentModeration, logs: [log] });
+                      }
+                    } else {
+                      groups.push({ key: `solo-${log.id}`, logs: [log] });
+                    }
+                  }
 
-                      return (
-                        <div key={log.id} className={`rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 ${actionColor} overflow-hidden`}>
-                          {/* Action header */}
-                          <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <div className="flex items-center gap-1.5">
-                                <EntityIcon className="w-4 h-4 text-slate-400" />
+                  const ACTION_DOT_COLOR: Record<string, string> = {
+                    content_removed: 'bg-red-500',
+                    content_restricted: 'bg-amber-500',
+                    content_highlighted: 'bg-purple-500',
+                    content_approved: 'bg-teal-500',
+                    content_active: 'bg-emerald-500',
+                  };
+
+                  return (
+                    <div className="space-y-3">
+                      {groups.map((group) => {
+                        // ── Solo (non-content) log ──
+                        if (!group.entityType) {
+                          const log = group.logs[0];
+                          const actionColor =
+                            log.action?.includes('ban') ? 'border-l-red-500' :
+                            log.action?.includes('block') ? 'border-l-amber-500' :
+                            log.action?.includes('verify') ? 'border-l-blue-500' :
+                            'border-l-slate-300';
+                          return (
+                            <div key={group.key} className={`rounded-lg border border-slate-200 dark:border-slate-700 border-l-4 ${actionColor} px-3 py-2`}>
+                              <div className="flex items-center justify-between">
                                 <Badge className={`text-[10px] px-1.5 py-0.5 ${MOD_STATUS_COLORS[log.details?.status] || 'bg-slate-100 text-slate-600'}`}>
                                   {ACTION_LABELS[log.action] || log.action}
                                 </Badge>
+                                <span className="text-[11px] text-slate-400">{fmtDate(log.createdAt)}</span>
                               </div>
-                              {isContentAction && entityLabel && (
-                                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{entityLabel}</span>
-                              )}
+                              {log.actorEmail && <p className="text-[11px] text-slate-500 mt-1">Por: <span className="font-medium text-slate-700 dark:text-slate-300">{log.actorEmail}</span></p>}
+                              {log.details?.reason && <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">Motivo: {log.details.reason}</p>}
+                              {log.details?.new_role && <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5">Novo cargo: {ROLE_LABELS[log.details.new_role] || log.details.new_role}</p>}
                             </div>
-                            <span className="text-[11px] text-slate-400 shrink-0">{fmtDate(log.createdAt)}</span>
-                          </div>
+                          );
+                        }
 
-                          {/* Content card for content actions */}
-                          {isContentAction && content && (
-                            <div className="mx-4 mb-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden">
-                              <div className="flex gap-0">
-                                {/* Image */}
-                                {contentImage ? (
-                                  <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700">
-                                    <img src={contentImage} alt="" className="w-full h-full object-cover" />
-                                  </div>
-                                ) : (
-                                  <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                                    <EntityIcon className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                                  </div>
-                                )}
-                                {/* Info */}
-                                <div className="flex-1 min-w-0 p-3">
-                                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{contentTitle || 'Sem título'}</p>
-                                  {contentDesc && (
-                                    <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{contentDesc.slice(0, 120)}</p>
+                        // ── Grouped content logs ──
+                        const { content, currentMod, entityType: et, entityId: eid } = group;
+                        const contentTitle = content?.title || group.logs[0]?.details?.contentTitle || 'Sem título';
+                        const contentImage = content?.images?.[0] || content?.imageUrl || null;
+                        const contentPrice = content?.price ?? content?.pricePerHour ?? content?.targetAmount ?? null;
+                        const entityLabel = content?._entityLabel || ({ product: 'Produto', service: 'Serviço', project: 'Projeto', news: 'Notícia', comment: 'Comentário' }[et!] || et);
+                        const EntityIcon = et ? (ENTITY_TYPE_ICONS[et] || ClipboardList) : ClipboardList;
+
+                        return (
+                          <div key={group.key} className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                            {/* Entity header — shown once */}
+                            <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-700/50">
+                              {contentImage ? (
+                                <img src={contentImage} alt="" className="w-10 h-10 rounded-md object-cover shrink-0" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-md bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                                  <EntityIcon className="w-5 h-5 text-slate-400" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{contentTitle}</p>
+                                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold shrink-0">{entityLabel}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {contentPrice != null && (
+                                    <span className="text-xs font-bold text-teal-600 dark:text-teal-400">{formatCurrency(contentPrice)}</span>
                                   )}
-                                  <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                    {contentPrice != null && (
-                                      <span className="text-sm font-bold text-teal-600 dark:text-teal-400">{formatCurrency(contentPrice)}</span>
-                                    )}
-                                    {content?.category && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">{content.category}</span>
-                                    )}
-                                    {content?.condition && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">{content.condition}</span>
-                                    )}
-                                    {content?.serviceType && (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">{content.serviceType}</span>
-                                    )}
-                                  </div>
+                                  {currentMod && (
+                                    <Badge className={`text-[9px] px-1.5 py-0 ${MOD_STATUS_COLORS[currentMod.status] || 'bg-slate-100 text-slate-600'}`}>
+                                      {MOD_STATUS_LABELS[currentMod.status] || currentMod.status}
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Fallback content title when _content not available */}
-                          {isContentAction && !content && contentTitle && (
-                            <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
-                              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{contentTitle}</p>
-                            </div>
-                          )}
-
-                          {/* Moderation details */}
-                          <div className="px-4 pb-3 space-y-2">
-                            {/* Action details */}
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                              {log.actorEmail && (
-                                <span className="text-slate-500">
-                                  Moderador: <span className="font-medium text-slate-700 dark:text-slate-300">{log.actorEmail}</span>
-                                </span>
-                              )}
-                              {ownerName && (
-                                <span className="text-slate-500">
-                                  Dono: <span className="font-medium text-slate-700 dark:text-slate-300">{ownerName}</span>
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Moderation metadata */}
-                            {(log.details?.managerNotice || log.details?.expiresAt || log.details?.editNote || log.details?.approvalNote || log.details?.reason) && (
-                              <div className="p-2 rounded-md bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 text-[11px] space-y-1">
-                                {(log.details?.managerNotice || log.details?.reason) && (
-                                  <p className="text-slate-600 dark:text-slate-400">
-                                    <Megaphone className="w-3 h-3 inline mr-1 -mt-0.5 text-amber-500" />
-                                    <span className="font-medium">
-                                      {log.details?.reason ? 'Motivo: ' : 'Aviso: '}
-                                    </span>
-                                    {log.details?.managerNotice || log.details?.reason}
-                                  </p>
-                                )}
-                                {log.details?.expiresAt && (
-                                  <p className="text-slate-500">
-                                    <Clock className="w-3 h-3 inline mr-1 -mt-0.5" />
-                                    <span className="font-medium">Expira:</span> {fmtDate(log.details.expiresAt)}
-                                  </p>
-                                )}
-                                {log.details?.editNote && (
-                                  <p className="text-slate-500">
-                                    <Edit3 className="w-3 h-3 inline mr-1 -mt-0.5" />
-                                    <span className="font-medium">Nota edição:</span> {log.details.editNote}
-                                  </p>
-                                )}
-                                {log.details?.approvalNote && (
-                                  <p className="text-slate-500">
-                                    <ShieldCheck className="w-3 h-3 inline mr-1 -mt-0.5" />
-                                    <span className="font-medium">Nota aprovação:</span> {log.details.approvalNote}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Current moderation state indicator */}
-                            {isContentAction && currentMod && (
-                              <div className="flex items-center gap-2 text-[11px]">
-                                <span className="text-slate-400">Estado atual:</span>
-                                <Badge className={`text-[10px] px-1.5 py-0 ${MOD_STATUS_COLORS[currentMod.status] || 'bg-slate-100 text-slate-600'}`}>
-                                  {MOD_STATUS_LABELS[currentMod.status] || currentMod.status}
-                                </Badge>
-                              </div>
-                            )}
-
-                            {/* Non-content action details */}
-                            {!isContentAction && (
-                              <div className="text-xs space-y-0.5">
-                                {log.details?.reason && (
-                                  <p className="text-amber-600 dark:text-amber-400">
-                                    <span className="font-medium">Motivo:</span> {log.details.reason}
-                                  </p>
-                                )}
-                                {log.details?.new_role && (
-                                  <p className="text-blue-600 dark:text-blue-400">
-                                    <span className="font-medium">Novo cargo:</span> {ROLE_LABELS[log.details.new_role] || log.details.new_role}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Action buttons for content moderation */}
-                            {isContentAction && log.entityId && entityType && (
-                              <div className="flex gap-2 pt-1">
-                                {currentMod && currentMod.status !== 'active' && (
-                                  <Button
-                                    size="sm" variant="outline"
-                                    className="h-7 text-[11px] gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
-                                    onClick={() => openModConfig(entityType, log.entityId, contentTitle || 'Conteúdo', 'clear', null)}
-                                  >
-                                    <Undo2 className="w-3 h-3" />
-                                    Reverter para ativo
+                              {/* Action buttons — once per entity */}
+                              {et && eid && (
+                                <div className="flex gap-1.5 shrink-0">
+                                  {currentMod && currentMod.status !== 'active' && (
+                                    <Button size="sm" variant="outline"
+                                      className="h-7 text-[10px] gap-1 px-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
+                                      onClick={() => openModConfig(et, eid, contentTitle, 'clear', null)}>
+                                      <Undo2 className="w-3 h-3" />Reverter
+                                    </Button>
+                                  )}
+                                  <Button size="sm" variant="outline"
+                                    className="h-7 text-[10px] gap-1 px-2 text-slate-500 border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                                    onClick={() => {
+                                      const cs = currentMod?.status || group.logs[0]?.details?.status;
+                                      const action: ModAction = cs === 'highlighted' ? 'highlighted' :
+                                        cs === 'restricted' ? 'restricted' :
+                                        cs === 'removed' ? 'removed' : 'notice';
+                                      openModConfig(et, eid, contentTitle, action, currentMod || group.logs[0]?.details);
+                                    }}>
+                                    <Edit3 className="w-3 h-3" />Editar
                                   </Button>
-                                )}
-                                <Button
-                                  size="sm" variant="outline"
-                                  className="h-7 text-[11px] gap-1.5 text-slate-500 border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-                                  onClick={() => {
-                                    const cs = currentMod?.status || log.details?.status;
-                                    const action: ModAction = cs === 'highlighted' ? 'highlighted' :
-                                      cs === 'restricted' ? 'restricted' :
-                                      cs === 'removed' ? 'removed' : 'notice';
-                                    openModConfig(entityType, log.entityId, contentTitle || 'Conteúdo', action, currentMod || log.details);
-                                  }}
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                  Editar moderação
-                                </Button>
-                              </div>
-                            )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Timeline rows — compact, one per action */}
+                            <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                              {group.logs.map((log: any) => (
+                                <div key={log.id} className="px-3 py-2 flex items-start gap-2.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                                  <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${ACTION_DOT_COLOR[log.action] || (log.action?.includes('ban') ? 'bg-red-500' : log.action?.includes('block') ? 'bg-amber-500' : 'bg-slate-400')}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{ACTION_LABELS[log.action] || log.action}</span>
+                                      {log.actorEmail && <span className="text-[10px] text-slate-400">por {log.actorEmail}</span>}
+                                      <span className="text-[10px] text-slate-400 ml-auto shrink-0">{fmtDate(log.createdAt)}</span>
+                                    </div>
+                                    {(log.details?.managerNotice || log.details?.reason) && (
+                                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                                        {log.details?.reason ? `Motivo: ${log.details.reason}` : `Aviso: ${log.details.managerNotice}`}
+                                      </p>
+                                    )}
+                                    {log.details?.editNote && <p className="text-[11px] text-slate-500 mt-0.5 truncate">Nota: {log.details.editNote}</p>}
+                                    {log.details?.approvalNote && <p className="text-[11px] text-slate-500 mt-0.5 truncate">Aprovação: {log.details.approvalNote}</p>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </TabsContent>
             </Tabs>
           </div>
