@@ -1232,6 +1232,39 @@ const events = {
   },
 };
 
+// Moderação de conteúdo
+const contentModeration = {
+  async getByUser(userId: string): Promise<any> {
+    return apiRequest(`/content-moderation/user/${userId}`, { method: 'GET' });
+  },
+  async get(entityType: string, entityId: string): Promise<any> {
+    return apiRequest(`/content-moderation/${entityType}/${entityId}`, { method: 'GET' });
+  },
+  async upsert(entityType: string, entityId: string, data: {
+    status?: string;
+    managerNotice?: string | null;
+    wasEdited?: boolean;
+    editNote?: string | null;
+  }): Promise<any> {
+    return apiRequest(`/content-moderation/${entityType}/${entityId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+  async approve(entityType: string, entityId: string, approvalNote?: string): Promise<any> {
+    return apiRequest(`/content-moderation/${entityType}/${entityId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ approvalNote }),
+    });
+  },
+  async revokeApproval(entityType: string, entityId: string): Promise<any> {
+    return apiRequest(`/content-moderation/${entityType}/${entityId}/revoke-approval`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
+  },
+};
+
 // Feature Flags API
 const featureFlags = {
   async list(category?: string): Promise<any> {
@@ -1299,6 +1332,7 @@ export const polysApi = {
   news,
   users,
   events,
+  contentModeration,
   featureFlags,
   clearAllLocalData,
   entities: Object.keys(entityCollections).reduce<Record<string, any>>((acc, name) => {

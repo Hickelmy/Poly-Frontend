@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { polysApi } from '@/api/polysClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -9,12 +9,13 @@ import {
   Package, Wrench, FolderOpen, MessageSquare, ShoppingBag,
   ClipboardList, ChevronRight, AlertTriangle, CheckCircle2,
   Activity, MousePointerClick, Globe, Clock, BarChart2, RefreshCw,
+  Star, Megaphone, Trash2, Sparkles, Edit3, AlertOctagon, CheckSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -37,7 +38,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── constants ────────────────────────────────────────────────────────────────
 
 const ROLE_LABELS: Record<string, string> = {
   USER: 'Usuário', usuario: 'Usuário',
@@ -58,12 +59,30 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const ACTION_LABELS: Record<string, string> = {
-  block_user: 'Bloqueou usuário',
-  unblock_user: 'Desbloqueou usuário',
-  ban_user: 'Baniu usuário',
-  unban_user: 'Desbaniu usuário',
+  block_user: 'Bloqueou usuário', unblock_user: 'Desbloqueou usuário',
+  ban_user: 'Baniu usuário', unban_user: 'Desbaniu usuário',
   update_user_role: 'Alterou cargo',
+  content_active: 'Reativou conteúdo', content_restricted: 'Restringiu conteúdo',
+  content_removed: 'Removeu conteúdo', content_highlighted: 'Destacou conteúdo',
+  content_approved: 'Aprovou conteúdo', content_moderated: 'Moderou conteúdo',
 };
+
+const MOD_STATUS_LABELS: Record<string, string> = {
+  active: 'Ativo', restricted: 'Restrito', removed: 'Removido',
+  highlighted: 'Destacado', approved: 'Aprovado',
+};
+
+const MOD_STATUS_COLORS: Record<string, string> = {
+  active: 'bg-emerald-100 text-emerald-700',
+  restricted: 'bg-amber-100 text-amber-700',
+  removed: 'bg-red-100 text-red-700',
+  highlighted: 'bg-purple-100 text-purple-700',
+  approved: 'bg-teal-100 text-teal-700',
+};
+
+const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function statusBadge(user: any) {
   if (user.is_banned || user.isBanned)
@@ -78,7 +97,187 @@ function fmtDate(d: any) {
   try { return format(new Date(d), 'dd/MM/yyyy HH:mm', { locale: ptBR }); } catch { return '-'; }
 }
 
-// ─── ActivitySection + ActivityItem ──────────────────────────────────────────
+// ─── ApprovalSeal ─────────────────────────────────────────────────────────────
+
+interface ApprovalSealProps {
+  approvedByEmail?: string;
+  approvedAt?: string;
+  approvalNote?: string;
+  small?: boolean;
+}
+
+function ApprovalSeal({ approvedByEmail, approvedAt, approvalNote, small }: ApprovalSealProps) {
+  const sz = small ? 'w-14 h-14' : 'w-28 h-28';
+  const tipText = [
+    approvedAt ? `Aprovado em ${fmtDate(approvedAt)}` : '',
+    approvedByEmail ? `por ${approvedByEmail}` : '',
+    approvalNote ? `"${approvalNote}"` : '',
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <div className={`relative flex-shrink-0 ${sz} select-none`} title={tipText}>
+      <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full drop-shadow-md">
+        {/* Outer dashed ceremonial ring */}
+        <circle cx="60" cy="60" r="57" fill="none" stroke="#92400e" strokeWidth="1.2" strokeDasharray="3 2.5" />
+        {/* Main background */}
+        <circle cx="60" cy="60" r="53" fill="url(#sealGrad)" stroke="#d97706" strokeWidth="2.5" />
+        {/* Inner decorative ring */}
+        <circle cx="60" cy="60" r="45" fill="none" stroke="#f59e0b" strokeWidth="0.8" strokeDasharray="2.5 3" />
+        {/* Gradient definition */}
+        <defs>
+          <radialGradient id="sealGrad" cx="50%" cy="40%" r="60%">
+            <stop offset="0%" stopColor="#fffdf0" />
+            <stop offset="100%" stopColor="#fef3c7" />
+          </radialGradient>
+        </defs>
+        {/* Top star */}
+        <polygon points="60,10 62.6,17.5 70.6,17.5 64.3,22.3 66.9,29.8 60,25 53.1,29.8 55.7,22.3 49.4,17.5 57.4,17.5"
+          fill="#d97706" />
+        {/* Bottom star */}
+        <polygon points="60,110 62.6,102.5 70.6,102.5 64.3,97.7 66.9,90.2 60,95 53.1,90.2 55.7,97.7 49.4,102.5 57.4,102.5"
+          fill="#d97706" />
+        {/* Left ornament */}
+        <circle cx="14" cy="60" r="3" fill="#f59e0b" />
+        <circle cx="22" cy="60" r="1.5" fill="#d97706" />
+        {/* Right ornament */}
+        <circle cx="106" cy="60" r="3" fill="#f59e0b" />
+        <circle cx="98" cy="60" r="1.5" fill="#d97706" />
+        {/* Horizontal accent lines */}
+        <line x1="26" y1="47" x2="94" y2="47" stroke="#f59e0b" strokeWidth="0.7" />
+        <line x1="26" y1="73" x2="94" y2="73" stroke="#f59e0b" strokeWidth="0.7" />
+      </svg>
+      {/* Text overlay */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none">
+        <span className={`font-black uppercase tracking-widest text-amber-900 leading-none ${small ? 'text-[6px]' : 'text-[11px]'}`}>
+          Aprovado
+        </span>
+        <span className={`font-bold uppercase tracking-wider text-amber-800 leading-none ${small ? 'text-[5px]' : 'text-[8px]'}`}>
+          pela gestão
+        </span>
+        <div className={`border-t border-amber-600 ${small ? 'w-6 my-px' : 'w-10 my-1'}`} />
+        <span className={`font-extrabold text-amber-700 leading-none ${small ? 'text-[5px]' : 'text-[9px]'}`}>
+          ✦ POLYS ✦
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─── CalendarHeatmap ──────────────────────────────────────────────────────────
+
+function CalendarHeatmap({ daily }: { daily: Record<string, number> }) {
+  const cells = useMemo(() => {
+    const today = new Date();
+    const arr: { date: string; count: number; weekday: number }[] = [];
+    for (let i = 90; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      arr.push({ date: key, count: daily[key] ?? 0, weekday: d.getDay() });
+    }
+    return arr;
+  }, [daily]);
+
+  const max = Math.max(...cells.map((c) => c.count), 1);
+
+  const color = (n: number) => {
+    if (n === 0) return 'bg-slate-100 dark:bg-slate-800';
+    const r = n / max;
+    if (r < 0.25) return 'bg-teal-200 dark:bg-teal-900/60';
+    if (r < 0.5) return 'bg-teal-400 dark:bg-teal-700';
+    if (r < 0.75) return 'bg-teal-500 dark:bg-teal-600';
+    return 'bg-teal-600 dark:bg-teal-500';
+  };
+
+  // Group into columns (weeks), pad start
+  const weeks: (typeof cells[0] | null)[][] = [];
+  let col: (typeof cells[0] | null)[] = Array(cells[0]?.weekday ?? 0).fill(null);
+  for (const cell of cells) {
+    col.push(cell);
+    if (col.length === 7) { weeks.push(col); col = []; }
+  }
+  if (col.length) weeks.push(col);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex flex-col gap-1">
+            {week.map((day, di) =>
+              day ? (
+                <div key={di}
+                  title={`${day.date}: ${day.count} evento${day.count !== 1 ? 's' : ''}`}
+                  className={`w-3 h-3 rounded-sm cursor-default transition-transform hover:scale-125 ${color(day.count)}`}
+                />
+              ) : (
+                <div key={di} className="w-3 h-3" />
+              )
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 justify-between">
+        <div className="flex gap-0.5 text-[9px]">
+          {WEEKDAY_LABELS.map((l) => <span key={l} className="w-3 text-center">{l[0]}</span>)}
+        </div>
+        <div className="flex items-center gap-1">
+          <span>Menos</span>
+          {['bg-slate-100 dark:bg-slate-800', 'bg-teal-200', 'bg-teal-400', 'bg-teal-500', 'bg-teal-600'].map((c, i) => (
+            <div key={i} className={`w-3 h-3 rounded-sm ${c}`} />
+          ))}
+          <span>Mais</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── HourlyChart ──────────────────────────────────────────────────────────────
+
+function HourlyChart({ hourly }: { hourly: number[] }) {
+  const max = Math.max(...hourly, 1);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-end gap-px h-14">
+        {hourly.map((v, h) => (
+          <div key={h} className="flex-1 flex flex-col justify-end" title={`${String(h).padStart(2, '0')}h: ${v} eventos`}>
+            <div
+              className="w-full rounded-t-sm bg-teal-500 dark:bg-teal-600 hover:bg-teal-400 transition-colors"
+              style={{ height: `${Math.round((v / max) * 100)}%`, minHeight: v > 0 ? '3px' : '0' }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between text-[9px] text-slate-400 px-0.5">
+        {[0, 3, 6, 9, 12, 15, 18, 21, 23].map((h) => (
+          <span key={h}>{String(h).padStart(2, '0')}h</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── WeekdayChart ─────────────────────────────────────────────────────────────
+
+function WeekdayChart({ weekday }: { weekday: number[] }) {
+  const max = Math.max(...weekday, 1);
+  return (
+    <div className="flex items-end gap-1 h-10">
+      {weekday.map((v, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center justify-end gap-0.5"
+          title={`${WEEKDAY_LABELS[i]}: ${v} eventos`}>
+          <div
+            className="w-full rounded-t-sm bg-purple-400 dark:bg-purple-700 hover:bg-purple-500 transition-colors"
+            style={{ height: `${Math.round((v / max) * 100)}%`, minHeight: v > 0 ? '3px' : '0' }}
+          />
+          <span className="text-[8px] text-slate-400">{WEEKDAY_LABELS[i][0]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── ActivitySection ──────────────────────────────────────────────────────────
 
 function ActivitySection({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
   return (
@@ -91,28 +290,145 @@ function ActivitySection({ title, icon: Icon, children }: { title: string; icon:
   );
 }
 
-function ActivityItem({ title, date, badge, badgeColor }: { title: string; date?: string; badge?: string; badgeColor?: string }) {
+// ─── ContentItem (activity item with moderation actions) ──────────────────────
+
+interface ContentItemProps {
+  entityType: string;
+  entityId: string;
+  title: string;
+  date?: string;
+  badge?: string;
+  badgeColor?: string;
+  moderation: any;
+  onModerate: (entityType: string, entityId: string, action: any) => void;
+  onApprove: (entityType: string, entityId: string) => void;
+  onRevokeApproval: (entityType: string, entityId: string) => void;
+}
+
+function ContentItem({
+  entityType, entityId, title, date, badge, badgeColor,
+  moderation, onModerate, onApprove, onRevokeApproval,
+}: ContentItemProps) {
+  const [noticeInput, setNoticeInput] = useState('');
+  const [showNoticeInput, setShowNoticeInput] = useState(false);
   const colorMap: Record<string, string> = {
     emerald: 'bg-emerald-100 text-emerald-700',
     slate: 'bg-slate-100 text-slate-600',
     blue: 'bg-blue-100 text-blue-700',
     teal: 'bg-teal-100 text-teal-700',
   };
+
+  const status = moderation?.status ?? 'active';
+  const isApproved = status === 'approved';
+  const isRemoved = status === 'removed';
+
   return (
-    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+    <div className={`flex items-center gap-3 p-2.5 rounded-lg transition-all ${
+      isRemoved ? 'bg-red-50 dark:bg-red-900/10 opacity-60' :
+      isApproved ? 'bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-800' :
+      status === 'highlighted' ? 'bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800' :
+      status === 'restricted' ? 'bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800' :
+      'bg-slate-50 dark:bg-slate-800/50'
+    }`}>
       <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
+
+      {isApproved && <ApprovalSeal small approvedByEmail={moderation?.approvedByEmail} approvedAt={moderation?.approvedAt} />}
+
       <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 min-w-0 line-clamp-1">{title}</span>
-      {badge && (
+
+      {moderation?.managerNotice && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5 shrink-0 max-w-[100px] truncate">
+          <Megaphone className="w-2.5 h-2.5 flex-shrink-0" />{moderation.managerNotice}
+        </span>
+      )}
+
+      {status !== 'active' && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${MOD_STATUS_COLORS[status] ?? ''}`}>
+          {MOD_STATUS_LABELS[status]}
+        </span>
+      )}
+
+      {badge && !moderation && (
         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${colorMap[badgeColor || 'slate'] || colorMap.slate}`}>
           {badge}
         </span>
       )}
+
       {date && <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(date)}</span>}
+
+      {/* Moderation actions dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 shrink-0">
+            <MoreVertical className="w-3 h-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { status: 'highlighted' })}>
+            <Sparkles className="w-3.5 h-3.5 mr-2 text-purple-500" />Destacar
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { status: 'restricted' })}>
+            <AlertOctagon className="w-3.5 h-3.5 mr-2 text-amber-500" />Restringir
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { status: 'removed' })}>
+            <Trash2 className="w-3.5 h-3.5 mr-2 text-red-500" />Remover (soft)
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setShowNoticeInput((v) => !v)}>
+            <Megaphone className="w-3.5 h-3.5 mr-2 text-blue-500" />
+            {moderation?.managerNotice ? 'Editar aviso' : 'Adicionar aviso'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { wasEdited: true })}>
+            <Edit3 className="w-3.5 h-3.5 mr-2 text-slate-500" />Marcar como editado
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {!isApproved ? (
+            <DropdownMenuItem onClick={() => onApprove(entityType, entityId)}>
+              <CheckSquare className="w-3.5 h-3.5 mr-2 text-teal-600" />Aprovar com selo
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={() => onRevokeApproval(entityType, entityId)}>
+              <ShieldOff className="w-3.5 h-3.5 mr-2 text-slate-500" />Revogar aprovação
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { status: 'active', managerNotice: null })}>
+            <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-500" />Reativar / limpar
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Inline notice input */}
+      {showNoticeInput && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-3 w-64">
+          <p className="text-xs font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Aviso público no conteúdo</p>
+          <Input
+            value={noticeInput}
+            onChange={(e) => setNoticeInput(e.target.value)}
+            placeholder="Ex: Conteúdo em revisão pela equipe"
+            className="h-8 text-xs mb-2"
+          />
+          <div className="flex gap-1.5">
+            <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700"
+              onClick={() => {
+                onModerate(entityType, entityId, { managerNotice: noticeInput });
+                setShowNoticeInput(false);
+                setNoticeInput('');
+              }}>
+              Salvar
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs"
+              onClick={() => setShowNoticeInput(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── UserDetailModal ─────────────────────────────────────────────────────────
+// ─── UserDetailModal ──────────────────────────────────────────────────────────
 
 interface UserDetailModalProps {
   user: any;
@@ -125,6 +441,8 @@ interface UserDetailModalProps {
 function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDetailModalProps) {
   const [reasonInput, setReasonInput] = useState<string>('');
   const [confirmAction, setConfirmAction] = useState<{ type: string; label: string } | null>(null);
+  const [eventsPage, setEventsPage] = useState<string>('');
+  const [eventsAction, setEventsAction] = useState<string>('');
   const queryClient = useQueryClient();
 
   const { data: activity, isLoading: activityLoading } = useQuery({
@@ -139,13 +457,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
     enabled: open && !!user?.id,
   });
 
-  const [eventsPage, setEventsPage] = useState<string>('');
-  const [eventsAction, setEventsAction] = useState<string>('');
-  const {
-    data: userEvents,
-    isLoading: eventsLoading,
-    refetch: refetchEvents,
-  } = useQuery({
+  const { data: userEvents, isLoading: eventsLoading, refetch: refetchEvents } = useQuery({
     queryKey: ['userEvents', user?.id, eventsPage, eventsAction],
     queryFn: () => polysApi.events.getByUser(user.id, {
       limit: 200,
@@ -155,14 +467,55 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
     enabled: open && !!user?.id,
   });
 
+  const { data: contentMod, isLoading: contentModLoading } = useQuery({
+    queryKey: ['contentMod', user?.id],
+    queryFn: () => polysApi.contentModeration.getByUser(user.id),
+    enabled: open && !!user?.id,
+  });
+
+  // Build a lookup map: "entityType:entityId" → moderation record
+  const modMap = useMemo(() => {
+    const m: Record<string, any> = {};
+    if (contentMod?.items) {
+      for (const item of contentMod.items) {
+        if (item.moderation) m[`${item.entityType}:${item.entityId}`] = item.moderation;
+      }
+    }
+    return m;
+  }, [contentMod]);
+
+  const invalidateContent = () => {
+    queryClient.invalidateQueries({ queryKey: ['contentMod', user?.id] });
+    queryClient.invalidateQueries({ queryKey: ['userAuditLogs', user?.id] });
+  };
+
+  const moderateMutation = useMutation({
+    mutationFn: ({ et, eid, data }: { et: string; eid: string; data: any }) =>
+      polysApi.contentModeration.upsert(et, eid, data),
+    onSuccess: () => { invalidateContent(); toast.success('Moderação aplicada'); },
+    onError: (e: any) => toast.error(e?.message || 'Erro'),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: ({ et, eid }: { et: string; eid: string }) =>
+      polysApi.contentModeration.approve(et, eid),
+    onSuccess: () => { invalidateContent(); toast.success('Conteúdo aprovado com selo'); },
+    onError: (e: any) => toast.error(e?.message || 'Erro'),
+  });
+
+  const revokeApprovalMutation = useMutation({
+    mutationFn: ({ et, eid }: { et: string; eid: string }) =>
+      polysApi.contentModeration.revokeApproval(et, eid),
+    onSuccess: () => { invalidateContent(); toast.success('Aprovação revogada'); },
+    onError: (e: any) => toast.error(e?.message || 'Erro'),
+  });
+
   const mutOpts = {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUsers'] });
       queryClient.invalidateQueries({ queryKey: ['userAuditLogs', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['userActivity', user?.id] });
-      onRefresh();
-      setConfirmAction(null);
-      setReasonInput('');
+      onRefresh(); setConfirmAction(null); setReasonInput('');
     },
     onError: (e: any) => toast.error(e?.message || 'Erro ao executar ação'),
   };
@@ -201,10 +554,23 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
     else if (confirmAction.type === 'unban') unbanMutation.mutate();
   };
 
+  const handleModerate = (et: string, eid: string, data: any) =>
+    moderateMutation.mutate({ et, eid, data });
+  const handleApprove = (et: string, eid: string) =>
+    approveMutation.mutate({ et, eid });
+  const handleRevokeApproval = (et: string, eid: string) =>
+    revokeApprovalMutation.mutate({ et, eid });
+
   const isBlocked = user?.is_blocked || user?.isBlocked;
   const isBanned = user?.is_banned || user?.isBanned;
 
   if (!user) return null;
+
+  const heatmap = userEvents?.heatmap;
+  const totalDurSec = userEvents?.totalDurationSec ?? 0;
+  const totalDurLabel = totalDurSec >= 3600
+    ? `${Math.round(totalDurSec / 3600)}h`
+    : `${Math.round(totalDurSec / 60)}min`;
 
   return (
     <>
@@ -278,39 +644,71 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                       ))}
                     </div>
 
+                    <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <AlertOctagon className="w-3 h-3" />
+                      Use o menu ⋮ em cada item para moderar, aprovar, restringir ou adicionar avisos.
+                    </p>
+
                     {activity.products?.length > 0 && (
                       <ActivitySection title="Produtos cadastrados" icon={Package}>
-                        {activity.products.slice(0, 10).map((p: any) => (
-                          <ActivityItem key={p.id} title={p.title} date={p.createdAt}
-                            badge={p.active ? 'Ativo' : 'Inativo'} badgeColor={p.active ? 'emerald' : 'slate'} />
+                        {activity.products.slice(0, 15).map((p: any) => (
+                          <div key={p.id} className="relative">
+                            <ContentItem
+                              entityType="product" entityId={p.id}
+                              title={p.title} date={p.createdAt}
+                              badge={p.active ? 'Ativo' : 'Inativo'} badgeColor={p.active ? 'emerald' : 'slate'}
+                              moderation={modMap[`product:${p.id}`]}
+                              onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            />
+                          </div>
                         ))}
                       </ActivitySection>
                     )}
 
                     {activity.services?.length > 0 && (
                       <ActivitySection title="Serviços cadastrados" icon={Wrench}>
-                        {activity.services.slice(0, 10).map((s: any) => (
-                          <ActivityItem key={s.id} title={s.title} date={s.createdAt}
-                            badge={s.active ? 'Ativo' : 'Inativo'} badgeColor={s.active ? 'emerald' : 'slate'} />
+                        {activity.services.slice(0, 15).map((s: any) => (
+                          <div key={s.id} className="relative">
+                            <ContentItem
+                              entityType="service" entityId={s.id}
+                              title={s.title} date={s.createdAt}
+                              badge={s.active ? 'Ativo' : 'Inativo'} badgeColor={s.active ? 'emerald' : 'slate'}
+                              moderation={modMap[`service:${s.id}`]}
+                              onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            />
+                          </div>
                         ))}
                       </ActivitySection>
                     )}
 
                     {activity.projects?.length > 0 && (
                       <ActivitySection title="Projetos criados" icon={FolderOpen}>
-                        {activity.projects.slice(0, 10).map((p: any) => (
-                          <ActivityItem key={p.id} title={p.title} date={p.createdAt}
-                            badge={p.status} badgeColor="blue" />
+                        {activity.projects.slice(0, 15).map((p: any) => (
+                          <div key={p.id} className="relative">
+                            <ContentItem
+                              entityType="project" entityId={p.id}
+                              title={p.title} date={p.createdAt}
+                              badge={p.status} badgeColor="blue"
+                              moderation={modMap[`project:${p.id}`]}
+                              onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            />
+                          </div>
                         ))}
                       </ActivitySection>
                     )}
 
                     {activity.comments?.length > 0 && (
                       <ActivitySection title="Comentários em notícias" icon={MessageSquare}>
-                        {activity.comments.slice(0, 10).map((c: any) => (
-                          <ActivityItem key={c.id}
-                            title={c.content?.slice(0, 100) + (c.content?.length > 100 ? '…' : '')}
-                            date={c.createdAt} />
+                        {activity.comments.slice(0, 15).map((c: any) => (
+                          <div key={c.id} className="relative">
+                            <ContentItem
+                              entityType="comment" entityId={c.id}
+                              title={c.content?.slice(0, 100) + (c.content?.length > 100 ? '…' : '')}
+                              date={c.createdAt}
+                              moderation={modMap[`comment:${c.id}`]}
+                              onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            />
+                          </div>
                         ))}
                       </ActivitySection>
                     )}
@@ -318,9 +716,14 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                     {activity.orders?.length > 0 && (
                       <ActivitySection title="Pedidos realizados" icon={ShoppingBag}>
                         {activity.orders.slice(0, 10).map((o: any) => (
-                          <ActivityItem key={o.id}
-                            title={`Pedido #${o.id.slice(-6).toUpperCase()} · R$ ${(o.total || 0).toFixed(2)}`}
-                            date={o.createdAt} badge={o.status} badgeColor="teal" />
+                          <div key={o.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                            <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 min-w-0 line-clamp-1">
+                              Pedido #{o.id.slice(-6).toUpperCase()} · R$ {(o.total || 0).toFixed(2)}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 shrink-0">{o.status}</span>
+                            <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(o.createdAt)}</span>
+                          </div>
                         ))}
                       </ActivitySection>
                     )}
@@ -334,7 +737,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
               </TabsContent>
 
               {/* ── BEHAVIOR TAB ── */}
-              <TabsContent value="behavior" className="space-y-4 mt-0">
+              <TabsContent value="behavior" className="space-y-5 mt-0">
                 {/* Filters */}
                 <div className="flex gap-2 flex-wrap">
                   <Input
@@ -368,14 +771,10 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                     {/* Summary cards */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
-                        { icon: Globe, label: 'Páginas visitadas', value: userEvents.topPages?.length ?? 0, color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/30' },
+                        { icon: Globe, label: 'Páginas únicas', value: userEvents.topPages?.length ?? 0, color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/30' },
                         { icon: MousePointerClick, label: 'Total de eventos', value: userEvents.total ?? 0, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' },
                         { icon: Activity, label: 'Sessões', value: userEvents.totalSessions ?? 0, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30' },
-                        { icon: Clock, label: 'Tempo total', value: userEvents.totalDurationSec
-                            ? userEvents.totalDurationSec >= 3600
-                              ? `${Math.round(userEvents.totalDurationSec / 3600)}h`
-                              : `${Math.round(userEvents.totalDurationSec / 60)}min`
-                            : '0min', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' },
+                        { icon: Clock, label: 'Tempo registrado', value: totalDurLabel, color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' },
                       ].map(({ icon: Icon, label, value, color }) => (
                         <Card key={label} className="border-0 shadow-sm">
                           <CardContent className="p-3 flex items-center gap-2">
@@ -389,16 +788,45 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                       ))}
                     </div>
 
+                    {/* Calendar heatmap */}
+                    {heatmap?.daily && Object.keys(heatmap.daily).length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <BarChart2 className="w-4 h-4" />Mapa de calor — últimos 90 dias
+                        </h4>
+                        <CalendarHeatmap daily={heatmap.daily} />
+                      </div>
+                    )}
+
+                    {/* Hourly + weekday charts side by side */}
+                    {heatmap?.hourly && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <Clock className="w-4 h-4" />Atividade por hora do dia
+                          </h4>
+                          <HourlyChart hourly={heatmap.hourly} />
+                        </div>
+                        {heatmap?.weekday && (
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                              <Activity className="w-4 h-4" />Atividade por dia da semana
+                            </h4>
+                            <WeekdayChart weekday={heatmap.weekday} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Top pages */}
                     {userEvents.topPages?.length > 0 && (
                       <div className="space-y-2">
                         <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                          <BarChart2 className="w-4 h-4" />Páginas mais acessadas
+                          <Globe className="w-4 h-4" />Páginas mais acessadas
                         </h4>
                         <div className="space-y-1.5">
                           {userEvents.topPages.map((p: any) => {
-                            const max = userEvents.topPages[0]?.count || 1;
-                            const pct = Math.round((p.count / max) * 100);
+                            const pct = Math.round((p.count / (userEvents.topPages[0]?.count || 1)) * 100);
                             return (
                               <div key={p.page} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                                 <Globe className="w-3 h-3 text-slate-400 shrink-0" />
@@ -416,7 +844,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                       </div>
                     )}
 
-                    {/* Action distribution */}
+                    {/* Action frequency */}
                     {userEvents.actionFreq && Object.keys(userEvents.actionFreq).length > 0 && (
                       <div className="space-y-2">
                         <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
@@ -442,25 +870,21 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                         <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                           <Clock className="w-4 h-4" />Eventos recentes
                           <span className="text-xs font-normal text-slate-400">
-                            (últimos {userEvents.recent.length} de {userEvents.total})
+                            ({userEvents.recent.length} de {userEvents.total})
                           </span>
                         </h4>
                         <div className="space-y-1">
                           {userEvents.recent.map((ev: any) => (
-                            <div key={ev.id} className="flex items-start gap-2.5 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
-                              <span className={`mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${
+                            <div key={ev.id} className="flex items-center gap-2 p-2 rounded-lg border border-slate-100 dark:border-slate-800 text-xs">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${
                                 ev.action === 'pageview' ? 'bg-teal-100 text-teal-700' :
                                 ev.action === 'click' ? 'bg-blue-100 text-blue-700' :
                                 ev.action === 'search' ? 'bg-amber-100 text-amber-700' :
                                 'bg-slate-100 text-slate-600'
                               }`}>{ev.action}</span>
-                              <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 font-mono truncate">{ev.page}</span>
-                              {ev.target && (
-                                <span className="text-[10px] text-slate-500 shrink-0 truncate max-w-[80px]">{ev.target}</span>
-                              )}
-                              {ev.duration != null && (
-                                <span className="text-[10px] text-slate-400 shrink-0">{ev.duration}s</span>
-                              )}
+                              <span className="font-mono text-slate-600 dark:text-slate-400 flex-1 truncate">{ev.page}</span>
+                              {ev.target && <span className="text-[10px] text-slate-400 shrink-0 truncate max-w-[80px]">{ev.target}</span>}
+                              {ev.duration != null && <span className="text-[10px] text-slate-400 shrink-0">{ev.duration}s</span>}
                               <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(ev.createdAt)}</span>
                             </div>
                           ))}
@@ -470,7 +894,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
 
                     {userEvents.total === 0 && (
                       <div className="text-center py-8 text-slate-400">
-                        Nenhum evento comportamental registrado ainda para este usuário.
+                        Nenhum evento comportamental registrado para este usuário ainda.
                       </div>
                     )}
                   </>
@@ -502,7 +926,6 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                   </Card>
                 )}
 
-                {/* Cargo */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Cargo do usuário</Label>
                   <div className="grid grid-cols-2 gap-2">
@@ -528,7 +951,6 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                   </div>
                 </div>
 
-                {/* Motivo */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Motivo da ação (opcional)</Label>
                   <Textarea
@@ -539,7 +961,6 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                   />
                 </div>
 
-                {/* Ações */}
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t">
                   {!isBlocked && !isBanned && (
                     <Button variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
@@ -588,13 +1009,9 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                           <p className="text-sm font-medium text-slate-900 dark:text-white">
                             {ACTION_LABELS[log.action] || log.action}
                           </p>
-                          {log.actorEmail && (
-                            <p className="text-xs text-slate-500 mt-0.5">por {log.actorEmail}</p>
-                          )}
+                          {log.actorEmail && <p className="text-xs text-slate-500 mt-0.5">por {log.actorEmail}</p>}
                           {log.details?.reason && (
-                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                              Motivo: {log.details.reason}
-                            </p>
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Motivo: {log.details.reason}</p>
                           )}
                           {log.details?.new_role && (
                             <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
@@ -613,13 +1030,11 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
         </DialogContent>
       </Dialog>
 
-      {/* Confirm dialog */}
       <AlertDialog open={!!confirmAction} onOpenChange={(v) => { if (!v) setConfirmAction(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              {confirmAction?.label}
+              <AlertTriangle className="w-5 h-5 text-amber-500" />{confirmAction?.label}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction?.type === 'ban'
@@ -636,14 +1051,12 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={execConfirm}
+            <AlertDialogAction onClick={execConfirm}
               className={
                 confirmAction?.type === 'ban' ? 'bg-red-600 hover:bg-red-700' :
                 confirmAction?.type === 'block' ? 'bg-amber-600 hover:bg-amber-700' :
                 'bg-teal-600 hover:bg-teal-700'
-              }
-            >
+              }>
               {confirmAction?.label}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -653,7 +1066,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function UserManagement() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -715,11 +1128,10 @@ export default function UserManagement() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gestão de Usuários</h1>
         <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Moderação, cargos e auditoria de todos os usuários da plataforma
+          Moderação, cargos, conteúdo e auditoria de todos os usuários da plataforma
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total', value: (users as any[]).length, icon: Users, color: 'bg-slate-100 dark:bg-slate-800', iconColor: 'text-slate-600 dark:text-slate-400' },
@@ -740,139 +1152,121 @@ export default function UserManagement() {
       </div>
 
       {/* Filters */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input placeholder="Buscar por nome ou email..."
-                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
-            </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-44">
-                <Filter className="w-4 h-4 mr-2 text-slate-400" />
-                <SelectValue placeholder="Cargo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os cargos</SelectItem>
-                <SelectItem value="user">Usuário</SelectItem>
-                <SelectItem value="support">Suporte</SelectItem>
-                <SelectItem value="admin">Administrador</SelectItem>
-                <SelectItem value="manager">Gestor</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-44">
-                <Activity className="w-4 h-4 mr-2 text-slate-400" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="active">Ativos</SelectItem>
-                <SelectItem value="blocked">Bloqueados</SelectItem>
-                <SelectItem value="banned">Banidos</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            placeholder="Buscar por nome ou email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Cargo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os cargos</SelectItem>
+            <SelectItem value="user">Usuário</SelectItem>
+            <SelectItem value="support">Suporte</SelectItem>
+            <SelectItem value="admin">Administrador</SelectItem>
+            <SelectItem value="manager">Gestor</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os status</SelectItem>
+            <SelectItem value="active">Ativos</SelectItem>
+            <SelectItem value="blocked">Bloqueados</SelectItem>
+            <SelectItem value="banned">Banidos</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Table */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Usuários ({filtered.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="text-center py-12 text-slate-400">Carregando usuários...</div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">Nenhum usuário encontrado</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Usuário</TableHead>
-                    <TableHead>Cargo</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Localização</TableHead>
-                    <TableHead className="hidden lg:table-cell">Cadastro</TableHead>
-                    <TableHead className="w-10"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((u: any) => (
-                    <TableRow
-                      key={u.id}
-                      className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                      onClick={() => { setSelectedUser(u); setDetailOpen(true); }}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="w-8 h-8 shrink-0">
-                            <AvatarImage src={u.avatar_url || u.avatarUrl} />
-                            <AvatarFallback className="bg-teal-100 text-teal-700 text-xs">
-                              {(u.full_name || u.name || u.email)?.charAt(0)?.toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{u.full_name || u.name || 'Sem nome'}</p>
-                            <p className="text-xs text-slate-500 truncate">{u.email}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`text-xs ${ROLE_COLORS[u.user_role || u.role] || ROLE_COLORS.USER}`}>
-                          {ROLE_LABELS[u.user_role || u.role] || 'Usuário'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{statusBadge(u)}</TableCell>
-                      <TableCell className="hidden md:table-cell text-sm text-slate-500">
-                        {u.city ? `${u.city}${u.state ? `, ${u.state}` : ''}` : '-'}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-xs text-slate-400">
-                        {fmtDate(u.created_date || u.createdAt)}
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => { setSelectedUser(u); setDetailOpen(true); }}>
-                              <Eye className="w-4 h-4 mr-2" />Ver perfil e atividade
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setSelectedUser(u); setDetailOpen(true); }}>
-                              <UserCog className="w-4 h-4 mr-2" />Alterar cargo
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-amber-600" onClick={() => { setSelectedUser(u); setDetailOpen(true); }}>
-                              <Lock className="w-4 h-4 mr-2" />Bloquear / Desbloquear
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600" onClick={() => { setSelectedUser(u); setDetailOpen(true); }}>
-                              <Ban className="w-4 h-4 mr-2" />Banir / Desbanir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-slate-50 dark:bg-slate-900">
+              <TableHead>Usuário</TableHead>
+              <TableHead>Cargo</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Localização</TableHead>
+              <TableHead>Cadastro</TableHead>
+              <TableHead className="w-10" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-slate-400">Carregando...</TableCell>
+              </TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-slate-400">Nenhum usuário encontrado</TableCell>
+              </TableRow>
+            ) : filtered.map((u: any) => (
+              <TableRow key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                onClick={() => { setSelectedUser(u); setDetailOpen(true); }}>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={u.avatar_url || u.avatarUrl} />
+                      <AvatarFallback className="bg-teal-100 text-teal-700 text-xs">
+                        {(u.full_name || u.name || u.email)?.charAt(0)?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{u.full_name || u.name || '—'}</p>
+                      <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge className={`${ROLE_COLORS[u.user_role || u.role] || ROLE_COLORS.USER} text-xs`}>
+                    {ROLE_LABELS[u.user_role || u.role] || 'Usuário'}
+                  </Badge>
+                </TableCell>
+                <TableCell>{statusBadge(u)}</TableCell>
+                <TableCell className="text-sm text-slate-500">
+                  {u.city ? `${u.city}${u.state ? `, ${u.state}` : ''}` : '—'}
+                </TableCell>
+                <TableCell className="text-xs text-slate-500">
+                  {fmtDate(u.created_date || u.createdAt)}
+                </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => { setSelectedUser(u); setDetailOpen(true); }}>
+                        <Eye className="w-4 h-4 mr-2" />Ver detalhes
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
-      <UserDetailModal
-        user={selectedUser}
-        open={detailOpen}
-        onClose={() => { setDetailOpen(false); setSelectedUser(null); }}
-        currentUser={currentUser}
-        onRefresh={() => refetch()}
-      />
+      {selectedUser && (
+        <UserDetailModal
+          user={selectedUser}
+          open={detailOpen}
+          onClose={() => setDetailOpen(false)}
+          currentUser={currentUser}
+          onRefresh={refetch}
+        />
+      )}
     </div>
   );
 }
