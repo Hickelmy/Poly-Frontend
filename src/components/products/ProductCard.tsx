@@ -4,7 +4,7 @@ import { createPageUrl } from '../../utils';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, MapPin, Package, Eye, User, ImageOff, ShieldCheck, AlertTriangle, Sparkles, Megaphone, Ban } from 'lucide-react';
+import { ShoppingCart, MapPin, Package, Eye, User, ImageOff, ShieldCheck, AlertTriangle, Sparkles, Megaphone, Ban, CheckCircle2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const conditionLabels: Record<string, string> = {
@@ -15,6 +15,21 @@ const conditionLabels: Record<string, string> = {
 };
 
 const TRANSPORT_ICONS: Record<string, string> = { moto: '🛵', carro: '🚗', van: '🚐', caminhao: '🚛' };
+
+import verificadoImg from '@/assets/verificado.png';
+import aprovadoImg from '@/assets/aprovado.png';
+
+function VerifiedBadge() {
+  return (
+    <img src={verificadoImg} alt="Vendedor verificado" title="Vendedor verificado" className="w-4 h-4 inline-block shrink-0 object-contain" />
+  );
+}
+
+function ApprovalSealSmall() {
+  return (
+    <img src={aprovadoImg} alt="Aprovado pela gestão" title="Aprovado pela gestão" className="w-12 h-12 shrink-0 object-contain drop-shadow-md select-none" />
+  );
+}
 
 interface ProductCardProps {
   product: any;
@@ -111,10 +126,8 @@ export default function ProductCard({ product, onAddToCart, isOwner }: ProductCa
 
         {/* Approved seal */}
         {isApproved && (
-          <div className="absolute top-3 right-3 z-10">
-            <Badge className="bg-teal-500 text-white shadow-lg gap-1">
-              <ShieldCheck className="w-3 h-3" />Aprovado
-            </Badge>
+          <div className="absolute top-2 right-2 z-10">
+            <ApprovalSealSmall />
           </div>
         )}
 
@@ -140,12 +153,13 @@ export default function ProductCard({ product, onAddToCart, isOwner }: ProductCa
             <span>
               {product.sellerName || 'Vendedor'}
             </span>
+            {product._sellerVerified && <VerifiedBadge />}
           </div>
         </div>
       </div>
 
-      {/* Manager notice banner */}
-      {mod?.managerNotice && (
+      {/* Manager notice banner (only if noticeVisible) */}
+      {mod?.managerNotice && (mod?.noticeVisible !== false) && (
         <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 flex items-center gap-2">
           <Megaphone className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">{mod.managerNotice}</span>

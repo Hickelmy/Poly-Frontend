@@ -1204,6 +1204,14 @@ const users = {
     return apiRequest(`/users/${id}/unban`, { method: 'POST', body: JSON.stringify({}) });
   },
 
+  async verify(id: string): Promise<any> {
+    return apiRequest(`/users/${id}/verify`, { method: 'POST', body: JSON.stringify({}) });
+  },
+
+  async unverify(id: string): Promise<any> {
+    return apiRequest(`/users/${id}/unverify`, { method: 'POST', body: JSON.stringify({}) });
+  },
+
   async getActivity(id: string): Promise<any> {
     return apiRequest(`/users/${id}/activity`, { method: 'GET' });
   },
@@ -1243,6 +1251,7 @@ const contentModeration = {
   async upsert(entityType: string, entityId: string, data: {
     status?: string;
     managerNotice?: string | null;
+    noticeVisible?: boolean;
     wasEdited?: boolean;
     editNote?: string | null;
     expiresAt?: string | null;

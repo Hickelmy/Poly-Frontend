@@ -9,7 +9,8 @@ import {
   Package, Wrench, FolderOpen, MessageSquare, ShoppingBag, Newspaper,
   ClipboardList, ChevronRight, ChevronLeft, AlertTriangle, CheckCircle2,
   Activity, MousePointerClick, Globe, Clock, BarChart2, RefreshCw,
-  Star, Megaphone, Trash2, Sparkles, Edit3, AlertOctagon, CheckSquare,
+  Star, Megaphone, Trash2, Sparkles, Edit3, AlertOctagon, CheckSquare, EyeOff,
+  Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +66,7 @@ const ACTION_LABELS: Record<string, string> = {
   content_active: 'Reativou conteúdo', content_restricted: 'Restringiu conteúdo',
   content_removed: 'Removeu conteúdo', content_highlighted: 'Destacou conteúdo',
   content_approved: 'Aprovou conteúdo', content_moderated: 'Moderou conteúdo',
+  verify_user: 'Verificou perfil', unverify_user: 'Removeu verificação de perfil',
 };
 
 const MOD_STATUS_LABELS: Record<string, string> = {
@@ -97,6 +99,21 @@ function fmtDate(d: any) {
   try { return format(new Date(d), 'dd/MM/yyyy HH:mm', { locale: ptBR }); } catch { return '-'; }
 }
 
+function fmtRelative(d: any): string {
+  if (!d) return 'Nunca';
+  const ms = Date.now() - new Date(d).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'Agora';
+  if (mins < 60) return `${mins}min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}m`;
+  return `${Math.floor(months / 12)}a`;
+}
+
 // ─── ApprovalSeal ─────────────────────────────────────────────────────────────
 
 interface ApprovalSealProps {
@@ -107,7 +124,7 @@ interface ApprovalSealProps {
 }
 
 function ApprovalSeal({ approvedByEmail, approvedAt, approvalNote, small }: ApprovalSealProps) {
-  const sz = small ? 'w-14 h-14' : 'w-28 h-28';
+  const sz = small ? 'w-14 h-14' : 'w-24 h-24';
   const tipText = [
     approvedAt ? `Aprovado em ${fmtDate(approvedAt)}` : '',
     approvedByEmail ? `por ${approvedByEmail}` : '',
@@ -115,51 +132,21 @@ function ApprovalSeal({ approvedByEmail, approvedAt, approvalNote, small }: Appr
   ].filter(Boolean).join(' · ');
 
   return (
-    <div className={`relative flex-shrink-0 ${sz} select-none`} title={tipText}>
-      <svg viewBox="0 0 120 120" className="absolute inset-0 w-full h-full drop-shadow-md">
-        {/* Outer dashed ceremonial ring */}
-        <circle cx="60" cy="60" r="57" fill="none" stroke="#92400e" strokeWidth="1.2" strokeDasharray="3 2.5" />
-        {/* Main background */}
-        <circle cx="60" cy="60" r="53" fill="url(#sealGrad)" stroke="#d97706" strokeWidth="2.5" />
-        {/* Inner decorative ring */}
-        <circle cx="60" cy="60" r="45" fill="none" stroke="#f59e0b" strokeWidth="0.8" strokeDasharray="2.5 3" />
-        {/* Gradient definition */}
-        <defs>
-          <radialGradient id="sealGrad" cx="50%" cy="40%" r="60%">
-            <stop offset="0%" stopColor="#fffdf0" />
-            <stop offset="100%" stopColor="#fef3c7" />
-          </radialGradient>
-        </defs>
-        {/* Top star */}
-        <polygon points="60,10 62.6,17.5 70.6,17.5 64.3,22.3 66.9,29.8 60,25 53.1,29.8 55.7,22.3 49.4,17.5 57.4,17.5"
-          fill="#d97706" />
-        {/* Bottom star */}
-        <polygon points="60,110 62.6,102.5 70.6,102.5 64.3,97.7 66.9,90.2 60,95 53.1,90.2 55.7,97.7 49.4,102.5 57.4,102.5"
-          fill="#d97706" />
-        {/* Left ornament */}
-        <circle cx="14" cy="60" r="3" fill="#f59e0b" />
-        <circle cx="22" cy="60" r="1.5" fill="#d97706" />
-        {/* Right ornament */}
-        <circle cx="106" cy="60" r="3" fill="#f59e0b" />
-        <circle cx="98" cy="60" r="1.5" fill="#d97706" />
-        {/* Horizontal accent lines */}
-        <line x1="26" y1="47" x2="94" y2="47" stroke="#f59e0b" strokeWidth="0.7" />
-        <line x1="26" y1="73" x2="94" y2="73" stroke="#f59e0b" strokeWidth="0.7" />
-      </svg>
-      {/* Text overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none">
-        <span className={`font-black uppercase tracking-widest text-amber-900 leading-none ${small ? 'text-[6px]' : 'text-[11px]'}`}>
-          Aprovado
-        </span>
-        <span className={`font-bold uppercase tracking-wider text-amber-800 leading-none ${small ? 'text-[5px]' : 'text-[8px]'}`}>
-          pela gestão
-        </span>
-        <div className={`border-t border-amber-600 ${small ? 'w-6 my-px' : 'w-10 my-1'}`} />
-        <span className={`font-extrabold text-amber-700 leading-none ${small ? 'text-[5px]' : 'text-[9px]'}`}>
-          ✦ POLYS ✦
-        </span>
-      </div>
+    <div className={`flex-shrink-0 ${sz} select-none`} title={tipText}>
+      <img src={aprovadoImg} alt="Aprovado pela gestão" className="w-full h-full object-contain drop-shadow-md" />
     </div>
+  );
+}
+
+// ─── Verified Badge (custom image) ───────────────────────────────────────────
+
+import verificadoImg from '@/assets/verificado.png';
+import aprovadoImg from '@/assets/aprovado.png';
+
+function VerifiedBadge({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const sizes = { sm: 'w-4 h-4', md: 'w-5 h-5', lg: 'w-7 h-7' };
+  return (
+    <img src={verificadoImg} alt="Perfil verificado" title="Perfil verificado" className={`${sizes[size]} inline-block shrink-0 object-contain`} />
   );
 }
 
@@ -428,6 +415,7 @@ function ModerationConfigDialog({
   currentModeration, onSubmit,
 }: ModerationConfigDialogProps) {
   const [notice, setNotice] = useState(currentModeration?.managerNotice || '');
+  const [noticeVisible, setNoticeVisible] = useState(currentModeration?.noticeVisible ?? true);
   const [editNote, setEditNote] = useState('');
   const [approvalNote, setApprovalNote] = useState('');
   const [durationHours, setDurationHours] = useState(24);
@@ -436,6 +424,7 @@ function ModerationConfigDialog({
   useEffect(() => {
     if (open) {
       setNotice(currentModeration?.managerNotice || '');
+      setNoticeVisible(currentModeration?.noticeVisible ?? true);
       setEditNote('');
       setApprovalNote('');
       setDurationHours(24);
@@ -454,11 +443,11 @@ function ModerationConfigDialog({
       const expiresAt = durationHours > 0
         ? new Date(Date.now() + durationHours * 3600_000).toISOString()
         : null;
-      payload = { status: action, managerNotice: notice || null, expiresAt };
+      payload = { status: action, managerNotice: notice || null, noticeVisible, expiresAt };
     } else if (action === 'removed') {
-      payload = { status: 'removed', managerNotice: reason || null };
+      payload = { status: 'removed', managerNotice: reason || null, noticeVisible };
     } else if (action === 'notice') {
-      payload = { managerNotice: notice || null };
+      payload = { managerNotice: notice || null, noticeVisible };
     } else if (action === 'edited') {
       payload = { wasEdited: true, editNote: editNote || null };
     } else if (action === 'approve') {
@@ -525,7 +514,19 @@ function ModerationConfigDialog({
                 rows={2}
                 className="text-sm"
               />
-              <p className="text-[10px] text-slate-400">Esta mensagem será visível para todos os usuários.</p>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setNoticeVisible(!noticeVisible)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${noticeVisible ? 'bg-teal-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${noticeVisible ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+                <span className="text-xs text-slate-500 flex items-center gap-1">
+                  {noticeVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  {noticeVisible ? 'Aviso visível para todos' : 'Aviso oculto (só gestores veem)'}
+                </span>
+              </div>
             </div>
           )}
 
@@ -540,6 +541,19 @@ function ModerationConfigDialog({
                 rows={2}
                 className="text-sm"
               />
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setNoticeVisible(!noticeVisible)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${noticeVisible ? 'bg-teal-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${noticeVisible ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+                <span className="text-xs text-slate-500 flex items-center gap-1">
+                  {noticeVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  {noticeVisible ? 'Motivo visível para o dono' : 'Motivo oculto do dono'}
+                </span>
+              </div>
             </div>
           )}
 
@@ -658,36 +672,61 @@ function ContentItem({
 
   const open = (a: ModAction) => onOpenModConfig(entityType, entityId, title, a, moderation);
 
+  const leftStrip =
+    isExpired ? 'bg-slate-400' :
+    isRemoved ? 'bg-red-500' :
+    status === 'restricted' ? 'bg-amber-500' :
+    status === 'highlighted' ? 'bg-purple-500' :
+    isApproved ? 'bg-teal-500' :
+    moderation?.wasEdited ? 'bg-blue-400' :
+    moderation?.managerNotice ? 'bg-sky-400' :
+    'bg-transparent';
+
   const borderClass =
     isExpired ? 'border border-dashed border-slate-300 dark:border-slate-600' :
-    isRemoved ? 'border border-red-200 dark:border-red-800 opacity-50' :
+    isRemoved ? 'border border-red-200 dark:border-red-800' :
     isApproved ? 'border border-teal-300 dark:border-teal-700 shadow-teal-100 dark:shadow-teal-900/20 shadow-sm' :
     status === 'highlighted' ? 'border border-purple-300 dark:border-purple-700 ring-2 ring-purple-200/50 dark:ring-purple-800/30 shadow-sm' :
     status === 'restricted' ? 'border border-amber-300 dark:border-amber-700' :
     'border border-slate-200 dark:border-slate-700/60';
 
+  const StatusIcon = isRemoved ? Ban : status === 'restricted' ? AlertTriangle : status === 'highlighted' ? Sparkles : isApproved ? ShieldCheck : null;
+
   return (
-    <div className={`rounded-xl overflow-hidden transition-all ${borderClass} bg-white dark:bg-slate-800/80 hover:shadow-md group`}>
+    <div className={`rounded-xl overflow-hidden transition-all ${borderClass} bg-white dark:bg-slate-800/80 hover:shadow-md group ${isRemoved ? 'opacity-60' : ''}`}>
       {/* Main row */}
       <div className="flex items-stretch cursor-pointer select-none" onClick={() => setExpanded((v) => !v)}>
+        {/* Left color strip */}
+        <div className={`w-1 shrink-0 ${leftStrip}`} />
+
         {/* Image / Thumbnail */}
         <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 relative overflow-hidden bg-slate-100 dark:bg-slate-700/50">
           {imageUrl ? (
-            <img src={imageUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
+            <img src={imageUrl} alt={title} className={`w-full h-full object-cover ${isRemoved ? 'grayscale' : ''}`} loading="lazy" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <FallbackIcon className="w-6 h-6 text-slate-300 dark:text-slate-500" />
             </div>
           )}
           {/* Status overlay on image */}
+          {isRemoved && (
+            <div className="absolute inset-0 bg-red-900/60 flex items-center justify-center">
+              <Ban className="w-5 h-5 text-red-200" />
+            </div>
+          )}
+          {status === 'restricted' && !isExpired && (
+            <div className="absolute inset-0 bg-amber-900/50 flex items-center justify-center">
+              <AlertTriangle className="w-5 h-5 text-amber-200" />
+            </div>
+          )}
           {isApproved && (
             <div className="absolute -bottom-1 -right-1">
               <ApprovalSeal small approvedByEmail={moderation?.approvedByEmail} approvedAt={moderation?.approvedAt} />
             </div>
           )}
           {status === 'highlighted' && !isExpired && (
-            <div className="absolute top-0 left-0 w-full h-full bg-purple-500/10 flex items-start justify-start p-1">
-              <Sparkles className="w-3 h-3 text-purple-500" />
+            <div className="absolute inset-0 bg-purple-500/15 flex items-start justify-start p-1">
+              <Sparkles className="w-4 h-4 text-purple-400 drop-shadow" />
             </div>
           )}
         </div>
@@ -695,7 +734,7 @@ function ContentItem({
         {/* Content */}
         <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-0.5">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate flex-1">{title}</span>
+            <span className={`text-sm font-semibold truncate flex-1 ${isRemoved ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>{title}</span>
             <ChevronRight className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`} />
           </div>
 
@@ -715,17 +754,26 @@ function ContentItem({
             )}
 
             {isExpired && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-300 font-medium">Expirado</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-300 font-medium flex items-center gap-0.5">
+                <Clock className="w-2.5 h-2.5" />Expirado
+              </span>
             )}
 
-            {!isExpired && status !== 'active' && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${MOD_STATUS_COLORS[status] ?? ''}`}>
+            {!isExpired && status !== 'active' && StatusIcon && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium flex items-center gap-0.5 ${MOD_STATUS_COLORS[status] ?? ''}`}>
+                <StatusIcon className="w-2.5 h-2.5" />
                 {MOD_STATUS_LABELS[status]}
               </span>
             )}
 
+            {moderation?.wasEdited && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium flex items-center gap-0.5">
+                <Edit3 className="w-2.5 h-2.5" />Editado
+              </span>
+            )}
+
             {moderation?.managerNotice && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center gap-0.5 max-w-[140px] truncate" title={moderation.managerNotice}>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center gap-0.5 max-w-[160px] truncate" title={moderation.managerNotice}>
                 <Megaphone className="w-2.5 h-2.5 flex-shrink-0" />{moderation.managerNotice}
               </span>
             )}
@@ -960,6 +1008,16 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
     ...mutOpts,
     onSuccess: () => { mutOpts.onSuccess(); toast.success('Usuário desbanido'); },
   });
+  const verifyMutation = useMutation({
+    mutationFn: () => polysApi.users.verify(user.id),
+    ...mutOpts,
+    onSuccess: () => { mutOpts.onSuccess(); toast.success('Perfil verificado com selo azul'); },
+  });
+  const unverifyMutation = useMutation({
+    mutationFn: () => polysApi.users.unverify(user.id),
+    ...mutOpts,
+    onSuccess: () => { mutOpts.onSuccess(); toast.success('Verificação removida'); },
+  });
 
   const execConfirm = () => {
     if (!confirmAction) return;
@@ -984,6 +1042,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
 
   const isBlocked = user?.is_blocked || user?.isBlocked;
   const isBanned = user?.is_banned || user?.isBanned;
+  const isUserVerified = user?.isVerified || user?.is_verified;
 
   if (!user) return null;
 
@@ -1006,7 +1065,26 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold truncate">{user.full_name || user.name || 'Sem nome'}</p>
+                <p className="text-base font-semibold truncate flex items-center gap-1.5">
+                  {user.full_name || user.name || 'Sem nome'}
+                  {isUserVerified ? (
+                    <span className="inline-flex items-center gap-1">
+                      <VerifiedBadge size="md" />
+                      <button onClick={() => unverifyMutation.mutate()} className="text-[10px] text-red-400 hover:text-red-600 font-normal" title="Remover verificação">
+                        <ShieldOff className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => verifyMutation.mutate()}
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 font-medium px-1.5 py-0.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                      title="Verificar perfil"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Verificar
+                    </button>
+                  )}
+                </p>
                 <p className="text-sm text-slate-500 font-normal truncate">{user.email}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1419,6 +1497,35 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                   />
                 </div>
 
+                {/* Profile verification */}
+                <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <VerifiedBadge size="lg" />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Verificação de perfil</p>
+                        <p className="text-[11px] text-slate-500">
+                          {isUserVerified
+                            ? `Verificado${user.verifiedByEmail ? ` por ${user.verifiedByEmail}` : ''}${user.verifiedAt ? ` em ${fmtDate(user.verifiedAt)}` : ''}`
+                            : 'Este perfil não possui selo de verificação'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    {isUserVerified ? (
+                      <Button size="sm" variant="outline" className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 h-8 text-xs"
+                        onClick={() => unverifyMutation.mutate()}>
+                        <ShieldOff className="w-3.5 h-3.5 mr-1.5" />Remover selo
+                      </Button>
+                    ) : (
+                      <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs"
+                        onClick={() => verifyMutation.mutate()}>
+                        <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />Verificar perfil
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t">
                   {!isBlocked && !isBanned && (
                     <Button variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
@@ -1457,29 +1564,205 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                 {(auditLogs as any[]).length === 0 ? (
                   <div className="text-center py-8 text-slate-400">Nenhum registro de auditoria para este usuário</div>
                 ) : (
-                  <div className="space-y-2">
-                    {(auditLogs as any[]).map((log: any) => (
-                      <div key={log.id} className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                        <div className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 shrink-0 mt-0.5">
-                          <ClipboardList className="w-3.5 h-3.5 text-slate-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 dark:text-white">
-                            {ACTION_LABELS[log.action] || log.action}
-                          </p>
-                          {log.actorEmail && <p className="text-xs text-slate-500 mt-0.5">por {log.actorEmail}</p>}
-                          {log.details?.reason && (
-                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Motivo: {log.details.reason}</p>
+                  <div className="space-y-4">
+                    {(auditLogs as any[]).map((log: any) => {
+                      const isContentAction = log.action?.startsWith('content_');
+                      const entityType = log.entity;
+                      const content = log._content; // enriched entity data from backend
+                      const currentMod = log._currentModeration;
+                      const contentTitle = content?.title || log.details?.contentTitle || null;
+                      const contentImage = content?.images?.[0] || content?.imageUrl || null;
+                      const contentDesc = content?.description || content?.summary || null;
+                      const contentPrice = content?.price ?? content?.pricePerHour ?? content?.targetAmount ?? null;
+                      const entityLabel = content?._entityLabel || ({ product: 'Produto', service: 'Serviço', project: 'Projeto', news: 'Notícia', comment: 'Comentário' }[entityType] || entityType);
+                      const ownerName = content?.sellerName || content?.providerName || content?.sellerEmail || content?.providerEmail || content?.ownerEmail || log.targetEmail || null;
+                      const EntityIcon = entityType ? (ENTITY_TYPE_ICONS[entityType] || ClipboardList) : ClipboardList;
+
+                      const actionColor =
+                        log.action === 'content_removed' ? 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20' :
+                        log.action === 'content_restricted' ? 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20' :
+                        log.action === 'content_highlighted' ? 'border-l-purple-500 bg-purple-50/50 dark:bg-purple-950/20' :
+                        log.action === 'content_approved' ? 'border-l-teal-500 bg-teal-50/50 dark:bg-teal-950/20' :
+                        log.action === 'content_active' ? 'border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20' :
+                        log.action?.includes('ban') ? 'border-l-red-500' :
+                        log.action?.includes('block') ? 'border-l-amber-500' :
+                        log.action?.includes('verify') ? 'border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20' :
+                        'border-l-slate-300';
+
+                      const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+
+                      return (
+                        <div key={log.id} className={`rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 ${actionColor} overflow-hidden`}>
+                          {/* Action header */}
+                          <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex items-center gap-1.5">
+                                <EntityIcon className="w-4 h-4 text-slate-400" />
+                                <Badge className={`text-[10px] px-1.5 py-0.5 ${MOD_STATUS_COLORS[log.details?.status] || 'bg-slate-100 text-slate-600'}`}>
+                                  {ACTION_LABELS[log.action] || log.action}
+                                </Badge>
+                              </div>
+                              {isContentAction && entityLabel && (
+                                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{entityLabel}</span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-slate-400 shrink-0">{fmtDate(log.createdAt)}</span>
+                          </div>
+
+                          {/* Content card for content actions */}
+                          {isContentAction && content && (
+                            <div className="mx-4 mb-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 overflow-hidden">
+                              <div className="flex gap-0">
+                                {/* Image */}
+                                {contentImage ? (
+                                  <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700">
+                                    <img src={contentImage} alt="" className="w-full h-full object-cover" />
+                                  </div>
+                                ) : (
+                                  <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                                    <EntityIcon className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                                  </div>
+                                )}
+                                {/* Info */}
+                                <div className="flex-1 min-w-0 p-3">
+                                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{contentTitle || 'Sem título'}</p>
+                                  {contentDesc && (
+                                    <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">{contentDesc.slice(0, 120)}</p>
+                                  )}
+                                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                    {contentPrice != null && (
+                                      <span className="text-sm font-bold text-teal-600 dark:text-teal-400">{formatCurrency(contentPrice)}</span>
+                                    )}
+                                    {content?.category && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">{content.category}</span>
+                                    )}
+                                    {content?.condition && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">{content.condition}</span>
+                                    )}
+                                    {content?.serviceType && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400">{content.serviceType}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           )}
-                          {log.details?.new_role && (
-                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                              Novo cargo: {ROLE_LABELS[log.details.new_role] || log.details.new_role}
-                            </p>
+
+                          {/* Fallback content title when _content not available */}
+                          {isContentAction && !content && contentTitle && (
+                            <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-white/60 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50">
+                              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{contentTitle}</p>
+                            </div>
                           )}
+
+                          {/* Moderation details */}
+                          <div className="px-4 pb-3 space-y-2">
+                            {/* Action details */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                              {log.actorEmail && (
+                                <span className="text-slate-500">
+                                  Moderador: <span className="font-medium text-slate-700 dark:text-slate-300">{log.actorEmail}</span>
+                                </span>
+                              )}
+                              {ownerName && (
+                                <span className="text-slate-500">
+                                  Dono: <span className="font-medium text-slate-700 dark:text-slate-300">{ownerName}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Moderation metadata */}
+                            {(log.details?.managerNotice || log.details?.expiresAt || log.details?.editNote || log.details?.approvalNote || log.details?.reason) && (
+                              <div className="p-2 rounded-md bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 text-[11px] space-y-1">
+                                {(log.details?.managerNotice || log.details?.reason) && (
+                                  <p className="text-slate-600 dark:text-slate-400">
+                                    <Megaphone className="w-3 h-3 inline mr-1 -mt-0.5 text-amber-500" />
+                                    <span className="font-medium">
+                                      {log.details?.reason ? 'Motivo: ' : 'Aviso: '}
+                                    </span>
+                                    {log.details?.managerNotice || log.details?.reason}
+                                  </p>
+                                )}
+                                {log.details?.expiresAt && (
+                                  <p className="text-slate-500">
+                                    <Clock className="w-3 h-3 inline mr-1 -mt-0.5" />
+                                    <span className="font-medium">Expira:</span> {fmtDate(log.details.expiresAt)}
+                                  </p>
+                                )}
+                                {log.details?.editNote && (
+                                  <p className="text-slate-500">
+                                    <Edit3 className="w-3 h-3 inline mr-1 -mt-0.5" />
+                                    <span className="font-medium">Nota edição:</span> {log.details.editNote}
+                                  </p>
+                                )}
+                                {log.details?.approvalNote && (
+                                  <p className="text-slate-500">
+                                    <ShieldCheck className="w-3 h-3 inline mr-1 -mt-0.5" />
+                                    <span className="font-medium">Nota aprovação:</span> {log.details.approvalNote}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Current moderation state indicator */}
+                            {isContentAction && currentMod && (
+                              <div className="flex items-center gap-2 text-[11px]">
+                                <span className="text-slate-400">Estado atual:</span>
+                                <Badge className={`text-[10px] px-1.5 py-0 ${MOD_STATUS_COLORS[currentMod.status] || 'bg-slate-100 text-slate-600'}`}>
+                                  {MOD_STATUS_LABELS[currentMod.status] || currentMod.status}
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* Non-content action details */}
+                            {!isContentAction && (
+                              <div className="text-xs space-y-0.5">
+                                {log.details?.reason && (
+                                  <p className="text-amber-600 dark:text-amber-400">
+                                    <span className="font-medium">Motivo:</span> {log.details.reason}
+                                  </p>
+                                )}
+                                {log.details?.new_role && (
+                                  <p className="text-blue-600 dark:text-blue-400">
+                                    <span className="font-medium">Novo cargo:</span> {ROLE_LABELS[log.details.new_role] || log.details.new_role}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Action buttons for content moderation */}
+                            {isContentAction && log.entityId && entityType && (
+                              <div className="flex gap-2 pt-1">
+                                {currentMod && currentMod.status !== 'active' && (
+                                  <Button
+                                    size="sm" variant="outline"
+                                    className="h-7 text-[11px] gap-1.5 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
+                                    onClick={() => openModConfig(entityType, log.entityId, contentTitle || 'Conteúdo', 'clear', null)}
+                                  >
+                                    <Undo2 className="w-3 h-3" />
+                                    Reverter para ativo
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm" variant="outline"
+                                  className="h-7 text-[11px] gap-1.5 text-slate-500 border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                                  onClick={() => {
+                                    const cs = currentMod?.status || log.details?.status;
+                                    const action: ModAction = cs === 'highlighted' ? 'highlighted' :
+                                      cs === 'restricted' ? 'restricted' :
+                                      cs === 'removed' ? 'removed' : 'notice';
+                                    openModConfig(entityType, log.entityId, contentTitle || 'Conteúdo', action, currentMod || log.details);
+                                  }}
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  Editar moderação
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-xs text-slate-400 shrink-0">{fmtDate(log.createdAt)}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </TabsContent>
@@ -1585,14 +1868,26 @@ export default function UserManagement() {
       statusFilter === 'all' ||
       (statusFilter === 'active' && !isBlocked && !isBanned) ||
       (statusFilter === 'blocked' && isBlocked && !isBanned) ||
-      (statusFilter === 'banned' && isBanned);
+      (statusFilter === 'banned' && isBanned) ||
+      (statusFilter === 'inactive' && isInactive(u) && !isBanned) ||
+      (statusFilter === 'verified' && (u.isVerified || u.is_verified));
 
     return matchSearch && matchRole && matchStatus;
   });
 
+  const INACTIVE_DAYS = 30;
+  const inactiveThreshold = new Date(Date.now() - INACTIVE_DAYS * 24 * 3600_000);
+  const isInactive = (u: any) => {
+    const lastSeen = u.lastLoginAt || u.last_login_at;
+    if (!lastSeen) return true; // never logged in
+    return new Date(lastSeen) < inactiveThreshold;
+  };
+
   const totalActive = (users as any[]).filter((u: any) => !u.is_blocked && !u.isBlocked && !u.is_banned && !u.isBanned).length;
   const totalBlocked = (users as any[]).filter((u: any) => (u.is_blocked || u.isBlocked) && !(u.is_banned || u.isBanned)).length;
   const totalBanned = (users as any[]).filter((u: any) => u.is_banned || u.isBanned).length;
+  const totalInactive = (users as any[]).filter((u: any) => isInactive(u) && !(u.is_banned || u.isBanned)).length;
+  const totalVerified = (users as any[]).filter((u: any) => u.isVerified || u.is_verified).length;
 
   if (!currentUser) return null;
 
@@ -1605,19 +1900,22 @@ export default function UserManagement() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { label: 'Total', value: (users as any[]).length, icon: Users, color: 'bg-slate-100 dark:bg-slate-800', iconColor: 'text-slate-600 dark:text-slate-400' },
-          { label: 'Ativos', value: totalActive, icon: CheckCircle2, color: 'bg-emerald-100 dark:bg-emerald-900/30', iconColor: 'text-emerald-600' },
-          { label: 'Bloqueados', value: totalBlocked, icon: Lock, color: 'bg-amber-100 dark:bg-amber-900/30', iconColor: 'text-amber-600' },
-          { label: 'Banidos', value: totalBanned, icon: Ban, color: 'bg-red-100 dark:bg-red-900/30', iconColor: 'text-red-600' },
-        ].map(({ label, value, icon: Icon, color, iconColor }) => (
-          <Card key={label} className="border-0 shadow-sm">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className={`p-3 rounded-xl ${color}`}><Icon className={`w-5 h-5 ${iconColor}`} /></div>
+          { label: 'Total', value: (users as any[]).length, icon: Users, color: 'bg-slate-100 dark:bg-slate-800', iconColor: 'text-slate-600 dark:text-slate-400', filter: 'all' },
+          { label: 'Ativos', value: totalActive, icon: CheckCircle2, color: 'bg-emerald-100 dark:bg-emerald-900/30', iconColor: 'text-emerald-600', filter: 'active' },
+          { label: 'Verificados', value: totalVerified, icon: ShieldCheck, color: 'bg-blue-100 dark:bg-blue-900/30', iconColor: 'text-blue-600', filter: 'verified' },
+          { label: 'Ausentes', value: totalInactive, icon: Clock, color: 'bg-orange-100 dark:bg-orange-900/30', iconColor: 'text-orange-600', filter: 'inactive' },
+          { label: 'Bloqueados', value: totalBlocked, icon: Lock, color: 'bg-amber-100 dark:bg-amber-900/30', iconColor: 'text-amber-600', filter: 'blocked' },
+          { label: 'Banidos', value: totalBanned, icon: Ban, color: 'bg-red-100 dark:bg-red-900/30', iconColor: 'text-red-600', filter: 'banned' },
+        ].map(({ label, value, icon: Icon, color, iconColor, filter }) => (
+          <Card key={label} className={`border-0 shadow-sm cursor-pointer transition-all hover:shadow-md ${statusFilter === filter ? 'ring-2 ring-teal-500' : ''}`}
+            onClick={() => { setStatusFilter(filter); setTablePage(0); }}>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className={`p-2.5 rounded-xl ${color}`}><Icon className={`w-5 h-5 ${iconColor}`} /></div>
               <div>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">{value}</p>
-                <p className="text-sm text-slate-500">{label}</p>
+                <p className="text-xs text-slate-500">{label}</p>
               </div>
             </CardContent>
           </Card>
@@ -1654,6 +1952,8 @@ export default function UserManagement() {
           <SelectContent>
             <SelectItem value="all">Todos os status</SelectItem>
             <SelectItem value="active">Ativos</SelectItem>
+            <SelectItem value="verified">Verificados</SelectItem>
+            <SelectItem value="inactive">Ausentes (+30 dias)</SelectItem>
             <SelectItem value="blocked">Bloqueados</SelectItem>
             <SelectItem value="banned">Banidos</SelectItem>
           </SelectContent>
@@ -1668,6 +1968,7 @@ export default function UserManagement() {
               <TableHead>Usuário</TableHead>
               <TableHead>Cargo</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Último acesso</TableHead>
               <TableHead>Localização</TableHead>
               <TableHead>Cadastro</TableHead>
               <TableHead className="w-10" />
@@ -1676,11 +1977,11 @@ export default function UserManagement() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">Carregando...</TableCell>
+                <TableCell colSpan={7} className="text-center py-8 text-slate-400">Carregando...</TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">Nenhum usuário encontrado</TableCell>
+                <TableCell colSpan={7} className="text-center py-8 text-slate-400">Nenhum usuário encontrado</TableCell>
               </TableRow>
             ) : filtered.slice(tablePage * PAGE_SIZE, (tablePage + 1) * PAGE_SIZE).map((u: any) => (
               <TableRow key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer"
@@ -1694,7 +1995,10 @@ export default function UserManagement() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{u.full_name || u.name || '—'}</p>
+                      <p className="text-sm font-medium truncate flex items-center gap-1">
+                        {u.full_name || u.name || '—'}
+                        {(u.isVerified || u.is_verified) && <VerifiedBadge size="sm" />}
+                      </p>
                       <p className="text-xs text-slate-500 truncate">{u.email}</p>
                     </div>
                   </div>
@@ -1705,6 +2009,18 @@ export default function UserManagement() {
                   </Badge>
                 </TableCell>
                 <TableCell>{statusBadge(u)}</TableCell>
+                <TableCell>
+                  {(() => {
+                    const lastSeen = u.lastLoginAt || u.last_login_at;
+                    const inactive = isInactive(u);
+                    return (
+                      <span className={`text-xs font-medium ${inactive ? 'text-orange-500' : 'text-slate-500'}`} title={lastSeen ? fmtDate(lastSeen) : 'Nunca acessou'}>
+                        {inactive && <Clock className="w-3 h-3 inline mr-1 -mt-0.5" />}
+                        {fmtRelative(lastSeen)}
+                      </span>
+                    );
+                  })()}
+                </TableCell>
                 <TableCell className="text-sm text-slate-500">
                   {u.city ? `${u.city}${u.state ? `, ${u.state}` : ''}` : '—'}
                 </TableCell>
