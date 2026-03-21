@@ -317,6 +317,7 @@ export default function Register() {
 
             {/* Regular user form */}
             {accountType === 'USER' && (
+            <>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome Completo</Label>
@@ -505,6 +506,7 @@ export default function Register() {
                 Voltar
               </Button>
             </Link>
+            </>
             )}
           </CardContent>
         </Card>
