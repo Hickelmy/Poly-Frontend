@@ -353,6 +353,268 @@ function ActivitySection({ title, icon: Icon, children }: { title: string; icon:
   );
 }
 
+// ─── ModerationConfigDialog ──────────────────────────────────────────────────
+
+type ModAction = 'highlighted' | 'restricted' | 'removed' | 'notice' | 'edited' | 'approve' | 'revoke' | 'clear';
+
+const MOD_ACTION_META: Record<ModAction, { label: string; description: string; color: string; icon: any; hasDuration: boolean }> = {
+  highlighted: {
+    label: 'Destacar conteúdo',
+    description: 'O conteúdo será visualmente destacado na plataforma por um período definido.',
+    color: 'text-purple-600', icon: Sparkles, hasDuration: true,
+  },
+  restricted: {
+    label: 'Restringir conteúdo',
+    description: 'O conteúdo ficará oculto/limitado na plataforma por um período definido.',
+    color: 'text-amber-600', icon: AlertOctagon, hasDuration: true,
+  },
+  removed: {
+    label: 'Remover conteúdo (soft)',
+    description: 'O conteúdo será removido visualmente mas permanece no banco de dados.',
+    color: 'text-red-600', icon: Trash2, hasDuration: false,
+  },
+  notice: {
+    label: 'Adicionar aviso',
+    description: 'Um aviso público será exibido junto ao conteúdo para todos os usuários.',
+    color: 'text-blue-600', icon: Megaphone, hasDuration: false,
+  },
+  edited: {
+    label: 'Marcar como editado',
+    description: 'Indica que o conteúdo foi editado pela moderação.',
+    color: 'text-slate-600', icon: Edit3, hasDuration: false,
+  },
+  approve: {
+    label: 'Aprovar com selo',
+    description: 'O conteúdo receberá um selo oficial de aprovação da gestão Polys.',
+    color: 'text-teal-600', icon: CheckSquare, hasDuration: false,
+  },
+  revoke: {
+    label: 'Revogar aprovação',
+    description: 'Remove o selo de aprovação do conteúdo.',
+    color: 'text-slate-500', icon: ShieldOff, hasDuration: false,
+  },
+  clear: {
+    label: 'Reativar / limpar',
+    description: 'Remove toda moderação e retorna o conteúdo ao estado normal.',
+    color: 'text-emerald-600', icon: CheckCircle2, hasDuration: false,
+  },
+};
+
+const DURATION_OPTIONS = [
+  { label: '1 hora', hours: 1 },
+  { label: '6 horas', hours: 6 },
+  { label: '12 horas', hours: 12 },
+  { label: '1 dia', hours: 24 },
+  { label: '3 dias', hours: 72 },
+  { label: '7 dias', hours: 168 },
+  { label: '15 dias', hours: 360 },
+  { label: '30 dias', hours: 720 },
+  { label: 'Permanente', hours: 0 },
+];
+
+interface ModerationConfigDialogProps {
+  open: boolean;
+  onClose: () => void;
+  action: ModAction | null;
+  entityType: string;
+  entityId: string;
+  entityTitle: string;
+  currentModeration: any;
+  onSubmit: (data: { action: ModAction; payload: any }) => void;
+}
+
+function ModerationConfigDialog({
+  open, onClose, action, entityType, entityId, entityTitle,
+  currentModeration, onSubmit,
+}: ModerationConfigDialogProps) {
+  const [notice, setNotice] = useState(currentModeration?.managerNotice || '');
+  const [editNote, setEditNote] = useState('');
+  const [approvalNote, setApprovalNote] = useState('');
+  const [durationHours, setDurationHours] = useState(24);
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setNotice(currentModeration?.managerNotice || '');
+      setEditNote('');
+      setApprovalNote('');
+      setDurationHours(24);
+      setReason('');
+    }
+  }, [open, currentModeration]);
+
+  if (!action) return null;
+  const meta = MOD_ACTION_META[action];
+  const Icon = meta.icon;
+
+  const handleSubmit = () => {
+    let payload: any = {};
+
+    if (action === 'highlighted' || action === 'restricted') {
+      const expiresAt = durationHours > 0
+        ? new Date(Date.now() + durationHours * 3600_000).toISOString()
+        : null;
+      payload = { status: action, managerNotice: notice || null, expiresAt };
+    } else if (action === 'removed') {
+      payload = { status: 'removed', managerNotice: reason || null };
+    } else if (action === 'notice') {
+      payload = { managerNotice: notice || null };
+    } else if (action === 'edited') {
+      payload = { wasEdited: true, editNote: editNote || null };
+    } else if (action === 'approve') {
+      payload = { _approve: true, approvalNote: approvalNote || undefined };
+    } else if (action === 'revoke') {
+      payload = { _revoke: true };
+    } else if (action === 'clear') {
+      payload = { status: 'active', managerNotice: null, expiresAt: null };
+    }
+
+    onSubmit({ action, payload });
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Icon className={`w-5 h-5 ${meta.color}`} />
+            {meta.label}
+          </DialogTitle>
+          <DialogDescription className="text-xs">{meta.description}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 pt-2">
+          {/* Target info */}
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-xs">
+            <span className="text-slate-400">Conteúdo:</span>{' '}
+            <span className="font-medium text-slate-700 dark:text-slate-300">{entityTitle}</span>
+            <br />
+            <span className="text-slate-400">Tipo:</span>{' '}
+            <span className="font-medium text-slate-700 dark:text-slate-300 capitalize">{entityType}</span>
+          </div>
+
+          {/* Duration selector for highlight/restrict */}
+          {meta.hasDuration && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Duração</Label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {DURATION_OPTIONS.map((opt) => (
+                  <Button key={opt.hours} size="sm" variant={durationHours === opt.hours ? 'default' : 'outline'}
+                    className={`h-8 text-xs ${durationHours === opt.hours ? 'bg-teal-600 hover:bg-teal-700' : ''}`}
+                    onClick={() => setDurationHours(opt.hours)}>
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notice input for highlight/restrict/notice */}
+          {(action === 'highlighted' || action === 'restricted' || action === 'notice') && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Mensagem pública (aviso)</Label>
+              <Textarea
+                value={notice}
+                onChange={(e) => setNotice(e.target.value)}
+                placeholder={
+                  action === 'highlighted' ? 'Ex: Conteúdo destaque da semana!' :
+                  action === 'restricted' ? 'Ex: Conteúdo em revisão pela equipe de moderação' :
+                  'Ex: Este conteúdo foi verificado pela equipe'
+                }
+                rows={2}
+                className="text-sm"
+              />
+              <p className="text-[10px] text-slate-400">Esta mensagem será visível para todos os usuários.</p>
+            </div>
+          )}
+
+          {/* Reason for removal */}
+          {action === 'removed' && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Motivo da remoção</Label>
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Ex: Violação dos termos de uso, conteúdo impróprio..."
+                rows={2}
+                className="text-sm"
+              />
+            </div>
+          )}
+
+          {/* Edit note */}
+          {action === 'edited' && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Nota da edição (interna)</Label>
+              <Textarea
+                value={editNote}
+                onChange={(e) => setEditNote(e.target.value)}
+                placeholder="Ex: Removida informação pessoal do descrição"
+                rows={2}
+                className="text-sm"
+              />
+              <p className="text-[10px] text-slate-400">Esta nota é interna e não será visível para o usuário.</p>
+            </div>
+          )}
+
+          {/* Approval note */}
+          {action === 'approve' && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Nota de aprovação (opcional)</Label>
+              <Textarea
+                value={approvalNote}
+                onChange={(e) => setApprovalNote(e.target.value)}
+                placeholder="Ex: Conteúdo verificado e aprovado pela gestão"
+                rows={2}
+                className="text-sm"
+              />
+            </div>
+          )}
+
+          {/* Preview for highlight/restrict */}
+          {meta.hasDuration && durationHours > 0 && (
+            <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+              <p className="font-semibold text-slate-700 dark:text-slate-300">Resumo da ação:</p>
+              <p className="text-slate-500">
+                {action === 'highlighted' ? 'Destaque' : 'Restrição'} por{' '}
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {DURATION_OPTIONS.find((d) => d.hours === durationHours)?.label}
+                </span>
+              </p>
+              <p className="text-slate-500">
+                Expira em:{' '}
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {fmtDate(new Date(Date.now() + durationHours * 3600_000).toISOString())}
+                </span>
+              </p>
+              {notice && (
+                <p className="text-slate-500">
+                  Aviso: <span className="font-medium text-slate-700 dark:text-slate-300">{notice}</span>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
+          <Button className={`flex-1 ${
+            action === 'removed' ? 'bg-red-600 hover:bg-red-700' :
+            action === 'restricted' ? 'bg-amber-600 hover:bg-amber-700' :
+            action === 'highlighted' ? 'bg-purple-600 hover:bg-purple-700' :
+            action === 'approve' ? 'bg-teal-600 hover:bg-teal-700' :
+            'bg-teal-600 hover:bg-teal-700'
+          } text-white`} onClick={handleSubmit}>
+            <Icon className="w-4 h-4 mr-2" />
+            Confirmar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── ContentItem (activity item with moderation actions) ──────────────────────
 
 interface ContentItemProps {
@@ -363,18 +625,14 @@ interface ContentItemProps {
   badge?: string;
   badgeColor?: string;
   moderation: any;
-  onModerate: (entityType: string, entityId: string, action: any) => void;
-  onApprove: (entityType: string, entityId: string) => void;
-  onRevokeApproval: (entityType: string, entityId: string) => void;
+  onOpenModConfig: (entityType: string, entityId: string, title: string, action: ModAction, moderation: any) => void;
 }
 
 function ContentItem({
   entityType, entityId, title, date, badge, badgeColor,
-  moderation, onModerate, onApprove, onRevokeApproval,
+  moderation, onOpenModConfig,
   details,
 }: ContentItemProps & { details?: Record<string, any> }) {
-  const [noticeInput, setNoticeInput] = useState('');
-  const [showNoticeInput, setShowNoticeInput] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const colorMap: Record<string, string> = {
     emerald: 'bg-emerald-100 text-emerald-700',
@@ -386,12 +644,16 @@ function ContentItem({
   const status = moderation?.status ?? 'active';
   const isApproved = status === 'approved';
   const isRemoved = status === 'removed';
+  const isExpired = moderation?.expiresAt && new Date(moderation.expiresAt) < new Date();
+
+  const open = (a: ModAction) => onOpenModConfig(entityType, entityId, title, a, moderation);
 
   return (
     <div className={`rounded-lg transition-all relative ${
+      isExpired ? 'bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-600' :
       isRemoved ? 'bg-red-50 dark:bg-red-900/10 opacity-60' :
       isApproved ? 'bg-teal-50 dark:bg-teal-900/10 border border-teal-200 dark:border-teal-800' :
-      status === 'highlighted' ? 'bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800' :
+      status === 'highlighted' ? 'bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-800 ring-1 ring-purple-300 dark:ring-purple-700' :
       status === 'restricted' ? 'bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800' :
       'bg-slate-50 dark:bg-slate-800/50'
     }`}>
@@ -404,14 +666,21 @@ function ContentItem({
         <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 min-w-0 line-clamp-1 font-medium">{title}</span>
 
         {moderation?.managerNotice && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5 shrink-0 max-w-[100px] truncate">
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5 shrink-0 max-w-[120px] truncate" title={moderation.managerNotice}>
             <Megaphone className="w-2.5 h-2.5 flex-shrink-0" />{moderation.managerNotice}
           </span>
         )}
 
-        {status !== 'active' && (
+        {isExpired && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500 font-medium shrink-0">Expirado</span>
+        )}
+
+        {!isExpired && status !== 'active' && (
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${MOD_STATUS_COLORS[status] ?? ''}`}>
             {MOD_STATUS_LABELS[status]}
+            {moderation?.expiresAt && (
+              <span className="ml-1 opacity-70">({fmtDate(moderation.expiresAt).split(' ')[0]})</span>
+            )}
           </span>
         )}
 
@@ -430,36 +699,36 @@ function ContentItem({
               <MoreVertical className="w-3 h-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { status: 'highlighted' })}>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onClick={() => open('highlighted')}>
               <Sparkles className="w-3.5 h-3.5 mr-2 text-purple-500" />Destacar
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { status: 'restricted' })}>
+            <DropdownMenuItem onClick={() => open('restricted')}>
               <AlertOctagon className="w-3.5 h-3.5 mr-2 text-amber-500" />Restringir
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { status: 'removed' })}>
+            <DropdownMenuItem onClick={() => open('removed')}>
               <Trash2 className="w-3.5 h-3.5 mr-2 text-red-500" />Remover (soft)
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => { setShowNoticeInput((v) => !v); }}>
+            <DropdownMenuItem onClick={() => open('notice')}>
               <Megaphone className="w-3.5 h-3.5 mr-2 text-blue-500" />
               {moderation?.managerNotice ? 'Editar aviso' : 'Adicionar aviso'}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { wasEdited: true })}>
+            <DropdownMenuItem onClick={() => open('edited')}>
               <Edit3 className="w-3.5 h-3.5 mr-2 text-slate-500" />Marcar como editado
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {!isApproved ? (
-              <DropdownMenuItem onClick={() => onApprove(entityType, entityId)}>
+              <DropdownMenuItem onClick={() => open('approve')}>
                 <CheckSquare className="w-3.5 h-3.5 mr-2 text-teal-600" />Aprovar com selo
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onClick={() => onRevokeApproval(entityType, entityId)}>
+              <DropdownMenuItem onClick={() => open('revoke')}>
                 <ShieldOff className="w-3.5 h-3.5 mr-2 text-slate-500" />Revogar aprovação
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onModerate(entityType, entityId, { status: 'active', managerNotice: null })}>
+            <DropdownMenuItem onClick={() => open('clear')}>
               <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-500" />Reativar / limpar
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -486,33 +755,16 @@ function ContentItem({
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Inline notice input */}
-      {showNoticeInput && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg p-3 w-64">
-          <p className="text-xs font-semibold mb-1.5 text-slate-700 dark:text-slate-300">Aviso público no conteúdo</p>
-          <Input
-            value={noticeInput}
-            onChange={(e) => setNoticeInput(e.target.value)}
-            placeholder="Ex: Conteúdo em revisão pela equipe"
-            className="h-8 text-xs mb-2"
-          />
-          <div className="flex gap-1.5">
-            <Button size="sm" className="flex-1 h-7 text-xs bg-teal-600 hover:bg-teal-700"
-              onClick={() => {
-                onModerate(entityType, entityId, { managerNotice: noticeInput });
-                setShowNoticeInput(false);
-                setNoticeInput('');
-              }}>
-              Salvar
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 text-xs"
-              onClick={() => setShowNoticeInput(false)}>
-              Cancelar
-            </Button>
-          </div>
+          {/* Show moderation details if present */}
+          {moderation && status !== 'active' && (
+            <div className="pt-1.5 mt-1.5 border-t border-slate-200/50 dark:border-slate-700/50">
+              <p className="text-[10px] font-semibold text-slate-500 mb-1">Moderação</p>
+              {moderation.actorEmail && <p className="text-slate-400">Moderado por: <span className="text-slate-600 dark:text-slate-300">{moderation.actorEmail}</span></p>}
+              {moderation.editNote && <p className="text-slate-400">Nota: <span className="text-slate-600 dark:text-slate-300">{moderation.editNote}</span></p>}
+              {moderation.expiresAt && <p className="text-slate-400">Expira: <span className="text-slate-600 dark:text-slate-300">{fmtDate(moderation.expiresAt)}</span></p>}
+              {moderation.updatedAt && <p className="text-slate-400">Atualizado: <span className="text-slate-600 dark:text-slate-300">{fmtDate(moderation.updatedAt)}</span></p>}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -580,6 +832,17 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
     queryClient.invalidateQueries({ queryKey: ['userAuditLogs', user?.id] });
   };
 
+  // Moderation config dialog state
+  const [modConfigOpen, setModConfigOpen] = useState(false);
+  const [modConfigAction, setModConfigAction] = useState<ModAction | null>(null);
+  const [modConfigTarget, setModConfigTarget] = useState<{ et: string; eid: string; title: string; mod: any } | null>(null);
+
+  const openModConfig = (et: string, eid: string, title: string, action: ModAction, mod: any) => {
+    setModConfigTarget({ et, eid, title, mod });
+    setModConfigAction(action);
+    setModConfigOpen(true);
+  };
+
   const moderateMutation = useMutation({
     mutationFn: ({ et, eid, data }: { et: string; eid: string; data: any }) =>
       polysApi.contentModeration.upsert(et, eid, data),
@@ -588,8 +851,8 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
   });
 
   const approveMutation = useMutation({
-    mutationFn: ({ et, eid }: { et: string; eid: string }) =>
-      polysApi.contentModeration.approve(et, eid),
+    mutationFn: ({ et, eid, approvalNote }: { et: string; eid: string; approvalNote?: string }) =>
+      polysApi.contentModeration.approve(et, eid, approvalNote),
     onSuccess: () => { invalidateContent(); toast.success('Conteúdo aprovado com selo'); },
     onError: (e: any) => toast.error(e?.message || 'Erro'),
   });
@@ -645,12 +908,18 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
     else if (confirmAction.type === 'unban') unbanMutation.mutate();
   };
 
-  const handleModerate = (et: string, eid: string, data: any) =>
-    moderateMutation.mutate({ et, eid, data });
-  const handleApprove = (et: string, eid: string) =>
-    approveMutation.mutate({ et, eid });
-  const handleRevokeApproval = (et: string, eid: string) =>
-    revokeApprovalMutation.mutate({ et, eid });
+  const handleModConfigSubmit = ({ action, payload }: { action: ModAction; payload: any }) => {
+    if (!modConfigTarget) return;
+    const { et, eid } = modConfigTarget;
+
+    if (payload._approve) {
+      approveMutation.mutate({ et, eid, approvalNote: payload.approvalNote });
+    } else if (payload._revoke) {
+      revokeApprovalMutation.mutate({ et, eid });
+    } else {
+      moderateMutation.mutate({ et, eid, data: payload });
+    }
+  };
 
   const isBlocked = user?.is_blocked || user?.isBlocked;
   const isBanned = user?.is_banned || user?.isBanned;
@@ -749,7 +1018,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                             title={p.title} date={p.createdAt}
                             badge={p.active ? 'Ativo' : 'Inativo'} badgeColor={p.active ? 'emerald' : 'slate'}
                             moderation={modMap[`product:${p.id}`]}
-                            onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            onOpenModConfig={openModConfig}
                             details={{
                               Preço: p.price, Categoria: p.category, Condição: p.condition,
                               Estoque: p.quantityAvailable,
@@ -768,7 +1037,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                             title={s.title} date={s.createdAt}
                             badge={s.active ? 'Ativo' : 'Inativo'} badgeColor={s.active ? 'emerald' : 'slate'}
                             moderation={modMap[`service:${s.id}`]}
-                            onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            onOpenModConfig={openModConfig}
                             details={{
                               'Preço/hora': s.pricePerHour, Tipo: s.serviceType,
                               Descrição: s.description?.slice(0, 200),
@@ -786,7 +1055,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                             title={p.title} date={p.createdAt}
                             badge={p.status} badgeColor="blue"
                             moderation={modMap[`project:${p.id}`]}
-                            onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            onOpenModConfig={openModConfig}
                             details={{
                               'Valor meta': p.targetAmount, 'Valor atual': p.currentAmount,
                               Descrição: p.description?.slice(0, 200),
@@ -804,7 +1073,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                             title={n.title} date={n.createdAt}
                             badge={n.isPublished ? 'Publicada' : 'Rascunho'} badgeColor={n.isPublished ? 'emerald' : 'slate'}
                             moderation={modMap[`news:${n.id}`]}
-                            onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            onOpenModConfig={openModConfig}
                             details={{
                               Resumo: n.summary?.slice(0, 200),
                               Curtidas: n.likesCount, Comentários: n.commentsCount,
@@ -822,7 +1091,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                             title={c.content?.slice(0, 100) + (c.content?.length > 100 ? '…' : '')}
                             date={c.createdAt}
                             moderation={modMap[`comment:${c.id}`]}
-                            onModerate={handleModerate} onApprove={handleApprove} onRevokeApproval={handleRevokeApproval}
+                            onOpenModConfig={openModConfig}
                             details={{
                               'Notícia': c.news?.title ?? `ID: ${c.newsId}`,
                               'Conteúdo completo': c.content,
@@ -1146,6 +1415,19 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
           </div>
         </DialogContent>
       </Dialog>
+
+      {modConfigTarget && (
+        <ModerationConfigDialog
+          open={modConfigOpen}
+          onClose={() => setModConfigOpen(false)}
+          action={modConfigAction}
+          entityType={modConfigTarget.et}
+          entityId={modConfigTarget.eid}
+          entityTitle={modConfigTarget.title}
+          currentModeration={modConfigTarget.mod}
+          onSubmit={handleModConfigSubmit}
+        />
+      )}
 
       <AlertDialog open={!!confirmAction} onOpenChange={(v) => { if (!v) setConfirmAction(null); }}>
         <AlertDialogContent>

@@ -1245,6 +1245,7 @@ const contentModeration = {
     managerNotice?: string | null;
     wasEdited?: boolean;
     editNote?: string | null;
+    expiresAt?: string | null;
   }): Promise<any> {
     return apiRequest(`/content-moderation/${entityType}/${entityId}`, {
       method: 'PATCH',
