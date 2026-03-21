@@ -442,7 +442,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
   const [reasonInput, setReasonInput] = useState<string>('');
   const [confirmAction, setConfirmAction] = useState<{ type: string; label: string } | null>(null);
   const [eventsPage, setEventsPage] = useState<string>('');
-  const [eventsAction, setEventsAction] = useState<string>('');
+  const [eventsAction, setEventsAction] = useState<string>('all');
   const queryClient = useQueryClient();
 
   const { data: activity, isLoading: activityLoading } = useQuery({
@@ -462,7 +462,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
     queryFn: () => polysApi.events.getByUser(user.id, {
       limit: 200,
       page: eventsPage || undefined,
-      action: eventsAction || undefined,
+      action: eventsAction === 'all' ? undefined : eventsAction || undefined,
     }),
     enabled: open && !!user?.id,
   });
@@ -751,7 +751,7 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                       <SelectValue placeholder="Tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="pageview">Pageview</SelectItem>
                       <SelectItem value="click">Clique</SelectItem>
                       <SelectItem value="search">Busca</SelectItem>
