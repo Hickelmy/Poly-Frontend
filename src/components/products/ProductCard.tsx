@@ -4,7 +4,7 @@ import { createPageUrl } from '../../utils';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, MapPin, Package, Eye, User, ImageOff } from 'lucide-react';
+import { ShoppingCart, MapPin, Package, Eye, User, ImageOff, ShieldCheck, AlertTriangle, Sparkles, Megaphone, Ban } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const conditionLabels: Record<string, string> = {
@@ -19,10 +19,17 @@ const TRANSPORT_ICONS: Record<string, string> = { moto: '🛵', carro: '🚗', v
 interface ProductCardProps {
   product: any;
   onAddToCart?: (product: any) => void;
+  isOwner?: boolean;
 }
 
-export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export default function ProductCard({ product, onAddToCart, isOwner }: ProductCardProps) {
   const isAvailable = product.quantityAvailable > 0 && product.active;
+  const mod = product._moderation;
+  const modStatus = mod?.status ?? 'active';
+  const isRestricted = modStatus === 'restricted';
+  const isRemoved = modStatus === 'removed';
+  const isHighlighted = modStatus === 'highlighted';
+  const isApproved = modStatus === 'approved';
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('pt-BR', {
@@ -31,19 +38,31 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
     }).format(value || 0);
   };
 
+  // Restricted products: owner sees with warning, others shouldn't see (filtered by backend)
+  // But if somehow visible, blur it
+  const showBlurred = isRestricted && !isOwner;
+
   return (
     <Card className={cn(
-      "overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 group bg-white dark:bg-slate-900",
-      !isAvailable && "opacity-75"
+      "overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group bg-white dark:bg-slate-900 relative",
+      !isAvailable && "opacity-75",
+      isHighlighted && "ring-2 ring-purple-400 dark:ring-purple-500 border-purple-300 dark:border-purple-600 shadow-purple-100 dark:shadow-purple-900/20",
+      isApproved && "ring-1 ring-teal-300 dark:ring-teal-600 border-teal-200 dark:border-teal-700",
+      isRestricted && "border-amber-300 dark:border-amber-700 opacity-80",
+      isRemoved && "border-red-300 dark:border-red-700 opacity-50",
+      !isHighlighted && !isApproved && !isRestricted && !isRemoved && "border-0",
     )}>
-      <div className="relative h-48 overflow-hidden bg-slate-200 dark:bg-slate-700">
+      <div className={cn(
+        "relative h-48 overflow-hidden bg-slate-200 dark:bg-slate-700",
+        showBlurred && "blur-sm"
+      )}>
         {product.images?.[0] ? (
         <img
             src={product.images[0]}
           alt={product.title}
           className={cn(
             "w-full h-full object-cover transition-transform duration-500",
-            isAvailable ? "group-hover:scale-105" : "grayscale"
+            isAvailable && !isRestricted ? "group-hover:scale-105" : "grayscale"
           )}
         />
         ) : (
@@ -53,7 +72,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           </div>
         )}
 
-        {!isAvailable && (
+        {!isAvailable && !isRestricted && !isRemoved && (
           <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
             <span className="px-4 py-2 bg-red-500 text-white font-bold rounded-lg text-lg">
               INDISPONÍVEL
@@ -61,7 +80,45 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           </div>
         )}
 
-        {product.condition && isAvailable && (
+        {/* Restricted overlay */}
+        {isRestricted && (
+          <div className="absolute inset-0 bg-amber-900/70 flex flex-col items-center justify-center gap-2 z-10">
+            <AlertTriangle className="w-8 h-8 text-amber-300" />
+            <span className="px-3 py-1 bg-amber-500 text-white font-bold rounded-lg text-sm">
+              RESTRITO
+            </span>
+          </div>
+        )}
+
+        {/* Removed overlay (only visible to owner) */}
+        {isRemoved && (
+          <div className="absolute inset-0 bg-red-900/70 flex flex-col items-center justify-center gap-2 z-10">
+            <Ban className="w-8 h-8 text-red-300" />
+            <span className="px-3 py-1 bg-red-500 text-white font-bold rounded-lg text-sm">
+              REMOVIDO
+            </span>
+          </div>
+        )}
+
+        {/* Highlighted badge */}
+        {isHighlighted && (
+          <div className="absolute top-3 right-3 z-10">
+            <Badge className="bg-purple-500 text-white shadow-lg gap-1">
+              <Sparkles className="w-3 h-3" />Destaque
+            </Badge>
+          </div>
+        )}
+
+        {/* Approved seal */}
+        {isApproved && (
+          <div className="absolute top-3 right-3 z-10">
+            <Badge className="bg-teal-500 text-white shadow-lg gap-1">
+              <ShieldCheck className="w-3 h-3" />Aprovado
+            </Badge>
+          </div>
+        )}
+
+        {product.condition && isAvailable && !isRestricted && !isRemoved && (
           <div className="absolute top-4 left-4">
             <Badge variant="secondary" className="bg-white/90 text-slate-700">
               {conditionLabels[product.condition]}
@@ -69,8 +126,8 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           </div>
         )}
 
-        {isAvailable && product.quantityAvailable <= 3 && (
-          <div className="absolute top-4 right-4">
+        {isAvailable && product.quantityAvailable <= 3 && !isRestricted && !isRemoved && (
+          <div className={cn("absolute top-4 right-4", (isHighlighted || isApproved) && "top-12")}>
             <Badge className="bg-orange-500 text-white">
               Últimas {product.quantityAvailable}!
             </Badge>
@@ -86,6 +143,14 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           </div>
         </div>
       </div>
+
+      {/* Manager notice banner */}
+      {mod?.managerNotice && (
+        <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 flex items-center gap-2">
+          <Megaphone className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">{mod.managerNotice}</span>
+        </div>
+      )}
 
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-2 mb-2">
@@ -142,7 +207,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           size="sm"
           className="bg-teal-600 hover:bg-teal-700 text-white"
           onClick={() => onAddToCart && onAddToCart(product)}
-          disabled={!isAvailable}
+          disabled={!isAvailable || isRestricted || isRemoved}
         >
           <ShoppingCart className="w-4 h-4" />
         </Button>

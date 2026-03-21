@@ -4,10 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSelectedZone } from '@/contexts/SelectedZoneContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { 
+import {
   Package, Plus, ShoppingBag, TrendingUp, Wallet, Eye,
   Edit, Trash2, MoreVertical, Upload, X, Loader2, Wrench, MapPin,
-  Truck, User, Calendar, Clock, DollarSign, FileText, Home, ImageOff
+  Truck, User, Calendar, Clock, DollarSign, FileText, Home, ImageOff,
+  AlertTriangle, Ban, Sparkles, ShieldCheck, Megaphone,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -567,14 +568,39 @@ export default function SellerDashboard() {
 }
 
 // Product Card Component
-function ProductCard({ product, onEdit, onDelete }: any) {
-  const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
-  
+function ModerationBanner({ mod }: { mod: any }) {
+  if (!mod || mod.status === 'active') return null;
+  const cfg: Record<string, { icon: any; bg: string; text: string; label: string }> = {
+    restricted: { icon: AlertTriangle, bg: 'bg-amber-500', text: 'text-white', label: 'Conteúdo restrito pela moderação' },
+    removed: { icon: Ban, bg: 'bg-red-500', text: 'text-white', label: 'Conteúdo removido pela moderação' },
+    highlighted: { icon: Sparkles, bg: 'bg-purple-500', text: 'text-white', label: 'Conteúdo em destaque' },
+    approved: { icon: ShieldCheck, bg: 'bg-teal-500', text: 'text-white', label: 'Aprovado pela gestão' },
+  };
+  const c = cfg[mod.status];
+  if (!c) return null;
+  const Icon = c.icon;
   return (
-    <Card className="overflow-hidden">
-      <div className="relative h-32 bg-slate-200 dark:bg-slate-700">
+    <div className={`px-3 py-2 ${c.bg} ${c.text} flex items-center gap-2`}>
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold">{c.label}</p>
+        {mod.managerNotice && <p className="text-[11px] opacity-90 truncate">{mod.managerNotice}</p>}
+      </div>
+    </div>
+  );
+}
+
+function ProductCard({ product, onEdit, onDelete }: any) {
+  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+  const mod = product._moderation;
+  const isRestricted = mod?.status === 'restricted';
+  const isRemoved = mod?.status === 'removed';
+
+  return (
+    <Card className={`overflow-hidden ${isRestricted ? 'border-amber-400 dark:border-amber-600' : isRemoved ? 'border-red-400 dark:border-red-600 opacity-60' : ''}`}>
+      <div className={`relative h-32 bg-slate-200 dark:bg-slate-700 ${isRestricted || isRemoved ? 'grayscale opacity-70' : ''}`}>
         {product.images?.[0] ? (
-        <img 
+        <img
             src={product.images[0]}
           alt={product.title}
           className="w-full h-full object-cover"
@@ -585,12 +611,18 @@ function ProductCard({ product, onEdit, onDelete }: any) {
             <span className="text-xs font-medium">No image</span>
           </div>
         )}
-        {product.quantityAvailable <= 0 && (
+        {product.quantityAvailable <= 0 && !isRestricted && !isRemoved && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
             <Badge className="bg-red-500">Sem Estoque</Badge>
           </div>
         )}
+        {(isRestricted || isRemoved) && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <Badge className={isRemoved ? 'bg-red-500' : 'bg-amber-500'}>{isRemoved ? 'Removido' : 'Restrito'}</Badge>
+          </div>
+        )}
       </div>
+      <ModerationBanner mod={mod} />
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-semibold truncate">{product.title}</h3>
@@ -623,19 +655,16 @@ function ProductCard({ product, onEdit, onDelete }: any) {
 
 // Service Card Component
 function ServiceCard({ service, onEdit, onDelete }: any) {
-  const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
-  const priceTypeLabels = {
-    hora: '/hora',
-    diaria: '/dia',
-    servico: '',
-    orcamento: 'sob orçamento',
-  };
-  
+  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+  const mod = service._moderation;
+  const isRestricted = mod?.status === 'restricted';
+  const isRemoved = mod?.status === 'removed';
+
   return (
-    <Card className="overflow-hidden">
-      <div className="relative h-32 bg-slate-200 dark:bg-slate-700">
+    <Card className={`overflow-hidden ${isRestricted ? 'border-amber-400 dark:border-amber-600' : isRemoved ? 'border-red-400 dark:border-red-600 opacity-60' : ''}`}>
+      <div className={`relative h-32 bg-slate-200 dark:bg-slate-700 ${isRestricted || isRemoved ? 'grayscale opacity-70' : ''}`}>
         {service.images?.[0] ? (
-        <img 
+        <img
             src={service.images[0]}
           alt={service.title}
           className="w-full h-full object-cover"
@@ -649,6 +678,11 @@ function ServiceCard({ service, onEdit, onDelete }: any) {
         <Badge className={`absolute top-2 right-2 ${service.active ? 'bg-green-500' : 'bg-slate-500'}`}>
           {service.active ? 'Ativo' : 'Inativo'}
         </Badge>
+        {(isRestricted || isRemoved) && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <Badge className={isRemoved ? 'bg-red-500' : 'bg-amber-500'}>{isRemoved ? 'Removido' : 'Restrito'}</Badge>
+          </div>
+        )}
         <div className="absolute bottom-2 left-2 right-2">
           <div className="inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-white text-xs">
             <Wrench className="w-3 h-3" />
@@ -656,6 +690,7 @@ function ServiceCard({ service, onEdit, onDelete }: any) {
           </div>
         </div>
       </div>
+      <ModerationBanner mod={mod} />
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-semibold truncate">{service.title}</h3>

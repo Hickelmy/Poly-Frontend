@@ -447,6 +447,7 @@ export default function Store() {
                 <ProductCard
                   product={product}
                   onAddToCart={handleAddToCart}
+                  isOwner={user?.id && product.sellerId === user.id}
                 />
               </motion.div>
             ))}
