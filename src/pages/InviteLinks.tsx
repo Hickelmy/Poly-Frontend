@@ -87,7 +87,7 @@ export default function InviteLinks() {
   const createLinkMutation = useMutation({
     mutationFn: async () => {
       if (!selectedZoneId) throw new Error('Selecione uma zona');
-      const expiresAt = expiresInDays
+      const expiresAt = expiresInDays && expiresInDays !== 'never'
         ? new Date(Date.now() + parseInt(expiresInDays) * 86400000).toISOString()
         : undefined;
       return polysApi.inviteLinks.create({
@@ -321,7 +321,7 @@ export default function InviteLinks() {
                   <SelectItem value="7">7 dias</SelectItem>
                   <SelectItem value="14">14 dias</SelectItem>
                   <SelectItem value="30">30 dias</SelectItem>
-                  <SelectItem value="">Nunca expira</SelectItem>
+                  <SelectItem value="never">Nunca expira</SelectItem>
                 </SelectContent>
               </Select>
             </div>
