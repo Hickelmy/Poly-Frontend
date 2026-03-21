@@ -1218,6 +1218,20 @@ const users = {
   },
 };
 
+// Eventos comportamentais (analytics)
+const events = {
+  async getByUser(
+    userId: string,
+    opts: { limit?: number; page?: string; action?: string } = {},
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (opts.limit) params.set('limit', String(opts.limit));
+    if (opts.page) params.set('page', opts.page);
+    if (opts.action) params.set('action', opts.action);
+    return apiRequest(`/events/user/${userId}?${params.toString()}`, { method: 'GET' });
+  },
+};
+
 // Feature Flags API
 const featureFlags = {
   async list(category?: string): Promise<any> {
@@ -1284,6 +1298,7 @@ export const polysApi = {
   integrations,
   news,
   users,
+  events,
   featureFlags,
   clearAllLocalData,
   entities: Object.keys(entityCollections).reduce<Record<string, any>>((acc, name) => {

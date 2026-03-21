@@ -62,6 +62,7 @@ import Accessibility from "./Accessibility";
 import Sustainability from "./Sustainability";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
 
 const PAGES: Record<string, React.ComponentType> = {
 
@@ -141,6 +142,7 @@ function _getCurrentPage(url: string): string {
 function PagesContent() {
     const location = useLocation();
     const currentPage = _getCurrentPage(location.pathname);
+    useActivityTracker();
 
     return (
         <Layout currentPageName={currentPage}>

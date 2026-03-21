@@ -8,7 +8,7 @@ import {
   MoreVertical, UserCog, Ban, Lock, Unlock, Eye, Filter,
   Package, Wrench, FolderOpen, MessageSquare, ShoppingBag,
   ClipboardList, ChevronRight, AlertTriangle, CheckCircle2,
-  Activity,
+  Activity, MousePointerClick, Globe, Clock, BarChart2, RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -139,6 +139,22 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
     enabled: open && !!user?.id,
   });
 
+  const [eventsPage, setEventsPage] = useState<string>('');
+  const [eventsAction, setEventsAction] = useState<string>('');
+  const {
+    data: userEvents,
+    isLoading: eventsLoading,
+    refetch: refetchEvents,
+  } = useQuery({
+    queryKey: ['userEvents', user?.id, eventsPage, eventsAction],
+    queryFn: () => polysApi.events.getByUser(user.id, {
+      limit: 200,
+      page: eventsPage || undefined,
+      action: eventsAction || undefined,
+    }),
+    enabled: open && !!user?.id,
+  });
+
   const mutOpts = {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUsers'] });
@@ -223,6 +239,9 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
             <Tabs defaultValue="activity">
               <TabsList className="w-full mb-4">
                 <TabsTrigger value="activity" className="flex-1">Atividade</TabsTrigger>
+                <TabsTrigger value="behavior" className="flex-1 gap-1">
+                  <MousePointerClick className="w-3.5 h-3.5" />Comportamento
+                </TabsTrigger>
                 <TabsTrigger value="moderation" className="flex-1">Moderação</TabsTrigger>
                 <TabsTrigger value="audit" className="flex-1">
                   Auditoria {(auditLogs as any[]).length > 0 && (
@@ -309,6 +328,150 @@ function UserDetailModal({ user, open, onClose, currentUser, onRefresh }: UserDe
                     {!activity.products?.length && !activity.services?.length &&
                       !activity.projects?.length && !activity.comments?.length && !activity.orders?.length && (
                       <div className="text-center py-8 text-slate-400">Nenhuma atividade registrada</div>
+                    )}
+                  </>
+                ) : null}
+              </TabsContent>
+
+              {/* ── BEHAVIOR TAB ── */}
+              <TabsContent value="behavior" className="space-y-4 mt-0">
+                {/* Filters */}
+                <div className="flex gap-2 flex-wrap">
+                  <Input
+                    placeholder="Filtrar por página (ex: /marketplace)"
+                    value={eventsPage}
+                    onChange={(e) => setEventsPage(e.target.value)}
+                    className="flex-1 min-w-0 h-8 text-xs"
+                  />
+                  <Select value={eventsAction} onValueChange={setEventsAction}>
+                    <SelectTrigger className="w-36 h-8 text-xs">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="pageview">Pageview</SelectItem>
+                      <SelectItem value="click">Clique</SelectItem>
+                      <SelectItem value="search">Busca</SelectItem>
+                      <SelectItem value="filter">Filtro</SelectItem>
+                      <SelectItem value="feature_use">Feature</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" className="h-8 px-2" onClick={() => refetchEvents()}>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+
+                {eventsLoading ? (
+                  <div className="text-center py-8 text-slate-400">Carregando dados comportamentais...</div>
+                ) : userEvents ? (
+                  <>
+                    {/* Summary cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { icon: Globe, label: 'Páginas visitadas', value: userEvents.topPages?.length ?? 0, color: 'bg-teal-100 text-teal-600 dark:bg-teal-900/30' },
+                        { icon: MousePointerClick, label: 'Total de eventos', value: userEvents.total ?? 0, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' },
+                        { icon: Activity, label: 'Sessões', value: userEvents.totalSessions ?? 0, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30' },
+                        { icon: Clock, label: 'Tempo total', value: userEvents.totalDurationSec
+                            ? userEvents.totalDurationSec >= 3600
+                              ? `${Math.round(userEvents.totalDurationSec / 3600)}h`
+                              : `${Math.round(userEvents.totalDurationSec / 60)}min`
+                            : '0min', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30' },
+                      ].map(({ icon: Icon, label, value, color }) => (
+                        <Card key={label} className="border-0 shadow-sm">
+                          <CardContent className="p-3 flex items-center gap-2">
+                            <div className={`p-2 rounded-lg ${color}`}><Icon className="w-4 h-4" /></div>
+                            <div>
+                              <p className="text-base font-bold text-slate-900 dark:text-white">{value}</p>
+                              <p className="text-xs text-slate-500">{label}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {/* Top pages */}
+                    {userEvents.topPages?.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <BarChart2 className="w-4 h-4" />Páginas mais acessadas
+                        </h4>
+                        <div className="space-y-1.5">
+                          {userEvents.topPages.map((p: any) => {
+                            const max = userEvents.topPages[0]?.count || 1;
+                            const pct = Math.round((p.count / max) * 100);
+                            return (
+                              <div key={p.page} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                                <Globe className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 font-mono truncate">{p.page}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <div className="w-16 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                    <div className="h-full bg-teal-500 rounded-full" style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-slate-500 w-6 text-right">{p.count}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action distribution */}
+                    {userEvents.actionFreq && Object.keys(userEvents.actionFreq).length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <Activity className="w-4 h-4" />Distribuição de ações
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(userEvents.actionFreq as Record<string, number>)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([action, count]) => (
+                              <span key={action}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                                {action}
+                                <span className="text-[10px] text-slate-400">{count}</span>
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent events timeline */}
+                    {userEvents.recent?.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <Clock className="w-4 h-4" />Eventos recentes
+                          <span className="text-xs font-normal text-slate-400">
+                            (últimos {userEvents.recent.length} de {userEvents.total})
+                          </span>
+                        </h4>
+                        <div className="space-y-1">
+                          {userEvents.recent.map((ev: any) => (
+                            <div key={ev.id} className="flex items-start gap-2.5 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                              <span className={`mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${
+                                ev.action === 'pageview' ? 'bg-teal-100 text-teal-700' :
+                                ev.action === 'click' ? 'bg-blue-100 text-blue-700' :
+                                ev.action === 'search' ? 'bg-amber-100 text-amber-700' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>{ev.action}</span>
+                              <span className="text-xs text-slate-700 dark:text-slate-300 flex-1 font-mono truncate">{ev.page}</span>
+                              {ev.target && (
+                                <span className="text-[10px] text-slate-500 shrink-0 truncate max-w-[80px]">{ev.target}</span>
+                              )}
+                              {ev.duration != null && (
+                                <span className="text-[10px] text-slate-400 shrink-0">{ev.duration}s</span>
+                              )}
+                              <span className="text-[10px] text-slate-400 shrink-0">{fmtDate(ev.createdAt)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {userEvents.total === 0 && (
+                      <div className="text-center py-8 text-slate-400">
+                        Nenhum evento comportamental registrado ainda para este usuário.
+                      </div>
                     )}
                   </>
                 ) : null}
