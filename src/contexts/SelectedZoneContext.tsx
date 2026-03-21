@@ -28,11 +28,13 @@ export function SelectedZoneProvider({ children }: { children: React.ReactNode }
 
   const loadZones = useCallback(async (): Promise<Zone[]> => {
     try {
-      const zonesData = await polysApi.entities.Zone.list('name');
+      // Only load zones the user is a member of (not all zones)
+      const zonesData = await polysApi.myZones.list();
       setZones(zonesData);
       return zonesData;
     } catch (error) {
-      console.error('Erro ao carregar zonas:', error);
+      // If not logged in or endpoint fails, return empty
+      setZones([]);
       return [];
     }
   }, []);

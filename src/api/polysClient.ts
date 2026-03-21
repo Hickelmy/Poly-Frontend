@@ -1371,6 +1371,13 @@ const adminRequests = {
   },
 };
 
+// ── My Zones (zones the user is a member of) ──
+const myZones = {
+  async list() {
+    return apiRequest('/zones/my-zones', { method: 'GET' });
+  },
+};
+
 // ── Zone Members (backend real) ──
 const zoneMembers = {
   async list(zoneId: string) {
@@ -1394,6 +1401,7 @@ export const polysApi = {
   featureFlags,
   inviteLinks,
   adminRequests,
+  myZones,
   zoneMembers,
   clearAllLocalData,
   entities: Object.keys(entityCollections).reduce<Record<string, any>>((acc, name) => {
