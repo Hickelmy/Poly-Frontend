@@ -693,11 +693,12 @@ const auth = {
     return sanitizeUser(mapped);
   },
 
-  async register({ full_name, email, password, role, phone, cep, state, city, neighborhood, street, houseNumber }: {
+  async register({ full_name, email, password, role, accountType, phone, cep, state, city, neighborhood, street, houseNumber }: {
     full_name: string;
     email: string;
     password: string;
     role?: string;
+    accountType?: string;
     phone?: string;
     cep?: string;
     state?: string;
@@ -712,6 +713,7 @@ const auth = {
       password,
       role,
     };
+    if (accountType) payload.accountType = accountType;
 
     // Adiciona campos de endereço se fornecidos (já vêm criptografados)
     if (phone) payload.phone = phone;
