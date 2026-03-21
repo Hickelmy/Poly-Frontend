@@ -1333,6 +1333,52 @@ const featureFlags = {
   },
 };
 
+// ── Invite Links (backend real) ──
+const inviteLinks = {
+  async create(data: { zone_id: string; max_uses?: number; expires_at?: string }) {
+    return apiRequest('/invite-links', { method: 'POST', body: JSON.stringify(data) });
+  },
+  async listByZone(zoneId: string) {
+    return apiRequest(`/invite-links/zone/${zoneId}`, { method: 'GET' });
+  },
+  async validate(code: string) {
+    return apiRequest(`/invite-links/validate/${code}`, { method: 'GET' });
+  },
+  async join(code: string) {
+    return apiRequest(`/invite-links/join/${code}`, { method: 'POST' });
+  },
+  async deactivate(id: string) {
+    return apiRequest(`/invite-links/${id}`, { method: 'DELETE' });
+  },
+};
+
+// ── Admin Requests (backend real) ──
+const adminRequests = {
+  async create(data: { email: string; name: string; phone?: string; location?: string; objective?: string }) {
+    return apiRequest('/admin-requests', { method: 'POST', body: JSON.stringify(data) });
+  },
+  async list(status?: string) {
+    const params = status ? `?status=${status}` : '';
+    return apiRequest(`/admin-requests${params}`, { method: 'GET' });
+  },
+  async approve(id: string) {
+    return apiRequest(`/admin-requests/${id}/approve`, { method: 'PATCH' });
+  },
+  async reject(id: string, reason?: string) {
+    return apiRequest(`/admin-requests/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) });
+  },
+};
+
+// ── Zone Members (backend real) ──
+const zoneMembers = {
+  async list(zoneId: string) {
+    return apiRequest(`/zones/${zoneId}/members`, { method: 'GET' });
+  },
+  async remove(zoneId: string, userId: string) {
+    return apiRequest(`/zones/${zoneId}/members/${userId}`, { method: 'DELETE' });
+  },
+};
+
 export const polysApi = {
   auth,
   settings,
@@ -1344,6 +1390,9 @@ export const polysApi = {
   events,
   contentModeration,
   featureFlags,
+  inviteLinks,
+  adminRequests,
+  zoneMembers,
   clearAllLocalData,
   entities: Object.keys(entityCollections).reduce<Record<string, any>>((acc, name) => {
     acc[name] = makeEntityApi(name);

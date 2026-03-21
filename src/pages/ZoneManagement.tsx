@@ -1009,7 +1009,9 @@ export default function ZoneManagement() {
     const loadUser = async () => {
       try {
         const userData = await polysApi.auth.me();
-        if (userData.user_role !== 'gestor') {
+        const canAccess = userData.user_role === 'gestor' || userData.user_role === 'administrador'
+          || userData.account_type === 'ZONE_ADMIN';
+        if (!canAccess) {
           toast.error('Acesso negado');
           window.history.back();
           return;

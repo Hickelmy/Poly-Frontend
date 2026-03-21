@@ -190,9 +190,11 @@ export default function Layout({ children, currentPageName }: { children: React.
     { name: 'Suporte', icon: HelpCircle, page: 'Support', roles: ['usuario', 'administrador', 'gestor', 'suporte'] },
   ];
 
+  const isZoneAdmin = user?.account_type === 'ZONE_ADMIN';
+
   const adminMenuItems = [
-    { name: 'Gestão de Áreas', icon: MapPinned, page: 'ZoneManagement', roles: ['gestor'] },
-    { name: 'Links de Convite', icon: Link2, page: 'InviteLinks', roles: ['gestor'] },
+    { name: 'Gestão de Áreas', icon: MapPinned, page: 'ZoneManagement', roles: ['gestor'], showForZoneAdmin: true },
+    { name: 'Links de Convite', icon: Link2, page: 'InviteLinks', roles: ['gestor'], showForZoneAdmin: true },
     { name: 'Gestão de Usuários', icon: UserCog, page: 'UserManagement', roles: ['gestor', 'administrador'] },
     { name: 'Custos e Lucros', icon: BarChart3, page: 'FinancialReport', roles: ['gestor', 'administrador'] },
     { name: 'Configurações', icon: Settings, page: 'AppSettings', roles: ['gestor'] },
@@ -271,13 +273,13 @@ export default function Layout({ children, currentPageName }: { children: React.
               ))}
             </div>
 
-            {['gestor', 'administrador', 'suporte'].includes(userRole) && (
+            {(['gestor', 'administrador', 'suporte'].includes(userRole) || isZoneAdmin) && (
               <div className="mt-8">
                 <p className="px-4 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-                  Administração
+                  {isZoneAdmin && !['gestor', 'administrador'].includes(userRole) ? 'Minhas Zonas' : 'Administração'}
                 </p>
                 <div className="space-y-1">
-                  {adminMenuItems.filter(item => item.roles.includes(userRole)).map((item) => (
+                  {adminMenuItems.filter(item => item.roles.includes(userRole) || (isZoneAdmin && (item as any).showForZoneAdmin)).map((item) => (
                     <Link
                       key={item.page}
                       to={createPageUrl(item.page)}

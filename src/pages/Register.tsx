@@ -4,7 +4,7 @@ import { createPageUrl } from '../utils';
 import { PolysLogo } from '@/components/shared/PolysLogo';
 import { polysApi } from '@/api/polysClient';
 import { signInWithGoogle, getGoogleRedirectResult, isFirebaseConfigured } from '@/lib/firebase';
-import { Map, Mail, Lock, Eye, EyeOff, User, Loader2, ArrowLeft, MapPin } from 'lucide-react';
+import { Map, Mail, Lock, Eye, EyeOff, User, Loader2, ArrowLeft, MapPin, Building2, Shield, Users } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,8 +60,17 @@ function PasswordStrengthIndicator({ password }) {
   );
 }
 
+const ACCOUNT_TYPES = [
+  { value: 'USER', label: 'Morador / Usuário', desc: 'Compre, venda, participe de projetos comunitários', icon: Users },
+  { value: 'ZONE_ADMIN', label: 'Administrador de Área', desc: 'Gerencie zonas exclusivas (condomínios, conjuntos)', icon: Shield },
+  { value: 'COMPANY', label: 'Empresa', desc: 'Ofereça serviços, licite em projetos (em breve)', icon: Building2, disabled: true },
+];
+
 export default function Register() {
   const navigate = useNavigate();
+  const [accountType, setAccountType] = useState<string>('USER');
+  const [adminRequestSent, setAdminRequestSent] = useState(false);
+  const [adminForm, setAdminForm] = useState({ name: '', email: '', phone: '', location: '', objective: '' });
   const [formData, setFormData] = useState<any>({
     full_name: '',
     email: '',
@@ -108,6 +117,24 @@ export default function Register() {
     };
     handleRedirect();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAdminRequest = async (e: any) => {
+    e.preventDefault();
+    if (!adminForm.name || !adminForm.email) {
+      toast.error('Nome e email são obrigatórios');
+      return;
+    }
+    setLoading(true);
+    try {
+      await polysApi.adminRequests.create(adminForm);
+      setAdminRequestSent(true);
+      toast.success('Solicitação enviada! Aguarde a aprovação de um gestor.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -203,6 +230,93 @@ export default function Register() {
             <CardDescription>Junte-se à sua comunidade</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Account type selector */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Tipo de cadastro</Label>
+              <div className="grid gap-2">
+                {ACCOUNT_TYPES.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      disabled={t.disabled}
+                      onClick={() => setAccountType(t.value)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all ${
+                        accountType === t.value
+                          ? 'border-teal-500 bg-teal-50 dark:bg-teal-950/30 ring-1 ring-teal-500'
+                          : t.disabled
+                          ? 'border-slate-200 dark:border-slate-700 opacity-50 cursor-not-allowed'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 shrink-0 ${accountType === t.value ? 'text-teal-600' : 'text-slate-400'}`} />
+                      <div>
+                        <p className="text-sm font-medium">{t.label}</p>
+                        <p className="text-xs text-slate-500">{t.desc}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Admin request form */}
+            {accountType === 'ZONE_ADMIN' && (
+              adminRequestSent ? (
+                <div className="text-center py-6 space-y-3">
+                  <Shield className="w-12 h-12 mx-auto text-teal-500" />
+                  <h3 className="text-lg font-semibold">Solicitação enviada!</h3>
+                  <p className="text-sm text-slate-500">
+                    Sua solicitação para se tornar Administrador de Área foi enviada.
+                    Um gestor da plataforma irá analisá-la. Você receberá acesso após a aprovação.
+                  </p>
+                  <Button variant="outline" onClick={() => { setAccountType('USER'); setAdminRequestSent(false); }}>
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Voltar para cadastro normal
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleAdminRequest} className="space-y-4">
+                  <p className="text-sm text-slate-500 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                    Para se tornar Administrador de Área, preencha a solicitação abaixo.
+                    Um gestor da plataforma irá avaliar e aprovar seu acesso.
+                  </p>
+                  <div className="space-y-2">
+                    <Label>Nome completo *</Label>
+                    <Input placeholder="Seu nome" value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email *</Label>
+                    <Input type="email" placeholder="seu@email.com" value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Telefone</Label>
+                    <Input placeholder="(00) 00000-0000" value={adminForm.phone} onChange={(e) => setAdminForm({ ...adminForm, phone: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Localização (bairro, condomínio, conjunto)</Label>
+                    <Input placeholder="Nome do local que administra" value={adminForm.location} onChange={(e) => setAdminForm({ ...adminForm, location: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Objetivo / Justificativa</Label>
+                    <Input placeholder="Por que deseja administrar uma área?" value={adminForm.objective} onChange={(e) => setAdminForm({ ...adminForm, objective: e.target.value })} />
+                  </div>
+                  <Button type="submit" className="w-full h-11 bg-teal-600 hover:bg-teal-700" disabled={loading}>
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Shield className="w-4 h-4 mr-2" />}
+                    Enviar Solicitação
+                  </Button>
+                  <p className="text-center text-sm text-slate-500">
+                    Já tem uma conta?{' '}
+                    <Link to={createPageUrl('Login')} className="text-teal-600 hover:underline">Entrar</Link>
+                  </p>
+                </form>
+              )
+            )}
+
+            {/* Regular user form */}
+            {accountType === 'USER' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome Completo</Label>
@@ -391,6 +505,7 @@ export default function Register() {
                 Voltar
               </Button>
             </Link>
+            )}
           </CardContent>
         </Card>
       </div>
