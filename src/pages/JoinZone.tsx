@@ -7,10 +7,12 @@ import { Users, Loader2, CheckCircle, XCircle, LogIn, MapPin } from 'lucide-reac
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useSelectedZone } from '@/contexts/SelectedZoneContext';
 
 export default function JoinZone() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
+  const { refreshZones } = useSelectedZone();
   const [status, setStatus] = useState<'loading' | 'valid' | 'invalid' | 'joining' | 'success' | 'error'>('loading');
   const [linkInfo, setLinkInfo] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -47,6 +49,7 @@ export default function JoinZone() {
     setStatus('joining');
     try {
       await polysApi.inviteLinks.join(code);
+      await refreshZones();
       setStatus('success');
       toast.success('Você entrou na zona!');
     } catch (err: any) {
