@@ -224,13 +224,13 @@ export default function Layout({ children, currentPageName }: { children: React.
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-[1001] lg:hidden"
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside className={cn(
-        "fixed lg:static inset-y-0 left-0 z-[1002] w-72 transform transition-transform duration-300 ease-in-out",
+        "fixed lg:static inset-y-0 left-0 z-40 lg:z-auto w-72 shrink-0 transition-transform duration-300 ease-in-out",
         "bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800",
         sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
