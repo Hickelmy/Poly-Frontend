@@ -116,6 +116,13 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [adminRequestSent, setAdminRequestSent] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const setError = (field: string, msg: string) => setFieldErrors(prev => ({ ...prev, [field]: msg }));
+  const clearError = (field: string) => setFieldErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
+  const FieldError = ({ field }: { field: string }) => fieldErrors[field]
+    ? <p className="text-xs text-red-500 mt-1">{fieldErrors[field]}</p>
+    : null;
 
   // User form
   const [formData, setFormData] = useState({ full_name: '', email: '', password: '', confirm_password: '' });
@@ -437,56 +444,71 @@ export default function Register() {
             {/* ========== USER STEPS ========== */}
             {accountType === 'USER' && step === 0 && (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome Completo</Label>
+                <div className="space-y-1">
+                  <Label>Nome Completo *</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input placeholder="Seu nome completo" value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setFormData({ ...formData, full_name: e.target.value }); clearError('u_name'); }}
+                      onBlur={() => { if (!formData.full_name.trim()) setError('u_name', 'Nome é obrigatório'); }}
+                      className={`pl-10 ${fieldErrors.u_name ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="u_name" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
+                <div className="space-y-1">
+                  <Label>Email *</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input type="email" placeholder="seu@email.com" value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setFormData({ ...formData, email: e.target.value }); clearError('u_email'); }}
+                      onBlur={() => { if (formData.email && !isValidEmail(formData.email)) setError('u_email', 'Email inválido'); else if (!formData.email.trim()) setError('u_email', 'Email é obrigatório'); }}
+                      className={`pl-10 ${fieldErrors.u_email ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="u_email" />
                 </div>
-                <div className="space-y-2">
-                  <Label>Senha</Label>
+                <div className="space-y-1">
+                  <Label>Senha *</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input type={showPassword ? 'text' : 'password'} placeholder="Mínimo 6 caracteres"
                       value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="pl-10 pr-10" />
+                      onChange={(e) => { setFormData({ ...formData, password: e.target.value }); clearError('u_pass'); }}
+                      onBlur={() => { if (formData.password && formData.password.length < 6) setError('u_pass', 'Mínimo 6 caracteres'); }}
+                      className={`pl-10 pr-10 ${fieldErrors.u_pass ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  <FieldError field="u_pass" />
                   <PasswordStrengthIndicator password={formData.password} />
                 </div>
-                <div className="space-y-2">
-                  <Label>Confirmar Senha</Label>
+                <div className="space-y-1">
+                  <Label>Confirmar Senha *</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input type={showPassword ? 'text' : 'password'} placeholder="Digite a senha novamente"
                       value={formData.confirm_password}
-                      onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setFormData({ ...formData, confirm_password: e.target.value }); clearError('u_confirm'); }}
+                      onBlur={() => { if (formData.confirm_password && formData.confirm_password !== formData.password) setError('u_confirm', 'As senhas não coincidem'); }}
+                      className={`pl-10 ${fieldErrors.u_confirm ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="u_confirm" />
                 </div>
               </div>
             )}
 
             {accountType === 'USER' && step === 1 && (
               <div className="space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label className="flex items-center gap-2">
                     <Phone className="w-4 h-4" /> Telefone <span className="text-red-500">*</span>
                   </Label>
                   <Input placeholder="(00) 00000-0000" value={phone}
-                    onChange={(e) => setPhone(formatPhone(e.target.value))} />
+                    onChange={(e) => { setPhone(formatPhone(e.target.value)); clearError('u_phone'); }}
+                    onBlur={() => { if (phone && !isValidPhone(phone)) setError('u_phone', 'Telefone inválido. Use (XX) XXXXX-XXXX'); }}
+                    className={fieldErrors.u_phone ? 'border-red-400 focus-visible:ring-red-400' : ''} />
+                  <FieldError field="u_phone" />
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
@@ -574,29 +596,38 @@ export default function Register() {
                 <p className="text-sm text-slate-500 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                   Para se tornar Administrador de Área, preencha os dados abaixo. Um gestor irá avaliar sua solicitação.
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Nome completo *</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input placeholder="Seu nome" value={adminForm.name}
-                      onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setAdminForm({ ...adminForm, name: e.target.value }); clearError('a_name'); }}
+                      onBlur={() => { if (!adminForm.name.trim()) setError('a_name', 'Nome é obrigatório'); }}
+                      className={`pl-10 ${fieldErrors.a_name ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="a_name" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Email *</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input type="email" placeholder="seu@email.com" value={adminForm.email}
-                      onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setAdminForm({ ...adminForm, email: e.target.value }); clearError('a_email'); }}
+                      onBlur={() => { if (adminForm.email && !isValidEmail(adminForm.email)) setError('a_email', 'Email inválido'); else if (!adminForm.email.trim()) setError('a_email', 'Email é obrigatório'); }}
+                      className={`pl-10 ${fieldErrors.a_email ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="a_email" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Telefone</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input placeholder="(00) 00000-0000" value={adminForm.phone}
-                      onChange={(e) => setAdminForm({ ...adminForm, phone: formatPhone(e.target.value) })} className="pl-10" />
+                      onChange={(e) => { setAdminForm({ ...adminForm, phone: formatPhone(e.target.value) }); clearError('a_phone'); }}
+                      onBlur={() => { if (adminForm.phone && !isValidPhone(adminForm.phone)) setError('a_phone', 'Telefone inválido'); }}
+                      className={`pl-10 ${fieldErrors.a_phone ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="a_phone" />
                 </div>
               </div>
             )}
@@ -662,52 +693,67 @@ export default function Register() {
             {/* ========== COMPANY STEPS ========== */}
             {accountType === 'COMPANY' && step === 0 && (
               <div className="space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Nome do responsável *</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input placeholder="Seu nome completo" value={companyForm.name}
-                      onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setCompanyForm({ ...companyForm, name: e.target.value }); clearError('c_name'); }}
+                      onBlur={() => { if (!companyForm.name.trim()) setError('c_name', 'Nome é obrigatório'); }}
+                      className={`pl-10 ${fieldErrors.c_name ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="c_name" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Email *</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input type="email" placeholder="contato@empresa.com" value={companyForm.email}
-                      onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setCompanyForm({ ...companyForm, email: e.target.value }); clearError('c_email'); }}
+                      onBlur={() => { if (companyForm.email && !isValidEmail(companyForm.email)) setError('c_email', 'Email inválido'); else if (!companyForm.email.trim()) setError('c_email', 'Email é obrigatório'); }}
+                      className={`pl-10 ${fieldErrors.c_email ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="c_email" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Senha *</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input type={showPassword ? 'text' : 'password'} placeholder="Mínimo 6 caracteres"
                       value={companyForm.password}
-                      onChange={(e) => setCompanyForm({ ...companyForm, password: e.target.value })} className="pl-10 pr-10" />
+                      onChange={(e) => { setCompanyForm({ ...companyForm, password: e.target.value }); clearError('c_pass'); }}
+                      onBlur={() => { if (companyForm.password && companyForm.password.length < 6) setError('c_pass', 'Mínimo 6 caracteres'); }}
+                      className={`pl-10 pr-10 ${fieldErrors.c_pass ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  <FieldError field="c_pass" />
                   <PasswordStrengthIndicator password={companyForm.password} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Confirmar Senha *</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input type={showPassword ? 'text' : 'password'} placeholder="Digite a senha novamente"
                       value={companyForm.confirm_password}
-                      onChange={(e) => setCompanyForm({ ...companyForm, confirm_password: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setCompanyForm({ ...companyForm, confirm_password: e.target.value }); clearError('c_confirm'); }}
+                      onBlur={() => { if (companyForm.confirm_password && companyForm.confirm_password !== companyForm.password) setError('c_confirm', 'As senhas não coincidem'); }}
+                      className={`pl-10 ${fieldErrors.c_confirm ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="c_confirm" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Telefone comercial</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input placeholder="(00) 00000-0000" value={companyForm.phone}
-                      onChange={(e) => setCompanyForm({ ...companyForm, phone: formatPhone(e.target.value) })} className="pl-10" />
+                      onChange={(e) => { setCompanyForm({ ...companyForm, phone: formatPhone(e.target.value) }); clearError('c_phone'); }}
+                      onBlur={() => { if (companyForm.phone && !isValidPhone(companyForm.phone)) setError('c_phone', 'Telefone inválido'); }}
+                      className={`pl-10 ${fieldErrors.c_phone ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="c_phone" />
                 </div>
               </div>
             )}
@@ -717,15 +763,18 @@ export default function Register() {
                 <p className="text-sm text-slate-500 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                   Esses dados serão enviados para verificação. Você já poderá usar o sistema, mas seu perfil ficará como "não verificado" até a aprovação.
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Nome da Empresa / Razão Social *</Label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <Input placeholder="Razão social da empresa" value={companyForm.companyName}
-                      onChange={(e) => setCompanyForm({ ...companyForm, companyName: e.target.value })} className="pl-10" />
+                      onChange={(e) => { setCompanyForm({ ...companyForm, companyName: e.target.value }); clearError('c_company'); }}
+                      onBlur={() => { if (!companyForm.companyName.trim()) setError('c_company', 'Nome da empresa é obrigatório'); }}
+                      className={`pl-10 ${fieldErrors.c_company ? 'border-red-400 focus-visible:ring-red-400' : ''}`} />
                   </div>
+                  <FieldError field="c_company" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>CNPJ *</Label>
                   <Input placeholder="00.000.000/0000-00" value={companyForm.cnpj}
                     onChange={(e) => {
@@ -735,8 +784,11 @@ export default function Register() {
                       else if (digits.length > 8) formatted = `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8)}`;
                       else if (digits.length > 5) formatted = `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5)}`;
                       else if (digits.length > 2) formatted = `${digits.slice(0,2)}.${digits.slice(2)}`;
-                      setCompanyForm({ ...companyForm, cnpj: formatted });
-                    }} />
+                      setCompanyForm({ ...companyForm, cnpj: formatted }); clearError('c_cnpj');
+                    }}
+                    onBlur={() => { const d = companyForm.cnpj.replace(/\D/g, ''); if (d.length === 14 && !isValidCNPJ(companyForm.cnpj)) setError('c_cnpj', 'CNPJ inválido'); else if (d.length > 0 && d.length < 14) setError('c_cnpj', 'CNPJ incompleto'); }}
+                    className={fieldErrors.c_cnpj ? 'border-red-400 focus-visible:ring-red-400' : ''} />
+                  <FieldError field="c_cnpj" />
                 </div>
                 <div className="space-y-2">
                   <Label>Descrição da empresa</Label>
