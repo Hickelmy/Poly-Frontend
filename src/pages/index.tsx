@@ -38,6 +38,8 @@ import ZoneManagement from "./ZoneManagement";
 
 import InviteLinks from "./InviteLinks";
 
+import JoinZone from "./JoinZone";
+
 import Login from "./Login";
 
 import AppSettings from "./AppSettings";
@@ -193,6 +195,7 @@ function PagesContent() {
                 <Route path="/ZoneManagement" element={<ZoneManagement />} />
 
                 <Route path="/InviteLinks" element={<InviteLinks />} />
+                <Route path="/join/:code" element={<JoinZone />} />
 
                 <Route path="/AppSettings" element={<AppSettings />} />
                 <Route path="/appsettings" element={<AppSettings />} />
