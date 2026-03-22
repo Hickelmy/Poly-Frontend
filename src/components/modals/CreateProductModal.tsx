@@ -943,35 +943,74 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
 
             {/* Right column */}
             <div className="space-y-4">
-              {/* Quem paga as taxas */}
-              <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                <Label className="text-sm font-semibold">Quem paga taxa e impostos? (8%)</Label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
-                  Taxa da plataforma (5%) + impostos (3%) = 8% sobre o valor do produto
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'seller', label: 'Vendedor assume', desc: 'Descontado do seu lucro', selected: !formData.absorb_platform_fee },
-                    { value: 'buyer', label: 'Comprador paga', desc: 'Adicionado ao valor final', selected: formData.absorb_platform_fee },
-                  ].map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        const passToBuyer = opt.value === 'buyer';
-                        setFormData({ ...formData, absorb_platform_fee: passToBuyer, absorb_tax: passToBuyer });
-                      }}
-                      className={cn(
-                        "flex flex-col items-start p-3 rounded-xl border-2 text-left transition-all",
-                        opt.selected
-                          ? "border-teal-500 bg-teal-50 dark:bg-teal-900/20"
-                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                      )}
-                    >
-                      <span className={cn("text-sm font-semibold", opt.selected ? "text-teal-700 dark:text-teal-300" : "text-slate-700 dark:text-slate-300")}>{opt.label}</span>
-                      <span className="text-xs text-slate-500">{opt.desc}</span>
-                    </button>
-                  ))}
+              {/* Quem paga os custos */}
+              <div className="space-y-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <Label className="text-sm font-semibold">Responsabilidade dos custos</Label>
+
+                {/* Frete */}
+                {formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t)) && (
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Frete</p>
+                      <p className="text-[11px] text-slate-400">Para Motoboy, Carro, Van, Caminhão</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { value: 'buyer', label: 'Comprador paga', desc: 'Cobrado à parte' },
+                        { value: 'seller', label: 'Vendedor assume', desc: 'Incluso no preço' },
+                      ].map(opt => {
+                        const selected = formData.shipping_paid_by === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, shipping_paid_by: opt.value })}
+                            className={cn(
+                              "flex flex-col items-start p-2.5 rounded-lg border-2 text-left transition-all",
+                              selected
+                                ? "border-teal-500 bg-teal-50 dark:bg-teal-900/20"
+                                : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                            )}
+                          >
+                            <span className={cn("text-xs font-semibold", selected ? "text-teal-700 dark:text-teal-300" : "text-slate-700 dark:text-slate-300")}>{opt.label}</span>
+                            <span className="text-[11px] text-slate-500">{opt.desc}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Taxas e impostos */}
+                <div className={cn("space-y-2", formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t)) && "pt-3 border-t border-slate-200 dark:border-slate-600")}>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">Taxa da plataforma (5%) + Impostos (3%)</p>
+                    <p className="text-[11px] text-slate-400">Total de 8% sobre o valor do produto</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'seller', label: 'Vendedor assume', desc: 'Descontado do lucro', selected: !formData.absorb_platform_fee },
+                      { value: 'buyer', label: 'Comprador paga', desc: 'Adicionado ao total', selected: formData.absorb_platform_fee },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          const passToBuyer = opt.value === 'buyer';
+                          setFormData({ ...formData, absorb_platform_fee: passToBuyer, absorb_tax: passToBuyer });
+                        }}
+                        className={cn(
+                          "flex flex-col items-start p-2.5 rounded-lg border-2 text-left transition-all",
+                          opt.selected
+                            ? "border-teal-500 bg-teal-50 dark:bg-teal-900/20"
+                            : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                        )}
+                      >
+                        <span className={cn("text-xs font-semibold", opt.selected ? "text-teal-700 dark:text-teal-300" : "text-slate-700 dark:text-slate-300")}>{opt.label}</span>
+                        <span className="text-[11px] text-slate-500">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -1228,49 +1267,6 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   })}
                 </div>
 
-                {formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t)) && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Quem paga o frete?</Label>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
-                    Aplica-se apenas aos meios com taxa (Motoboy, Carro, Van, Caminhão)
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { value: 'buyer', label: 'Comprador paga', icon: <CreditCard className="w-5 h-5" />, desc: 'Taxa cobrada à parte' },
-                      { value: 'seller', label: 'Incluso no preço', icon: <Gift className="w-5 h-5" />, desc: 'Frete já embutido' },
-                    ].map(({ value, label, icon, desc }) => {
-                      const selected = formData.shipping_paid_by === value;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, shipping_paid_by: value })}
-                          className={`flex items-center gap-2.5 p-3 rounded-xl border-2 text-left transition-all ${
-                            selected
-                              ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
-                              : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                          }`}
-                        >
-                          <div className={`shrink-0 ${selected ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                            {icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold leading-tight ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
-                              {label}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{desc}</p>
-                          </div>
-                          <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                            selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
-                          }`}>
-                            {selected && <div className="w-2 h-2 rounded-full bg-white" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                )}
               </div>
           </div>
           )}
