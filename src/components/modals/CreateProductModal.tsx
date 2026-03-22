@@ -495,8 +495,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         <div className="px-6 border-b flex gap-0 shrink-0">
           {([
             { key: 'produto' as const, label: 'Produto', icon: <Package className="w-4 h-4" /> },
-            { key: 'preco' as const, label: 'Preço e Descontos', icon: <Calculator className="w-4 h-4" /> },
-            { key: 'entrega' as const, label: 'Entrega e Pagamento', icon: <TruckIcon className="w-4 h-4" /> },
+            { key: 'entrega' as const, label: 'Entrega', icon: <TruckIcon className="w-4 h-4" /> },
+            { key: 'preco' as const, label: 'Preço, Descontos e Pagamento', icon: <Calculator className="w-4 h-4" /> },
           ]).map(tab => (
             <button
               key={tab.key}
@@ -1071,11 +1071,56 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   <p className="text-[10px] text-slate-400">Frete estimado em R$ 12,00 — valor real varia por distância.</p>
                 )}
               </div>
+
+              {/* Formas de Pagamento */}
+              <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <Label className="text-sm font-semibold">Formas de Pagamento Aceitas</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'pix', label: 'PIX', icon: <QrCode className="w-4 h-4" /> },
+                    { value: 'credit_card', label: 'Cartão de crédito', icon: <CreditCard className="w-4 h-4" /> },
+                    { value: 'debit_card', label: 'Cartão de débito', icon: <CreditCard className="w-4 h-4" /> },
+                    { value: 'cash', label: 'Dinheiro', icon: <Banknote className="w-4 h-4" /> },
+                    { value: 'transfer', label: 'Transferência', icon: <Building2 className="w-4 h-4" /> },
+                  ].map(({ value, label, icon }) => {
+                    const selected = formData.payment_methods.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          const methods = selected
+                            ? formData.payment_methods.filter(m => m !== value)
+                            : [...formData.payment_methods, value];
+                          setFormData({ ...formData, payment_methods: methods });
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 p-2.5 rounded-xl border-2 text-left transition-all",
+                          selected
+                            ? "border-teal-500 bg-teal-50 dark:bg-teal-900/20"
+                            : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                        )}
+                      >
+                        <span className={selected ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'}>{icon}</span>
+                        <span className={cn("text-xs font-medium flex-1", selected ? "text-teal-700 dark:text-teal-300" : "text-slate-700 dark:text-slate-300")}>
+                          {label}
+                        </span>
+                        <div className={cn(
+                          "w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center",
+                          selected ? "border-teal-500 bg-teal-500" : "border-slate-300 dark:border-slate-600"
+                        )}>
+                          {selected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
           )}
 
-          {/* TAB: Entrega e Pagamento */}
+          {/* TAB: Entrega */}
           {activeTab === 'entrega' && (
           <div className="space-y-6">
               <div className="space-y-3">
@@ -1227,49 +1272,6 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 </div>
                 )}
               </div>
-
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Formas de Pagamento Aceitas</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'pix', label: 'PIX', icon: <QrCode className="w-4 h-4" /> },
-                    { value: 'credit_card', label: 'Cartão de crédito', icon: <CreditCard className="w-4 h-4" /> },
-                    { value: 'debit_card', label: 'Cartão de débito', icon: <CreditCard className="w-4 h-4" /> },
-                    { value: 'cash', label: 'Dinheiro', icon: <Banknote className="w-4 h-4" /> },
-                    { value: 'transfer', label: 'Transferência', icon: <Building2 className="w-4 h-4" /> },
-                  ].map(({ value, label, icon }) => {
-                    const selected = formData.payment_methods.includes(value);
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          const methods = selected
-                            ? formData.payment_methods.filter(m => m !== value)
-                            : [...formData.payment_methods, value];
-                          setFormData({ ...formData, payment_methods: methods });
-                        }}
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border-2 text-left transition-all ${
-                          selected
-                            ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
-                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                        }`}
-                      >
-                        <span className={selected ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'}>{icon}</span>
-                        <span className={`text-xs font-medium flex-1 ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-700 dark:text-slate-300'}`}>
-                          {label}
-                        </span>
-                        <div className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                          selected ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
-                        }`}>
-                          {selected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
           </div>
           )}
 
@@ -1281,17 +1283,17 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setActiveTab(activeTab === 'entrega' ? 'preco' : 'produto')}
+                onClick={() => setActiveTab(activeTab === 'preco' ? 'entrega' : 'produto')}
                 className="h-10"
               >
                 Voltar
               </Button>
             )}
           </div>
-          {activeTab !== 'entrega' ? (
+          {activeTab !== 'preco' ? (
             <Button
               type="button"
-              onClick={() => setActiveTab(activeTab === 'produto' ? 'preco' : 'entrega')}
+              onClick={() => setActiveTab(activeTab === 'produto' ? 'entrega' : 'preco')}
               className="bg-teal-600 hover:bg-teal-700 h-10 px-6"
             >
               Próximo
