@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, Package, ShoppingCart, User, ChevronLeft, ChevronRight,
   ImageOff, Minus, Plus, Shield, Truck, Star, CheckCircle2, HeartHandshake,
-  AlertTriangle, Ban, Sparkles, Megaphone
+  AlertTriangle, Ban, Sparkles, Megaphone, Ticket, Bike, Car, TruckIcon,
+  Container, Store, HandshakeIcon, QrCode, CreditCard, Banknote, Building2
 } from 'lucide-react';
 import verificadoImg from '@/assets/verificado.png';
 import aprovadoImg from '@/assets/aprovado.png';
@@ -24,19 +25,21 @@ const conditionLabels: Record<string, string> = {
   usado_regular: 'Usado - Regular',
 };
 
-const PAYMENT_ICONS: Record<string, { label: string; icon: string }> = {
-  pix: { label: 'PIX', icon: '◈' },
-  credit_card: { label: 'Crédito', icon: '💳' },
-  debit_card: { label: 'Débito', icon: '💳' },
-  cash: { label: 'Dinheiro', icon: '💵' },
-  transfer: { label: 'Transferência', icon: '🏦' },
+const PAYMENT_ICONS: Record<string, { label: string; icon: React.ReactNode }> = {
+  pix: { label: 'PIX', icon: <QrCode className="w-3.5 h-3.5" /> },
+  credit_card: { label: 'Crédito', icon: <CreditCard className="w-3.5 h-3.5" /> },
+  debit_card: { label: 'Débito', icon: <CreditCard className="w-3.5 h-3.5" /> },
+  cash: { label: 'Dinheiro', icon: <Banknote className="w-3.5 h-3.5" /> },
+  transfer: { label: 'Transferência', icon: <Building2 className="w-3.5 h-3.5" /> },
 };
 
-const DELIVERY_META: Record<string, { label: string; icon: string }> = {
-  moto: { label: 'Motoboy', icon: '🛵' },
-  carro: { label: 'Carro', icon: '🚗' },
-  van: { label: 'Van', icon: '🚐' },
-  caminhao: { label: 'Caminhão', icon: '🚛' },
+const DELIVERY_META: Record<string, { label: string; icon: React.ReactNode; free?: boolean }> = {
+  retirada: { label: 'Retirada no Local', icon: <Store className="w-3.5 h-3.5" />, free: true },
+  entrega_propria: { label: 'Entrega pelo Vendedor', icon: <HandshakeIcon className="w-3.5 h-3.5" />, free: true },
+  moto: { label: 'Motoboy', icon: <Bike className="w-3.5 h-3.5" /> },
+  carro: { label: 'Carro', icon: <Car className="w-3.5 h-3.5" /> },
+  van: { label: 'Van', icon: <TruckIcon className="w-3.5 h-3.5" /> },
+  caminhao: { label: 'Caminhão', icon: <Container className="w-3.5 h-3.5" /> },
 };
 
 const fmtBRL = (v: any) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
@@ -47,6 +50,8 @@ export default function ProductDetail() {
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [qty, setQty] = useState<number>(1);
+  const [couponCode, setCouponCode] = useState<string>('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number } | null>(null);
 
   const { addItem } = useCart();
 
@@ -172,9 +177,28 @@ export default function ProductDetail() {
   const isRestricted = modStatus === 'restricted';
   const isRemoved = modStatus === 'removed';
 
-  const discountedPrice = product.discountPercent
-    ? product.price * (1 - product.discountPercent / 100)
+  const generalDiscount = product.discountPercent || 0;
+  const couponDiscount = appliedCoupon?.discountPercent || 0;
+  const effectiveDiscount = Math.max(generalDiscount, couponDiscount);
+  const discountedPrice = effectiveDiscount > 0
+    ? product.price * (1 - effectiveDiscount / 100)
     : null;
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) return;
+    const coupons = product.coupons || [];
+    const found = coupons.find((c: any) => c.code.toUpperCase() === couponCode.trim().toUpperCase());
+    if (!found) {
+      toast.error('Cupom inválido ou não encontrado');
+      return;
+    }
+    setAppliedCoupon({ code: found.code, discountPercent: found.discountPercent });
+    if (found.discountPercent <= generalDiscount) {
+      toast.info(`Cupom aplicado, mas o desconto geral de ${generalDiscount}% já é maior.`);
+    } else {
+      toast.success(`Cupom ${found.code} aplicado! ${found.discountPercent}% de desconto`);
+    }
+  };
 
   const maxQty = product.quantityAvailable || 1;
   const inStock = product.quantityAvailable > 0 && product.active;
@@ -305,7 +329,7 @@ export default function ProductDetail() {
             <span className="text-xs text-slate-400 ml-1">Sem avaliações ainda</span>
           </div>
 
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-1">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-2">
             {discountedPrice ? (
               <>
                 <div className="flex items-center gap-3">
@@ -313,11 +337,16 @@ export default function ProductDetail() {
                     {fmtBRL(discountedPrice)}
                   </span>
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-bold">
-                    {product.discountPercent}% OFF
+                    {effectiveDiscount}% OFF
                   </span>
                 </div>
                 <p className="text-sm text-slate-400 line-through">{fmtBRL(product.price)}</p>
-                <p className="text-xs text-slate-500">por {product.unitType || 'unidade'}</p>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>por {product.unitType || 'unidade'}</span>
+                  {appliedCoupon && couponDiscount > generalDiscount && (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">cupom {appliedCoupon.code}</span>
+                  )}
+                </div>
               </>
             ) : (
               <>
@@ -326,6 +355,56 @@ export default function ProductDetail() {
                 </span>
                 <p className="text-xs text-slate-500">por {product.unitType || 'unidade'}</p>
               </>
+            )}
+
+            {/* Coupon input */}
+            {product.coupons && product.coupons.length > 0 && (
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                    <div className="flex items-center gap-2">
+                      <Ticket className="w-4 h-4 text-emerald-600" />
+                      <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300">{appliedCoupon.code}</span>
+                      <span className="text-xs text-emerald-600">-{appliedCoupon.discountPercent}%</span>
+                      {appliedCoupon.discountPercent <= generalDiscount && (
+                        <span className="text-[10px] text-amber-500">(desconto geral já é maior)</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setAppliedCoupon(null); setCouponCode(''); }}
+                      className="text-xs text-red-500 hover:text-red-600 font-medium"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Ticket className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                        placeholder="Código do cupom"
+                        className="w-full h-9 pl-8 pr-3 text-xs font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        maxLength={20}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 text-xs shrink-0"
+                      onClick={handleApplyCoupon}
+                      disabled={!couponCode.trim()}
+                    >
+                      Aplicar
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -358,7 +437,7 @@ export default function ProductDetail() {
               : 'Indisponível'}
           </div>
 
-          {((product.deliveryTypes && product.deliveryTypes.length > 0) || product.sellerDelivery) && (
+          {product.deliveryTypes && product.deliveryTypes.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Entrega</p>
               <div className="flex flex-wrap gap-2">
@@ -366,17 +445,20 @@ export default function ProductDetail() {
                   const meta = DELIVERY_META[dt];
                   if (!meta) return null;
                   return (
-                    <span key={dt} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium">
-                      <span>{meta.icon}</span>
+                    <span key={dt} className={cn(
+                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium",
+                      meta.free
+                        ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                    )}>
+                      {meta.icon}
                       {meta.label}
+                      {meta.free && <span className="text-[10px] font-bold text-emerald-500">Grátis</span>}
                     </span>
                   );
                 })}
-                {product.sellerDelivery && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 text-xs font-medium">
-                    <span>🤝</span>
-                    Entrega pessoal
-                  </span>
+                {product.shippingPaidBy === 'seller' && product.deliveryTypes.some((t: string) => !['retirada', 'entrega_propria'].includes(t)) && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium self-center">Frete incluso</span>
                 )}
               </div>
             </div>
@@ -390,8 +472,8 @@ export default function ProductDetail() {
                   const meta = PAYMENT_ICONS[method];
                   if (!meta) return null;
                   return (
-                    <span key={method} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium">
-                      <span>{meta.icon}</span>
+                    <span key={method} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium">
+                      {meta.icon}
                       {meta.label}
                     </span>
                   );
