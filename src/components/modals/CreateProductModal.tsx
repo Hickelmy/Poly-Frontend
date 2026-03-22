@@ -939,7 +939,10 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   )}
                 </div>
               </div>
+            </div>
 
+            {/* Right column */}
+            <div className="space-y-4">
               {/* Quem paga as taxas */}
               <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                 <Label className="text-sm font-semibold">Quem paga taxa e impostos? (8%)</Label>
