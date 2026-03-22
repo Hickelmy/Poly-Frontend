@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
 import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 import { useQueryClient } from '@tanstack/react-query';
-import { MapPin, Upload, X, Loader2, Search, Bike, Car, TruckIcon, Container, Store, HandshakeIcon } from 'lucide-react';
+import { MapPin, Upload, X, Loader2, Search, Bike, Car, TruckIcon, Container, Store, HandshakeIcon, CreditCard, Gift } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -721,7 +721,18 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   {Object.entries(TRANSPORT_META).map(([value, meta]) => {
                     const selected = formData.delivery_types.includes(value);
                     const warning = selected ? getTransportWarning(value) : null;
-                    const costDots = meta.cost > 0 ? '💰'.repeat(meta.cost) : '';
+                    const costColor = meta.cost <= 1 ? 'bg-emerald-400' : meta.cost <= 2 ? 'bg-amber-400' : meta.cost <= 3 ? 'bg-orange-400' : 'bg-red-400';
+                    const costBars = meta.cost > 0 ? (
+                      <span className="flex items-end gap-[2px]" title={`Custo: ${meta.costLabel}`}>
+                        {[1, 2, 3, 4].map((level) => (
+                          <span
+                            key={level}
+                            className={`inline-block w-[4px] rounded-[1px] ${level <= meta.cost ? costColor : 'bg-slate-200 dark:bg-slate-600'}`}
+                            style={{ height: `${4 + level * 3}px` }}
+                          />
+                        ))}
+                      </span>
+                    ) : null;
                     return (
                       <div key={value} className="space-y-1">
                         <button
@@ -765,7 +776,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                               {meta.free ? (
                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Grátis</span>
                               ) : (
-                                <span className="text-xs leading-none" title={`Custo: ${meta.costLabel}`}>{costDots}</span>
+                                costBars
                               )}
                             </div>
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{meta.free ? meta.desc : meta.costLabel}</p>
@@ -791,12 +802,16 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   })}
                 </div>
 
+                {formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t)) && (
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Quem paga o frete?</Label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
+                    Aplica-se apenas aos meios com taxa (Motoboy, Carro, Van, Caminhão)
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { value: 'buyer', label: 'Comprador paga', icon: '💳', desc: 'Frete cobrado separado' },
-                      { value: 'seller', label: 'Incluso no preço', icon: '🎁', desc: 'Frete já embutido' },
+                      { value: 'buyer', label: 'Comprador paga', icon: <CreditCard className="w-5 h-5" />, desc: 'Taxa cobrada à parte' },
+                      { value: 'seller', label: 'Incluso no preço', icon: <Gift className="w-5 h-5" />, desc: 'Frete já embutido' },
                     ].map(({ value, label, icon, desc }) => {
                       const selected = formData.shipping_paid_by === value;
                       return (
@@ -810,7 +825,9 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                               : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                           }`}
                         >
-                          <span className="text-xl">{icon}</span>
+                          <div className={`shrink-0 ${selected ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                            {icon}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-semibold leading-tight ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
                               {label}
@@ -827,6 +844,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                     })}
                   </div>
                 </div>
+                )}
               </div>
 
               <div className="space-y-2">
