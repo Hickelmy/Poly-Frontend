@@ -893,30 +893,6 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, seller_delivery: !formData.seller_delivery })}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
-                    formData.seller_delivery
-                      ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
-                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                  }`}
-                >
-                  <span className="text-xl">🤝</span>
-                  <div className="flex-1">
-                    <p className={`text-sm font-semibold ${formData.seller_delivery ? 'text-teal-700 dark:text-teal-300' : 'text-slate-800 dark:text-slate-200'}`}>
-                      Entrega pessoal pelo vendedor
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Eu mesmo faço a entrega</p>
-                  </div>
-                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
-                    formData.seller_delivery ? 'border-teal-500 bg-teal-500' : 'border-slate-300 dark:border-slate-600'
-                  }`}>
-                    {formData.seller_delivery && <div className="w-2 h-2 rounded-full bg-white" />}
-                  </div>
-                </button>
-              </div>
             </div>
 
           </div>
