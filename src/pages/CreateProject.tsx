@@ -390,6 +390,8 @@ export default function CreateProject() {
         </CardHeader>
         <CardContent>
           <form className="space-y-6" onSubmit={handleSubmit}>
+            <ZonePublishSelector value={publishZoneId} onChange={setPublishZoneId} />
+
             <div className="space-y-2">
               <Label>Título *</Label>
               <Input
@@ -784,8 +786,6 @@ export default function CreateProject() {
                 </Popover>
               </div>
             </div>
-
-            <ZonePublishSelector value={publishZoneId} onChange={setPublishZoneId} />
 
             <div className="flex justify-end gap-3">
               <Button

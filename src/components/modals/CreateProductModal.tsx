@@ -458,6 +458,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             <div className="space-y-4">
+              <ZonePublishSelector value={formData.zone_id} onChange={(z) => setFormData({ ...formData, zone_id: z })} />
+
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <MapPin className="w-4 h-4 text-teal-600" />
@@ -891,8 +893,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 space-y-4">
-          <ZonePublishSelector value={formData.zone_id} onChange={(z) => setFormData({ ...formData, zone_id: z })} />
+        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50">
           <Button
             className="w-full bg-teal-600 hover:bg-teal-700 h-11 text-base font-semibold"
             onClick={handleSubmit}

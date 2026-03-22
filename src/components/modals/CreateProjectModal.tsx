@@ -489,6 +489,8 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
 
               <div className="p-5 space-y-4">
 
+                <ZonePublishSelector value={publishZoneId} onChange={setPublishZoneId} />
+
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Título *</Label>
                   <Input
@@ -827,9 +829,6 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
               </div>
             </div>
 
-            <div className="px-5 pb-4">
-              <ZonePublishSelector value={publishZoneId} onChange={setPublishZoneId} />
-            </div>
           </div>
 
           <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 shrink-0 flex items-center justify-between gap-3">
