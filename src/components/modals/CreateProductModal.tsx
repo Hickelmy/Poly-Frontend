@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
 import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 import { useQueryClient } from '@tanstack/react-query';
-import { MapPin, Upload, X, Loader2, Search, Bike, Car, TruckIcon, Container, Store, HandshakeIcon, CreditCard, Gift, Ticket, Plus, Trash2, Tag, Clock, Hash, Eye, Percent, Calculator, ShieldCheck } from 'lucide-react';
+import { MapPin, Upload, X, Loader2, Search, Bike, Car, TruckIcon, Container, Store, HandshakeIcon, CreditCard, Gift, Ticket, Plus, Trash2, Tag, Clock, Hash, Eye, Percent, Calculator, ShieldCheck, Package, Banknote, Building2, QrCode } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import CurrencyInput from '../shared/CurrencyInput';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -214,7 +215,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
   const [addressSearch, setAddressSearch] = useState<string>('');
   const [searchingAddress, setSearchingAddress] = useState<boolean>(false);
   const [couponDraft, setCouponDraft] = useState<CouponData>({ code: '', discount_percent: '', max_uses: '', expires_in_days: '' });
-  const [showCouponPreview, setShowCouponPreview] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'produto' | 'preco' | 'entrega'>('produto');
 
   const roundCoordinate = (coord: number): number => {
     return Math.round(coord * 1000) / 1000;
@@ -490,9 +491,35 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
           <DialogTitle className="text-2xl">{product ? 'Editar Produto' : 'Novo Produto'}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tabs */}
+        <div className="px-6 border-b flex gap-0 shrink-0">
+          {([
+            { key: 'produto' as const, label: 'Produto', icon: <Package className="w-4 h-4" /> },
+            { key: 'preco' as const, label: 'Preço e Descontos', icon: <Calculator className="w-4 h-4" /> },
+            { key: 'entrega' as const, label: 'Entrega e Pagamento', icon: <TruckIcon className="w-4 h-4" /> },
+          ]).map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+                activeTab === tab.key
+                  ? "border-teal-500 text-teal-600 dark:text-teal-400"
+                  : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+
+          {/* TAB: Produto */}
+          {activeTab === 'produto' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4">
               <ZonePublishSelector value={formData.zone_id} onChange={(z) => setFormData({ ...formData, zone_id: z })} />
 
@@ -621,7 +648,60 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   </Select>
                 </div>
               </div>
+            </div>
 
+            {/* Right column: Images */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Imagens do Produto</Label>
+                {formData.images.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {formData.images.map((img, i) => (
+                      <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border-2 border-slate-200 dark:border-slate-700">
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => setFormData({ ...formData, images: formData.images.filter((_, j) => j !== i) })}
+                          className="absolute top-2 right-2 w-7 h-7 bg-red-500/90 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <label className="aspect-square border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      {uploading ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                      ) : (
+                        <>
+                          <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                          <span className="text-xs text-slate-500">Adicionar</span>
+                        </>
+                      )}
+                      <input type="file" accept=".png,.jpg,.jpeg,.webp,.gif" onChange={handleImageUpload} className="hidden" multiple />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="block aspect-video border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    {uploading ? (
+                      <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                        <span className="text-sm text-slate-500">Clique para adicionar imagens</span>
+                        <span className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP ou GIF</span>
+                      </>
+                    )}
+                    <input type="file" accept=".png,.jpg,.jpeg,.webp,.gif" onChange={handleImageUpload} className="hidden" multiple />
+                  </label>
+                )}
+              </div>
+            </div>
+          </div>
+          )}
+
+          {/* TAB: Preço e Descontos */}
+          {activeTab === 'preco' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4">
               <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                 <Label className="text-sm font-semibold">Preço e Estoque</Label>
                 <div className="space-y-2">
@@ -860,140 +940,141 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 </div>
               </div>
 
-              {/* Simulador de custos */}
+              {/* Quem paga as taxas */}
+              <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <Label className="text-sm font-semibold">Quem paga taxa e impostos? (8%)</Label>
+                <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
+                  Taxa da plataforma (5%) + impostos (3%) = 8% sobre o valor do produto
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'seller', label: 'Vendedor assume', desc: 'Descontado do seu lucro', selected: !formData.absorb_platform_fee },
+                    { value: 'buyer', label: 'Comprador paga', desc: 'Adicionado ao valor final', selected: formData.absorb_platform_fee },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        const passToBuyer = opt.value === 'buyer';
+                        setFormData({ ...formData, absorb_platform_fee: passToBuyer, absorb_tax: passToBuyer });
+                      }}
+                      className={cn(
+                        "flex flex-col items-start p-3 rounded-xl border-2 text-left transition-all",
+                        opt.selected
+                          ? "border-teal-500 bg-teal-50 dark:bg-teal-900/20"
+                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                      )}
+                    >
+                      <span className={cn("text-sm font-semibold", opt.selected ? "text-teal-700 dark:text-teal-300" : "text-slate-700 dark:text-slate-300")}>{opt.label}</span>
+                      <span className="text-xs text-slate-500">{opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Resumo financeiro */}
               <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                 <Label className="text-sm font-semibold flex items-center gap-2">
                   <Calculator className="w-4 h-4 text-teal-600" />
-                  Simulador de custos
+                  Resumo financeiro
                 </Label>
 
                 {(() => {
                   const price = parseFloat(formData.price) || 0;
-                  if (price <= 0) return <p className="text-xs text-slate-400 italic">Defina um preço para ver a simulação</p>;
+                  if (price <= 0) return <p className="text-xs text-slate-400 italic">Defina um preço para ver o resumo</p>;
 
                   const discount = parseFloat(formData.discount_percent) || 0;
                   const discountValue = price * discount / 100;
                   const discountedPrice = price - discountValue;
-                  const platformFeeRate = 0.05;
-                  const taxRate = 0.03;
+                  const feeRate = 0.08; // 5% plataforma + 3% impostos
+                  const fees = discountedPrice * feeRate;
                   const hasPaidDelivery = formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t));
-                  const shippingEstimate = hasPaidDelivery && formData.shipping_paid_by === 'seller' ? 12 : 0;
-                  const platformFee = discountedPrice * platformFeeRate;
-                  const tax = discountedPrice * taxRate;
-                  const sellerReceives = discountedPrice - platformFee - tax - shippingEstimate;
+                  const sellerPaysShipping = hasPaidDelivery && formData.shipping_paid_by === 'seller';
+                  const shippingEstimate = hasPaidDelivery ? 12 : 0;
+                  const buyerPaysFees = formData.absorb_platform_fee;
 
-                  const buyerShipping = hasPaidDelivery && formData.shipping_paid_by === 'buyer' ? 12 : 0;
-                  const buyerPlatformFee = formData.absorb_platform_fee ? 0 : platformFee;
-                  const buyerTax = formData.absorb_tax ? 0 : tax;
-                  const buyerTotal = discountedPrice + buyerPlatformFee + buyerTax + buyerShipping;
+                  // Vendedor
+                  const sellerFees = buyerPaysFees ? 0 : fees;
+                  const sellerShipping = sellerPaysShipping ? shippingEstimate : 0;
+                  const sellerReceives = discountedPrice - sellerFees - sellerShipping;
+
+                  // Comprador
+                  const buyerFees = buyerPaysFees ? fees : 0;
+                  const buyerShipping = hasPaidDelivery && !sellerPaysShipping ? shippingEstimate : 0;
+                  const buyerTotal = discountedPrice + buyerFees + buyerShipping;
 
                   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
                   return (
-                    <div className="space-y-3">
-                      {/* Vendedor recebe */}
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Vendedor recebe</p>
-                        <div className="space-y-0.5 text-xs">
-                          <div className="flex justify-between"><span className="text-slate-500">Preço base</span><span>{fmt(price)}</span></div>
-                          {discount > 0 && (
-                            <div className="flex justify-between text-emerald-600">
-                              <span>Desconto {discount}%</span>
-                              <span>-{fmt(discountValue)}</span>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Coluna Vendedor */}
+                      <div className="space-y-2 p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Você recebe</p>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Preço</span>
+                            <span>{fmt(discountedPrice)}</span>
+                          </div>
+                          {sellerFees > 0 && (
+                            <div className="flex justify-between text-red-500">
+                              <span>Taxas (8%)</span>
+                              <span>-{fmt(sellerFees)}</span>
                             </div>
                           )}
-                          <div className="flex justify-between text-amber-600"><span>Taxa plataforma (5%)</span><span>-{fmt(platformFee)}</span></div>
-                          <div className="flex justify-between text-amber-600"><span>Impostos (3%)</span><span>-{fmt(tax)}</span></div>
-                          {shippingEstimate > 0 && (
-                            <div className="flex justify-between text-amber-600"><span>Frete absorvido</span><span>-{fmt(shippingEstimate)}</span></div>
+                          {sellerShipping > 0 && (
+                            <div className="flex justify-between text-red-500">
+                              <span>Frete</span>
+                              <span>-{fmt(sellerShipping)}</span>
+                            </div>
                           )}
                         </div>
-                        <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-600 font-bold text-sm">
-                          <span className="text-slate-700 dark:text-slate-300">Líquido</span>
-                          <span className={sellerReceives > 0 ? 'text-teal-600' : 'text-red-500'}>{fmt(Math.max(0, sellerReceives))}</span>
+                        <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-600 font-bold">
+                          <span className="text-sm text-slate-700 dark:text-slate-300">Líquido</span>
+                          <span className={cn("text-lg", sellerReceives > 0 ? "text-teal-600" : "text-red-500")}>{fmt(Math.max(0, sellerReceives))}</span>
                         </div>
                       </div>
 
-                      {/* Repassar encargos */}
-                      <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-1.5">
-                        <p className="text-[11px] font-semibold text-slate-500">Repassar encargos ao comprador?</p>
-                        <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input type="checkbox" checked={formData.absorb_platform_fee} onChange={(e) => setFormData({ ...formData, absorb_platform_fee: e.target.checked })} className="rounded border-slate-300" />
-                          <span className="text-slate-600 dark:text-slate-400">Comprador paga taxa da plataforma (5%)</span>
-                        </label>
-                        <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input type="checkbox" checked={formData.absorb_tax} onChange={(e) => setFormData({ ...formData, absorb_tax: e.target.checked })} className="rounded border-slate-300" />
-                          <span className="text-slate-600 dark:text-slate-400">Comprador paga impostos (3%)</span>
-                        </label>
-                      </div>
-
-                      {/* Comprador paga */}
-                      <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-1">
-                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Comprador paga</p>
-                        <div className="space-y-0.5 text-xs">
-                          <div className="flex justify-between"><span className="text-slate-500">Produto</span><span>{fmt(discountedPrice)}</span></div>
-                          {buyerPlatformFee > 0 && <div className="flex justify-between text-slate-500"><span>Taxa plataforma</span><span>+{fmt(buyerPlatformFee)}</span></div>}
-                          {buyerTax > 0 && <div className="flex justify-between text-slate-500"><span>Impostos</span><span>+{fmt(buyerTax)}</span></div>}
-                          {buyerShipping > 0 && <div className="flex justify-between text-slate-500"><span>Frete estimado</span><span>+{fmt(buyerShipping)}</span></div>}
+                      {/* Coluna Comprador */}
+                      <div className="space-y-2 p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Comprador paga</p>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Produto</span>
+                            <span>{fmt(discountedPrice)}</span>
+                          </div>
+                          {buyerFees > 0 && (
+                            <div className="flex justify-between text-amber-600">
+                              <span>Taxas (8%)</span>
+                              <span>+{fmt(buyerFees)}</span>
+                            </div>
+                          )}
+                          {buyerShipping > 0 && (
+                            <div className="flex justify-between text-amber-600">
+                              <span>Frete ~</span>
+                              <span>+{fmt(buyerShipping)}</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-600 font-bold text-sm">
-                          <span className="text-slate-700 dark:text-slate-300">Total</span>
-                          <span className="text-slate-800 dark:text-slate-200">{fmt(buyerTotal)}</span>
+                        <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-600 font-bold">
+                          <span className="text-sm text-slate-700 dark:text-slate-300">Total</span>
+                          <span className="text-lg text-slate-800 dark:text-slate-200">{fmt(buyerTotal)}</span>
                         </div>
-                        {buyerShipping > 0 && (
-                          <p className="text-[10px] text-slate-400">Frete estimado — varia por distância. Cobrado uma vez por pedido.</p>
-                        )}
                       </div>
                     </div>
                   );
                 })()}
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Imagens do Produto</Label>
-                {formData.images.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {formData.images.map((img, i) => (
-                      <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border-2 border-slate-200 dark:border-slate-700">
-                        <img src={img} alt="" className="w-full h-full object-cover" />
-                        <button
-                          onClick={() => setFormData({ ...formData, images: formData.images.filter((_, j) => j !== i) })}
-                          className="absolute top-2 right-2 w-7 h-7 bg-red-500/90 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                    <label className="aspect-square border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      {uploading ? (
-                        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-                      ) : (
-                        <>
-                          <Upload className="w-6 h-6 text-slate-400 mb-1" />
-                          <span className="text-xs text-slate-500">Adicionar</span>
-                        </>
-                      )}
-                      <input type="file" accept=".png,.jpg,.jpeg,.webp,.gif" onChange={handleImageUpload} className="hidden" multiple />
-                    </label>
-                  </div>
-                ) : (
-                  <label className="block aspect-video border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    {uploading ? (
-                      <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-                    ) : (
-                      <>
-                        <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                        <span className="text-sm text-slate-500">Clique para adicionar imagens</span>
-                        <span className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP ou GIF</span>
-                      </>
-                    )}
-                    <input type="file" accept=".png,.jpg,.jpeg,.webp,.gif" onChange={handleImageUpload} className="hidden" multiple />
-                  </label>
+                {formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t)) && (
+                  <p className="text-[10px] text-slate-400">Frete estimado em R$ 12,00 — valor real varia por distância.</p>
                 )}
               </div>
+            </div>
+          </div>
+          )}
 
+          {/* TAB: Entrega e Pagamento */}
+          {activeTab === 'entrega' && (
+          <div className="space-y-6">
               <div className="space-y-3">
                 <div>
                   <Label className="text-sm font-semibold">Tipos de entrega disponíveis</Label>
@@ -1149,11 +1230,11 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 <Label className="text-sm font-semibold">Formas de Pagamento Aceitas</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: 'pix', label: 'PIX', icon: '◈' },
-                    { value: 'credit_card', label: 'Cartão de crédito', icon: '💳' },
-                    { value: 'debit_card', label: 'Cartão de débito', icon: '💳' },
-                    { value: 'cash', label: 'Dinheiro', icon: '💵' },
-                    { value: 'transfer', label: 'Transferência', icon: '🏦' },
+                    { value: 'pix', label: 'PIX', icon: <QrCode className="w-4 h-4" /> },
+                    { value: 'credit_card', label: 'Cartão de crédito', icon: <CreditCard className="w-4 h-4" /> },
+                    { value: 'debit_card', label: 'Cartão de débito', icon: <CreditCard className="w-4 h-4" /> },
+                    { value: 'cash', label: 'Dinheiro', icon: <Banknote className="w-4 h-4" /> },
+                    { value: 'transfer', label: 'Transferência', icon: <Building2 className="w-4 h-4" /> },
                   ].map(({ value, label, icon }) => {
                     const selected = formData.payment_methods.includes(value);
                     return (
@@ -1172,7 +1253,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                             : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                         }`}
                       >
-                        <span className="text-base">{icon}</span>
+                        <span className={selected ? 'text-teal-600 dark:text-teal-400' : 'text-slate-400'}>{icon}</span>
                         <span className={`text-xs font-medium flex-1 ${selected ? 'text-teal-700 dark:text-teal-300' : 'text-slate-700 dark:text-slate-300'}`}>
                           {label}
                         </span>
@@ -1186,27 +1267,48 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   })}
                 </div>
               </div>
-
-            </div>
-
           </div>
+          )}
+
         </div>
 
-        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50">
-          <Button
-            className="w-full bg-teal-600 hover:bg-teal-700 h-11 text-base font-semibold"
-            onClick={handleSubmit}
-            disabled={saving}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              product ? 'Salvar Alterações' : 'Criar Produto'
+        <div className="px-6 py-4 border-t bg-slate-50 dark:bg-slate-900/50 flex items-center gap-3">
+          <div className="flex-1 flex gap-2">
+            {activeTab !== 'produto' && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setActiveTab(activeTab === 'entrega' ? 'preco' : 'produto')}
+                className="h-10"
+              >
+                Voltar
+              </Button>
             )}
-          </Button>
+          </div>
+          {activeTab !== 'entrega' ? (
+            <Button
+              type="button"
+              onClick={() => setActiveTab(activeTab === 'produto' ? 'preco' : 'entrega')}
+              className="bg-teal-600 hover:bg-teal-700 h-10 px-6"
+            >
+              Próximo
+            </Button>
+          ) : (
+            <Button
+              className="bg-teal-600 hover:bg-teal-700 h-10 px-6 text-base font-semibold"
+              onClick={handleSubmit}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                product ? 'Salvar Alterações' : 'Criar Produto'
+              )}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
