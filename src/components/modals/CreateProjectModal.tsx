@@ -79,21 +79,6 @@ const EXPENSE_TYPE_OPTIONS = [
   { value: 'outros', label: 'Outros' },
 ];
 
-function calculateMinVotes(amount: number | string): number {
-  if (!amount || amount <= 0) return 10;
-
-  const value = typeof amount === 'number' ? amount : parseFloat(amount as string);
-
-  if (value <= 2000) {
-    return 10;
-  } else if (value <= 10000) {
-    return Math.ceil(10 + (value - 2000) / 500);
-  } else if (value <= 50000) {
-    return Math.ceil(26 + (value - 10000) / 1000);
-  } else {
-    return Math.ceil(66 + (value - 50000) / 2000);
-  }
-}
 
 export default function CreateProjectModal({ open, onClose, user }: CreateProjectModalProps) {
   const queryClient = useQueryClient();
@@ -116,6 +101,7 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
     description: '',
     category: '',
     target_amount: '',
+    min_votes: '1',
     funding_deadline: '',
     status: 'proposed',
   });
@@ -165,6 +151,7 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
         description: '',
         category: '',
         target_amount: '',
+        min_votes: '1',
         funding_deadline: '',
         status: 'proposed',
       });
@@ -395,7 +382,7 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
       return;
     }
 
-    const minVotesNumber = calculateMinVotes(expensesTotal);
+    const minVotesNumber = Math.max(1, Number(formData.min_votes) || 1);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -468,7 +455,6 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
   };
 
   const fmtBRL = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-  const minVotes = calculateMinVotes(totalExpenses);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -812,20 +798,25 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
                   )}
                 </div>
 
-                {totalExpenses > 0 && (
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  {totalExpenses > 0 && (
                     <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700 text-center">
                       <p className="text-xs text-teal-600 dark:text-teal-400 font-medium mb-0.5">Meta de arrecadação</p>
                       <p className="text-lg font-bold text-teal-700 dark:text-teal-300">{fmtBRL(totalExpenses)}</p>
                       <p className="text-[10px] text-teal-500 dark:text-teal-500">soma das despesas</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-0.5">Votos mínimos</p>
-                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">📊 {minVotes}</p>
-                      <p className="text-[10px] text-slate-400">calculado pelo valor</p>
-                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Votos mínimos</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.min_votes}
+                      onChange={handleChange('min_votes')}
+                      className="h-9 text-center"
+                    />
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
