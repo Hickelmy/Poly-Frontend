@@ -413,11 +413,13 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     return null;
   })();
 
-  const TRANSPORT_META: Record<string, { label: string; icon: string; cost: number; costLabel: string; desc: string; idealMax: number | null; warnAbove: number | null; warnBelow?: number }> = {
-    moto:    { label: 'Motoboy', icon: '🛵', cost: 1, costLabel: 'Econômico',   desc: 'Entregas rápidas e pequenas', idealMax: 30,   warnAbove: 50 },
-    carro:   { label: 'Carro',   icon: '🚗', cost: 2, costLabel: 'Moderado',    desc: 'Volumes médios',              idealMax: 100,  warnAbove: null },
-    van:     { label: 'Van',     icon: '🚐', cost: 3, costLabel: 'Alto',        desc: 'Cargas maiores',              idealMax: 500,  warnAbove: null, warnBelow: 5 },
-    caminhao:{ label: 'Caminhão',icon: '🚛', cost: 4, costLabel: 'Muito alto',  desc: 'Cargas pesadas ou grandes',   idealMax: null, warnAbove: null, warnBelow: 50 },
+  const TRANSPORT_META: Record<string, { label: string; icon: string; cost: number; costLabel: string; desc: string; idealMax: number | null; warnAbove: number | null; warnBelow?: number; free?: boolean }> = {
+    retirada:       { label: 'Retirada no Local',  icon: '📍', cost: 0, costLabel: 'Sem taxa',      desc: 'Comprador busca no endereço',      idealMax: null, warnAbove: null, free: true },
+    entrega_propria:{ label: 'Entrega pelo Vendedor', icon: '🏠', cost: 0, costLabel: 'Sem taxa', desc: 'Vendedor leva até o comprador',     idealMax: null, warnAbove: null, free: true },
+    moto:           { label: 'Motoboy',             icon: '🛵', cost: 1, costLabel: 'Econômico',    desc: 'Entregas rápidas e pequenas',      idealMax: 30,   warnAbove: 50 },
+    carro:          { label: 'Carro',               icon: '🚗', cost: 2, costLabel: 'Moderado',     desc: 'Volumes médios',                   idealMax: 100,  warnAbove: null },
+    van:            { label: 'Van',                 icon: '🚐', cost: 3, costLabel: 'Alto',         desc: 'Cargas maiores',                   idealMax: 500,  warnAbove: null, warnBelow: 5 },
+    caminhao:       { label: 'Caminhão',            icon: '🚛', cost: 4, costLabel: 'Muito alto',   desc: 'Cargas pesadas ou grandes',        idealMax: null, warnAbove: null, warnBelow: 50 },
   };
 
   const getTransportWarning = (transportKey: string): string | null => {
@@ -704,6 +706,8 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 </div>
 
                 <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 overflow-x-auto pb-0.5">
+                  <span className="shrink-0 text-emerald-500 font-medium">📍🏠 Sem taxa</span>
+                  <span className="text-slate-300 dark:text-slate-600">›</span>
                   <span className="shrink-0">🛵 até 30kg</span>
                   <span className="text-slate-300 dark:text-slate-600">›</span>
                   <span className="shrink-0">🚗 até 100kg</span>
@@ -717,7 +721,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   {Object.entries(TRANSPORT_META).map(([value, meta]) => {
                     const selected = formData.delivery_types.includes(value);
                     const warning = selected ? getTransportWarning(value) : null;
-                    const costDots = '💰'.repeat(meta.cost);
+                    const costDots = meta.cost > 0 ? '💰'.repeat(meta.cost) : '';
                     return (
                       <div key={value} className="space-y-1">
                         <button
@@ -732,7 +736,9 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                             selected
                               ? warning
                                 ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20'
-                                : 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+                                : meta.free
+                                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                                  : 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
                               : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                           }`}
                         >
@@ -741,18 +747,26 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                             <div className="flex items-center gap-1.5">
                               <p className={`text-sm font-semibold leading-tight ${
                                 selected
-                                  ? warning ? 'text-amber-700 dark:text-amber-300' : 'text-teal-700 dark:text-teal-300'
+                                  ? warning ? 'text-amber-700 dark:text-amber-300'
+                                    : meta.free ? 'text-emerald-700 dark:text-emerald-300'
+                                    : 'text-teal-700 dark:text-teal-300'
                                   : 'text-slate-800 dark:text-slate-200'
                               }`}>
                                 {meta.label}
                               </p>
-                              <span className="text-xs leading-none" title={`Custo: ${meta.costLabel}`}>{costDots}</span>
+                              {meta.free ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Grátis</span>
+                              ) : (
+                                <span className="text-xs leading-none" title={`Custo: ${meta.costLabel}`}>{costDots}</span>
+                              )}
                             </div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{meta.costLabel}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{meta.free ? meta.desc : meta.costLabel}</p>
                           </div>
                           <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
                             selected
-                              ? warning ? 'border-amber-400 bg-amber-400' : 'border-teal-500 bg-teal-500'
+                              ? warning ? 'border-amber-400 bg-amber-400'
+                                : meta.free ? 'border-emerald-500 bg-emerald-500'
+                                : 'border-teal-500 bg-teal-500'
                               : 'border-slate-300 dark:border-slate-600'
                           }`}>
                             {selected && <div className="w-2 h-2 rounded-full bg-white" />}
@@ -767,6 +781,13 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                       </div>
                     );
                   })}
+                </div>
+
+                <div className="flex items-start gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                  <span className="text-sm shrink-0">ℹ️</span>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-snug">
+                    <strong>Retirada no Local</strong> e <strong>Entrega pelo Vendedor</strong> são livres de taxa de entrega. As demais opções possuem taxas de frete.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
