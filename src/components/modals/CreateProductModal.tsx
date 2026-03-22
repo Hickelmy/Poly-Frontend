@@ -791,13 +791,6 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   })}
                 </div>
 
-                <div className="flex items-start gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                  <span className="text-sm shrink-0">ℹ️</span>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300 leading-snug">
-                    <strong>Retirada no Local</strong> e <strong>Entrega pelo Vendedor</strong> são livres de taxa de entrega. As demais opções possuem taxas de frete.
-                  </p>
-                </div>
-
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Quem paga o frete?</Label>
                   <div className="grid grid-cols-2 gap-2">
