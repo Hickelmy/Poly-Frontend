@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
 import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 import { useQueryClient } from '@tanstack/react-query';
-import { MapPin, Upload, X, Loader2, Search, Bike, Car, TruckIcon, Container, Store, HandshakeIcon, CreditCard, Gift } from 'lucide-react';
+import { MapPin, Upload, X, Loader2, Search, Bike, Car, TruckIcon, Container, Store, HandshakeIcon, CreditCard, Gift, Ticket, Plus, Trash2, Tag, Clock, Hash, Eye, Percent, Calculator, ShieldCheck } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -154,6 +154,13 @@ interface CreateProductModalProps {
   onSuccess?: () => void;
 }
 
+interface CouponData {
+  code: string;
+  discount_percent: string;
+  max_uses: string;
+  expires_in_days: string;
+}
+
 interface FormData {
   title: string;
   description: string;
@@ -172,6 +179,9 @@ interface FormData {
   payment_methods: string[];
   seller_delivery: boolean;
   zone_id: string;
+  coupons: CouponData[];
+  absorb_platform_fee: boolean;
+  absorb_tax: boolean;
 }
 
 export default function CreateProductModal({ open, onClose, product, user, onSuccess }: CreateProductModalProps) {
@@ -194,12 +204,17 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     payment_methods: [],
     seller_delivery: false,
     zone_id: '',
+    coupons: [],
+    absorb_platform_fee: false,
+    absorb_tax: false,
   });
   const [uploading, setUploading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [gettingLocation, setGettingLocation] = useState<boolean>(false);
   const [addressSearch, setAddressSearch] = useState<string>('');
   const [searchingAddress, setSearchingAddress] = useState<boolean>(false);
+  const [couponDraft, setCouponDraft] = useState<CouponData>({ code: '', discount_percent: '', max_uses: '', expires_in_days: '' });
+  const [showCouponPreview, setShowCouponPreview] = useState<boolean>(false);
 
   const roundCoordinate = (coord: number): number => {
     return Math.round(coord * 1000) / 1000;
@@ -274,7 +289,15 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         lng: product.lng || null,
         discount_percent: product.discountPercent?.toString() || '',
         payment_methods: product.paymentMethods || [],
-        seller_delivery: product.sellerDelivery || false
+        seller_delivery: product.sellerDelivery || false,
+        coupons: (product.coupons || []).map((c: any) => ({
+          code: c.code || '',
+          discount_percent: c.discountPercent?.toString() || '',
+          max_uses: c.maxUses?.toString() || '',
+          expires_in_days: c.expiresInDays?.toString() || '',
+        })),
+        absorb_platform_fee: product.absorbPlatformFee || false,
+        absorb_tax: product.absorbTax || false,
       });
     } else {
       setFormData({
@@ -293,7 +316,10 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         lng: null,
         discount_percent: '',
         payment_methods: [],
-        seller_delivery: false
+        seller_delivery: false,
+        coupons: [],
+        absorb_platform_fee: false,
+        absorb_tax: false,
       });
     }
   }, [product, open]);
@@ -366,6 +392,14 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         paymentMethods: formData.payment_methods,
         sellerDelivery: formData.seller_delivery,
         zone_id: formData.zone_id || null,
+        coupons: formData.coupons.map(c => ({
+          code: c.code,
+          discountPercent: parseFloat(c.discount_percent),
+          maxUses: c.max_uses ? parseInt(c.max_uses) : null,
+          expiresInDays: c.expires_in_days ? parseInt(c.expires_in_days) : null,
+        })),
+        absorbPlatformFee: formData.absorb_platform_fee,
+        absorbTax: formData.absorb_tax,
       };
 
       if (product) {
@@ -651,6 +685,269 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   </div>
                 )}
               </div>
+
+              {/* Desconto e Cupons */}
+              <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Percent className="w-4 h-4 text-teal-600" />
+                  Desconto e Cupons
+                </Label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Desconto geral (%)</Label>
+                    <Input
+                      type="number"
+                      value={formData.discount_percent}
+                      onChange={(e) => setFormData({ ...formData, discount_percent: e.target.value })}
+                      min="0"
+                      max="100"
+                      step="1"
+                      placeholder="0"
+                      className="h-9"
+                    />
+                    <p className="text-[11px] text-slate-400">Aplicado a todos os compradores</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Preço com desconto</Label>
+                    <div className="h-9 flex items-center px-3 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm">
+                      {(() => {
+                        const price = parseFloat(formData.price) || 0;
+                        const disc = parseFloat(formData.discount_percent) || 0;
+                        const final_price = price - (price * disc / 100);
+                        return disc > 0 ? (
+                          <span className="flex items-center gap-2">
+                            <span className="line-through text-slate-400 text-xs">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price)}
+                            </span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(final_price)}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Sem desconto</span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cupons */}
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-2">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <Ticket className="w-3.5 h-3.5" />
+                    Cupons de desconto
+                  </Label>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Código</Label>
+                      <Input
+                        value={couponDraft.code}
+                        onChange={(e) => setCouponDraft({ ...couponDraft, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })}
+                        placeholder="BRASIL25"
+                        className="h-8 text-xs font-mono"
+                        maxLength={20}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Desconto %</Label>
+                      <Input
+                        type="number"
+                        value={couponDraft.discount_percent}
+                        onChange={(e) => setCouponDraft({ ...couponDraft, discount_percent: e.target.value })}
+                        placeholder="25"
+                        min="1"
+                        max="100"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] flex items-center gap-0.5"><Hash className="w-3 h-3" /> Quantidade</Label>
+                      <Input
+                        type="number"
+                        value={couponDraft.max_uses}
+                        onChange={(e) => setCouponDraft({ ...couponDraft, max_uses: e.target.value })}
+                        placeholder="50"
+                        min="1"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] flex items-center gap-0.5"><Clock className="w-3 h-3" /> Dias</Label>
+                      <Input
+                        type="number"
+                        value={couponDraft.expires_in_days}
+                        onChange={(e) => setCouponDraft({ ...couponDraft, expires_in_days: e.target.value })}
+                        placeholder="30"
+                        min="1"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400">Quantidade e/ou duração — deixe vazio para ilimitado</p>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-8 text-xs"
+                    onClick={() => {
+                      if (!couponDraft.code || !couponDraft.discount_percent) {
+                        toast.error('Preencha código e % de desconto');
+                        return;
+                      }
+                      if (formData.coupons.some(c => c.code === couponDraft.code)) {
+                        toast.error('Já existe um cupom com esse código');
+                        return;
+                      }
+                      setFormData({ ...formData, coupons: [...formData.coupons, { ...couponDraft }] });
+                      setCouponDraft({ code: '', discount_percent: '', max_uses: '', expires_in_days: '' });
+                    }}
+                  >
+                    <Plus className="w-3 h-3 mr-1" /> Adicionar cupom
+                  </Button>
+
+                  {formData.coupons.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      {formData.coupons.map((coupon, i) => {
+                        const price = parseFloat(formData.price) || 0;
+                        const disc = parseFloat(coupon.discount_percent) || 0;
+                        const couponPrice = price - (price * disc / 100);
+                        return (
+                          <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                            <div className="flex items-center gap-2 px-2 py-1 rounded bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30 border border-dashed border-teal-300 dark:border-teal-700">
+                              <Ticket className="w-3.5 h-3.5 text-teal-600" />
+                              <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-300">{coupon.code}</span>
+                              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">-{coupon.discount_percent}%</span>
+                            </div>
+                            <div className="flex-1 flex items-center gap-2 text-[11px] text-slate-500">
+                              {coupon.max_uses && (
+                                <span className="flex items-center gap-0.5"><Hash className="w-3 h-3" />{coupon.max_uses} usos</span>
+                              )}
+                              {coupon.expires_in_days && (
+                                <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{coupon.expires_in_days}d</span>
+                              )}
+                              {!coupon.max_uses && !coupon.expires_in_days && <span>Ilimitado</span>}
+                              <span className="ml-auto text-emerald-600 font-medium">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(couponPrice)}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, coupons: formData.coupons.filter((_, j) => j !== i) })}
+                              className="text-red-400 hover:text-red-500 p-0.5"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Simulador de custos */}
+              <div className="space-y-3 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Calculator className="w-4 h-4 text-teal-600" />
+                  Simulador de custos
+                </Label>
+                <p className="text-[11px] text-slate-400 -mt-1">Veja como ficará o preço final do produto para o comprador</p>
+
+                {(() => {
+                  const price = parseFloat(formData.price) || 0;
+                  const discount = parseFloat(formData.discount_percent) || 0;
+                  const discountedPrice = price - (price * discount / 100);
+                  const platformFeeRate = 0.05; // 5%
+                  const taxRate = 0.03; // 3%
+                  const shippingEstimate = formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t))
+                    ? (formData.shipping_paid_by === 'seller' ? 12 : 0)
+                    : 0;
+                  const platformFee = discountedPrice * platformFeeRate;
+                  const tax = discountedPrice * taxRate;
+
+                  const sellerReceives = discountedPrice - platformFee - tax - shippingEstimate;
+                  const buyerPays = discountedPrice
+                    + (formData.absorb_platform_fee ? 0 : platformFee)
+                    + (formData.absorb_tax ? 0 : tax)
+                    + (formData.shipping_paid_by === 'buyer' && formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t)) ? 12 : 0);
+
+                  const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+                  return price > 0 ? (
+                    <div className="space-y-2">
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Preço base</span>
+                          <span className="font-medium">{fmt(price)}</span>
+                        </div>
+                        {discount > 0 && (
+                          <div className="flex justify-between text-emerald-600">
+                            <span>Desconto ({discount}%)</span>
+                            <span>-{fmt(price * discount / 100)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Taxa da plataforma (5%)</span>
+                          <span className="text-amber-600">-{fmt(platformFee)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Impostos (3%)</span>
+                          <span className="text-amber-600">-{fmt(tax)}</span>
+                        </div>
+                        {shippingEstimate > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Frete estimado (absorvido)</span>
+                            <span className="text-amber-600">-{fmt(shippingEstimate)}</span>
+                          </div>
+                        )}
+                        <div className="border-t border-slate-200 dark:border-slate-600 pt-1 mt-1 flex justify-between font-semibold">
+                          <span className="text-slate-700 dark:text-slate-300">Você recebe</span>
+                          <span className={sellerReceives > 0 ? 'text-teal-600' : 'text-red-500'}>{fmt(Math.max(0, sellerReceives))}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-1.5">
+                        <p className="text-[11px] font-semibold text-slate-500">Repassar encargos ao comprador?</p>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.absorb_platform_fee}
+                            onChange={(e) => setFormData({ ...formData, absorb_platform_fee: e.target.checked })}
+                            className="rounded border-slate-300"
+                          />
+                          <span className="text-slate-600 dark:text-slate-400">Comprador paga taxa da plataforma (5%)</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.absorb_tax}
+                            onChange={(e) => setFormData({ ...formData, absorb_tax: e.target.checked })}
+                            className="rounded border-slate-300"
+                          />
+                          <span className="text-slate-600 dark:text-slate-400">Comprador paga impostos (3%)</span>
+                        </label>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-600">
+                        <div className="flex justify-between text-xs font-semibold">
+                          <span className="text-slate-500">Comprador pagará</span>
+                          <span className="text-slate-800 dark:text-slate-200 text-sm">{fmt(buyerPays)}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {formData.shipping_paid_by === 'buyer' && formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t))
+                            ? 'Inclui frete estimado — valor real varia por distância. Frete cobrado uma vez por pedido, não por item.'
+                            : 'Frete gratuito ou absorvido pelo vendedor'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">Defina um preço para ver a simulação</p>
+                  );
+                })()}
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -847,20 +1144,6 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Desconto (%)</Label>
-                <Input
-                  type="number"
-                  value={formData.discount_percent}
-                  onChange={(e) => setFormData({ ...formData, discount_percent: e.target.value })}
-                  min="0"
-                  max="100"
-                  step="1"
-                  placeholder="Ex: 10 para 10% de desconto"
-                  className="h-10"
-                />
-                <p className="text-xs text-slate-500 dark:text-slate-400">Deixe vazio para sem desconto</p>
-              </div>
 
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Formas de Pagamento Aceitas</Label>
