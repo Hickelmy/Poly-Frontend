@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import LocationPicker from "@/components/LocationPicker";
 import CurrencyInput from '../shared/CurrencyInput';
+import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 
 interface CreateProjectModalProps {
   open: boolean;
@@ -123,6 +124,7 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
     latitude: null,
     longitude: null,
   });
+  const [publishZoneId, setPublishZoneId] = useState('');
 
   const { data: zones = [] } = useQuery({
     queryKey: ['zones'],
@@ -180,6 +182,7 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
         quantity: '1',
       });
       setFundingDate(null);
+      setPublishZoneId('');
     }
   }, [open]);
 
@@ -429,7 +432,7 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
         longitude: location.longitude,
         lat: location.latitude,
         lng: location.longitude,
-        zone_id: zoneId,
+        zone_id: publishZoneId || zoneId,
         evidences,
         expenses: normalizedExpenses,
         expenses_total: expensesTotal,
@@ -517,10 +520,7 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Localização do problema *</Label>
-                  <LocationPicker value={location} onChange={setLocation} />
-                </div>
+                <LocationPicker value={location} onChange={setLocation} />
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -825,6 +825,10 @@ export default function CreateProjectModal({ open, onClose, user }: CreateProjec
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="px-5 pb-4">
+              <ZonePublishSelector value={publishZoneId} onChange={setPublishZoneId} />
             </div>
           </div>
 
