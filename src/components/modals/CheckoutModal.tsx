@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { MapPin, Package, Truck, CheckCircle2, Loader2, Plus, Minus, CreditCard, AlertTriangle, QrCode, Copy } from 'lucide-react';
+import { MapPin, Package, Truck, CheckCircle2, Loader2, Plus, Minus, CreditCard, AlertTriangle, QrCode, Copy, Store, HandshakeIcon, Bike, Car, TruckIcon, Container } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import AddressSelectionModal from "./AddressSelectionModal";
 import { Input } from "@/components/ui/input";
@@ -53,10 +53,10 @@ const STEPS = [
 ];
 
 const TRANSPORT_OPTIONS = [
-  { value: 'moto', label: 'Motoboy', icon: '🛵' },
-  { value: 'carro', label: 'Carro', icon: '🚗' },
-  { value: 'van', label: 'Van', icon: '🚐' },
-  { value: 'caminhao', label: 'Caminhão', icon: '🚛' },
+  { value: 'moto', label: 'Motoboy', icon: <Bike className="w-5 h-5" /> },
+  { value: 'carro', label: 'Carro', icon: <Car className="w-5 h-5" /> },
+  { value: 'van', label: 'Van', icon: <TruckIcon className="w-5 h-5" /> },
+  { value: 'caminhao', label: 'Caminhão', icon: <Container className="w-5 h-5" /> },
 ];
 
 interface DeliveryStepProps {
@@ -99,7 +99,10 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
   const hasAddress = selectedAddress && selectedAddress.street && selectedAddress.city;
 
   const shippingIncluded = product?.shippingPaidBy === 'seller';
-  const availableTransports = (product?.deliveryTypes || [])
+  const sellerDeliveryTypes: string[] = product?.deliveryTypes || [];
+  const hasRetirada = sellerDeliveryTypes.includes('retirada');
+  const hasEntregaPropria = sellerDeliveryTypes.includes('entrega_propria');
+  const availableTransports = sellerDeliveryTypes
     .map((v: string) => TRANSPORT_OPTIONS.find(o => o.value === v))
     .filter(Boolean) as typeof TRANSPORT_OPTIONS;
 
@@ -206,7 +209,7 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
                                         : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
                                     )}
                                   >
-                                    <span className="text-xl">{icon}</span>
+                                    <span className={cn("shrink-0", selectedTransport === value ? "text-teal-600" : "text-slate-400")}>{icon}</span>
                                     <span className={cn("text-sm font-medium", selectedTransport === value ? "text-teal-700 dark:text-teal-300" : "text-slate-700 dark:text-slate-300")}>{label}</span>
                                   </button>
                                 ))}
@@ -215,9 +218,9 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
                           )}
 
                           {deliveryMethod !== 'delivery' && (
-                            <div className="flex gap-1.5 mt-1 flex-wrap">
+                            <div className="flex gap-1.5 mt-1 flex-wrap text-slate-400">
                               {availableTransports.map(({ value, icon, label }) => (
-                                <span key={value} className="text-base" title={label}>{icon}</span>
+                                <span key={value} title={label}>{icon}</span>
                               ))}
                             </div>
                           )}
@@ -246,10 +249,58 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
               </label>
             </Card>
 
+            {hasEntregaPropria && (
+            <Card className={cn(
+              "border-2 cursor-pointer transition-all",
+              deliveryMethod === 'seller_delivery'
+                ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20"
+                : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+            )}>
+              <label className="block cursor-pointer">
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-3">
+                    <RadioGroupItem value="seller_delivery" id="seller_delivery" className="mt-1" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <HandshakeIcon className="w-5 h-5 text-emerald-600" />
+                        <Label htmlFor="seller_delivery" className="text-base font-semibold text-slate-900 dark:text-white cursor-pointer">
+                          Entrega pelo Vendedor
+                        </Label>
+                        <span className="text-sm font-semibold text-green-600 dark:text-green-400 ml-auto">
+                          Sem taxa de entrega
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        O vendedor entrega diretamente no seu endereço, sem custo de frete
+                      </p>
+                      {deliveryMethod === 'seller_delivery' && (
+                        <div className="mt-3">
+                          {hasAddress ? (
+                            <>
+                              <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">{displayAddress}</p>
+                              <button type="button" className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline" onClick={(e) => { e.preventDefault(); setShowAddressModal(true); }}>
+                                Alterar endereço
+                              </button>
+                            </>
+                          ) : (
+                            <button type="button" className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline" onClick={(e) => { e.preventDefault(); setShowAddressModal(true); }}>
+                              Selecionar endereço de entrega
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </label>
+            </Card>
+            )}
+
+            {hasRetirada && (
             <Card className={cn(
               "border-2 cursor-pointer transition-all",
               deliveryMethod === 'pickup'
-                ? "border-teal-500 bg-teal-50/50 dark:bg-teal-900/20"
+                ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20"
                 : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
             )}>
               <label className="block cursor-pointer">
@@ -259,12 +310,12 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
                       <RadioGroupItem value="pickup" id="pickup" className="mt-1" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <Package className="w-5 h-5 text-teal-600" />
+                          <Store className="w-5 h-5 text-emerald-600" />
                           <Label htmlFor="pickup" className="text-base font-semibold text-slate-900 dark:text-white cursor-pointer">
-                            Retirar no local de origem
+                            Retirada no Local
                           </Label>
                           <span className="text-sm font-semibold text-green-600 dark:text-green-400 ml-auto">
-                            Grátis
+                            Sem taxa de entrega
                           </span>
                         </div>
 
@@ -278,17 +329,8 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
                             </p>
                           )}
                           <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Entre em contato com o vendedor para combinar a retirada
+                            Você busca o produto diretamente no endereço do vendedor
                           </p>
-                          <button
-                            type="button"
-                            className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
-                            onClick={(e) => {
-                              e.preventDefault();
-                            }}
-                          >
-                            Ver localização no mapa
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -296,6 +338,7 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
                 </CardContent>
               </label>
             </Card>
+            )}
           </div>
         </RadioGroup>
       </div>
@@ -303,7 +346,7 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
       <div className="flex justify-end pt-4 border-t">
         <Button
           onClick={async () => {
-            if (deliveryMethod === 'delivery' && hasAddress && user) {
+            if ((deliveryMethod === 'delivery' || deliveryMethod === 'seller_delivery') && hasAddress && user) {
               try {
                 const { polysApi } = await import('@/api/polysClient');
                 await polysApi.auth.updateMe({
@@ -322,7 +365,11 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
             }
             onNext();
           }}
-          disabled={!deliveryMethod || (deliveryMethod === 'delivery' && (!hasAddress || (availableTransports.length > 0 && !selectedTransport)))}
+          disabled={
+            !deliveryMethod
+            || (deliveryMethod === 'delivery' && (!hasAddress || (availableTransports.length > 0 && !selectedTransport)))
+            || (deliveryMethod === 'seller_delivery' && !hasAddress)
+          }
           className="bg-teal-600 hover:bg-teal-700"
         >
           Continuar

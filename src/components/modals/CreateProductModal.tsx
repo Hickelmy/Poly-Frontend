@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
 import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 import { useQueryClient } from '@tanstack/react-query';
-import { MapPin, Upload, X, Loader2, Search } from 'lucide-react';
+import { MapPin, Upload, X, Loader2, Search, Bike, Car, TruckIcon, Container, Store, HandshakeIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -413,13 +413,13 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     return null;
   })();
 
-  const TRANSPORT_META: Record<string, { label: string; icon: string; cost: number; costLabel: string; desc: string; idealMax: number | null; warnAbove: number | null; warnBelow?: number; free?: boolean }> = {
-    retirada:       { label: 'Retirada no Local',  icon: '📍', cost: 0, costLabel: 'Sem taxa',      desc: 'Comprador busca no endereço',      idealMax: null, warnAbove: null, free: true },
-    entrega_propria:{ label: 'Entrega pelo Vendedor', icon: '🏠', cost: 0, costLabel: 'Sem taxa', desc: 'Vendedor leva até o comprador',     idealMax: null, warnAbove: null, free: true },
-    moto:           { label: 'Motoboy',             icon: '🛵', cost: 1, costLabel: 'Econômico',    desc: 'Entregas rápidas e pequenas',      idealMax: 30,   warnAbove: 50 },
-    carro:          { label: 'Carro',               icon: '🚗', cost: 2, costLabel: 'Moderado',     desc: 'Volumes médios',                   idealMax: 100,  warnAbove: null },
-    van:            { label: 'Van',                 icon: '🚐', cost: 3, costLabel: 'Alto',         desc: 'Cargas maiores',                   idealMax: 500,  warnAbove: null, warnBelow: 5 },
-    caminhao:       { label: 'Caminhão',            icon: '🚛', cost: 4, costLabel: 'Muito alto',   desc: 'Cargas pesadas ou grandes',        idealMax: null, warnAbove: null, warnBelow: 50 },
+  const TRANSPORT_META: Record<string, { label: string; icon: React.ReactNode; cost: number; costLabel: string; desc: string; idealMax: number | null; warnAbove: number | null; warnBelow?: number; free?: boolean }> = {
+    retirada:       { label: 'Retirada no Local',     icon: <Store className="w-5 h-5" />,         cost: 0, costLabel: 'Sem taxa',      desc: 'Comprador busca no endereço',   idealMax: null, warnAbove: null, free: true },
+    entrega_propria:{ label: 'Entrega pelo Vendedor', icon: <HandshakeIcon className="w-5 h-5" />, cost: 0, costLabel: 'Sem taxa',      desc: 'Vendedor leva até o comprador', idealMax: null, warnAbove: null, free: true },
+    moto:           { label: 'Motoboy',               icon: <Bike className="w-5 h-5" />,          cost: 1, costLabel: 'Econômico',     desc: 'Entregas rápidas e pequenas',   idealMax: 30,   warnAbove: 50 },
+    carro:          { label: 'Carro',                 icon: <Car className="w-5 h-5" />,            cost: 2, costLabel: 'Moderado',      desc: 'Volumes médios',                idealMax: 100,  warnAbove: null },
+    van:            { label: 'Van',                   icon: <TruckIcon className="w-5 h-5" />,      cost: 3, costLabel: 'Alto',          desc: 'Cargas maiores',                idealMax: 500,  warnAbove: null, warnBelow: 5 },
+    caminhao:       { label: 'Caminhão',              icon: <Container className="w-5 h-5" />,      cost: 4, costLabel: 'Muito alto',   desc: 'Cargas pesadas ou grandes',     idealMax: null, warnAbove: null, warnBelow: 50 },
   };
 
   const getTransportWarning = (transportKey: string): string | null => {
@@ -705,16 +705,16 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 overflow-x-auto pb-0.5">
-                  <span className="shrink-0 text-emerald-500 font-medium">📍🏠 Sem taxa</span>
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 overflow-x-auto pb-0.5">
+                  <span className="shrink-0 text-emerald-500 font-medium flex items-center gap-0.5"><Store className="w-3 h-3 inline" /><HandshakeIcon className="w-3 h-3 inline" /> Sem taxa</span>
                   <span className="text-slate-300 dark:text-slate-600">›</span>
-                  <span className="shrink-0">🛵 até 30kg</span>
+                  <span className="shrink-0 flex items-center gap-0.5"><Bike className="w-3 h-3" /> até 30kg</span>
                   <span className="text-slate-300 dark:text-slate-600">›</span>
-                  <span className="shrink-0">🚗 até 100kg</span>
+                  <span className="shrink-0 flex items-center gap-0.5"><Car className="w-3 h-3" /> até 100kg</span>
                   <span className="text-slate-300 dark:text-slate-600">›</span>
-                  <span className="shrink-0">🚐 até 500kg</span>
+                  <span className="shrink-0 flex items-center gap-0.5"><TruckIcon className="w-3 h-3" /> até 500kg</span>
                   <span className="text-slate-300 dark:text-slate-600">›</span>
-                  <span className="shrink-0">🚛 acima de 500kg</span>
+                  <span className="shrink-0 flex items-center gap-0.5"><Container className="w-3 h-3" /> +500kg</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -742,7 +742,15 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                               : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                           }`}
                         >
-                          <span className="text-xl">{meta.icon}</span>
+                          <div className={`shrink-0 ${
+                            selected
+                              ? warning ? 'text-amber-600 dark:text-amber-400'
+                                : meta.free ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-teal-600 dark:text-teal-400'
+                              : 'text-slate-400 dark:text-slate-500'
+                          }`}>
+                            {meta.icon}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               <p className={`text-sm font-semibold leading-tight ${
