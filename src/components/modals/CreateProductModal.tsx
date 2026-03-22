@@ -1028,22 +1028,17 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   const discount = parseFloat(formData.discount_percent) || 0;
                   const discountValue = price * discount / 100;
                   const discountedPrice = price - discountValue;
-                  const feeRate = 0.08; // 5% plataforma + 3% impostos
+                  const feeRate = 0.08;
                   const fees = discountedPrice * feeRate;
+                  const buyerPaysFees = formData.absorb_platform_fee;
                   const hasPaidDelivery = formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t));
                   const sellerPaysShipping = hasPaidDelivery && formData.shipping_paid_by === 'seller';
-                  const shippingEstimate = hasPaidDelivery ? 12 : 0;
-                  const buyerPaysFees = formData.absorb_platform_fee;
 
-                  // Vendedor
                   const sellerFees = buyerPaysFees ? 0 : fees;
-                  const sellerShipping = sellerPaysShipping ? shippingEstimate : 0;
-                  const sellerReceives = discountedPrice - sellerFees - sellerShipping;
+                  const sellerReceives = discountedPrice - sellerFees;
 
-                  // Comprador
                   const buyerFees = buyerPaysFees ? fees : 0;
-                  const buyerShipping = hasPaidDelivery && !sellerPaysShipping ? shippingEstimate : 0;
-                  const buyerTotal = discountedPrice + buyerFees + buyerShipping;
+                  const buyerTotal = discountedPrice + buyerFees;
 
                   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -1053,26 +1048,36 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                       <div className="space-y-2 p-3 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
                         <p className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">Você recebe</p>
                         <div className="space-y-1 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Preço</span>
-                            <span>{fmt(discountedPrice)}</span>
-                          </div>
+                          {discount > 0 ? (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Preço c/ desconto</span>
+                              <span>{fmt(discountedPrice)}</span>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Preço</span>
+                              <span>{fmt(price)}</span>
+                            </div>
+                          )}
                           {sellerFees > 0 && (
                             <div className="flex justify-between text-red-500">
                               <span>Taxas (8%)</span>
                               <span>-{fmt(sellerFees)}</span>
                             </div>
                           )}
-                          {sellerShipping > 0 && (
-                            <div className="flex justify-between text-red-500">
+                          {sellerPaysShipping && (
+                            <div className="flex justify-between text-amber-500">
                               <span>Frete</span>
-                              <span>-{fmt(sellerShipping)}</span>
+                              <span className="text-[11px]">variável</span>
                             </div>
                           )}
                         </div>
                         <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-600 font-bold">
                           <span className="text-sm text-slate-700 dark:text-slate-300">Líquido</span>
-                          <span className={cn("text-lg", sellerReceives > 0 ? "text-teal-600" : "text-red-500")}>{fmt(Math.max(0, sellerReceives))}</span>
+                          <span className={cn("text-lg", sellerReceives > 0 ? "text-teal-600" : "text-red-500")}>
+                            {fmt(sellerReceives)}
+                            {sellerPaysShipping && <span className="text-[10px] font-normal text-slate-400"> - frete</span>}
+                          </span>
                         </div>
                       </div>
 
@@ -1090,16 +1095,19 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                               <span>+{fmt(buyerFees)}</span>
                             </div>
                           )}
-                          {buyerShipping > 0 && (
-                            <div className="flex justify-between text-amber-600">
-                              <span>Frete ~</span>
-                              <span>+{fmt(buyerShipping)}</span>
+                          {hasPaidDelivery && !sellerPaysShipping && (
+                            <div className="flex justify-between text-amber-500">
+                              <span>Frete</span>
+                              <span className="text-[11px]">variável</span>
                             </div>
                           )}
                         </div>
                         <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-600 font-bold">
                           <span className="text-sm text-slate-700 dark:text-slate-300">Total</span>
-                          <span className="text-lg text-slate-800 dark:text-slate-200">{fmt(buyerTotal)}</span>
+                          <span className="text-lg text-slate-800 dark:text-slate-200">
+                            {fmt(buyerTotal)}
+                            {hasPaidDelivery && !sellerPaysShipping && <span className="text-[10px] font-normal text-slate-400"> + frete</span>}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1107,7 +1115,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                 })()}
 
                 {formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t)) && (
-                  <p className="text-[10px] text-slate-400">Frete estimado em R$ 12,00 — valor real varia por distância.</p>
+                  <p className="text-[10px] text-slate-400">O frete é calculado no checkout com base na distância e tipo de transporte.</p>
                 )}
               </div>
 
