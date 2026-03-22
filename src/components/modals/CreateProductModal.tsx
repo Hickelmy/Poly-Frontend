@@ -693,9 +693,10 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   Desconto e Cupons
                 </Label>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Desconto geral (%)</Label>
+                {/* Desconto geral */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Desconto geral (%)</Label>
+                  <div className="grid grid-cols-2 gap-2">
                     <Input
                       type="number"
                       value={formData.discount_percent}
@@ -706,38 +707,39 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                       placeholder="0"
                       className="h-9"
                     />
-                    <p className="text-[11px] text-slate-400">Aplicado a todos os compradores</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Preço com desconto</Label>
-                    <div className="h-9 flex items-center px-3 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm">
+                    <div className="h-9 flex items-center px-3 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
                       {(() => {
                         const price = parseFloat(formData.price) || 0;
                         const disc = parseFloat(formData.discount_percent) || 0;
-                        const final_price = price - (price * disc / 100);
-                        return disc > 0 ? (
-                          <span className="flex items-center gap-2">
-                            <span className="line-through text-slate-400 text-xs">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price)}
-                            </span>
-                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(final_price)}
-                            </span>
+                        if (price <= 0) return <span className="text-xs text-slate-400">Defina o preço</span>;
+                        if (disc <= 0) return <span className="text-xs text-slate-400">Sem desconto</span>;
+                        const saved = price * disc / 100;
+                        const final_price = price - saved;
+                        const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+                        return (
+                          <span className="text-xs">
+                            <span className="text-red-400 line-through">{fmt(price)}</span>
+                            {' '}
+                            <span className="text-emerald-600 font-bold">{fmt(final_price)}</span>
+                            {' '}
+                            <span className="text-slate-400">(-{fmt(saved)})</span>
                           </span>
-                        ) : (
-                          <span className="text-slate-400">Sem desconto</span>
                         );
                       })()}
                     </div>
                   </div>
+                  <p className="text-[11px] text-slate-400">Visível para todos. Não acumula com cupons — vale o maior desconto.</p>
                 </div>
 
                 {/* Cupons */}
                 <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-2">
-                  <Label className="text-xs font-semibold flex items-center gap-1.5">
-                    <Ticket className="w-3.5 h-3.5" />
-                    Cupons de desconto
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                      <Ticket className="w-3.5 h-3.5" />
+                      Cupons de desconto
+                    </Label>
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Não acumulam entre si nem com o desconto geral</span>
+                  </div>
 
                   <div className="grid grid-cols-4 gap-2">
                     <div className="space-y-1">
@@ -763,7 +765,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px] flex items-center gap-0.5"><Hash className="w-3 h-3" /> Quantidade</Label>
+                      <Label className="text-[11px] flex items-center gap-0.5"><Hash className="w-3 h-3" /> Usos</Label>
                       <Input
                         type="number"
                         value={couponDraft.max_uses}
@@ -785,7 +787,6 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                       />
                     </div>
                   </div>
-                  <p className="text-[11px] text-slate-400">Quantidade e/ou duração — deixe vazio para ilimitado</p>
 
                   <Button
                     type="button"
@@ -812,34 +813,45 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                     <div className="space-y-1.5 pt-1">
                       {formData.coupons.map((coupon, i) => {
                         const price = parseFloat(formData.price) || 0;
-                        const disc = parseFloat(coupon.discount_percent) || 0;
-                        const couponPrice = price - (price * disc / 100);
+                        const generalDisc = parseFloat(formData.discount_percent) || 0;
+                        const couponDisc = parseFloat(coupon.discount_percent) || 0;
+                        // Non-cumulative: use the higher discount
+                        const effectiveDisc = Math.max(generalDisc, couponDisc);
+                        const saved = price * effectiveDisc / 100;
+                        const finalPrice = price - saved;
+                        const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+                        const isBetterThanGeneral = couponDisc > generalDisc;
                         return (
-                          <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                            <div className="flex items-center gap-2 px-2 py-1 rounded bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30 border border-dashed border-teal-300 dark:border-teal-700">
-                              <Ticket className="w-3.5 h-3.5 text-teal-600" />
-                              <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-300">{coupon.code}</span>
-                              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">-{coupon.discount_percent}%</span>
+                          <div key={i} className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/30 dark:to-emerald-900/30 border border-dashed border-teal-300 dark:border-teal-700">
+                                <Ticket className="w-3.5 h-3.5 text-teal-600" />
+                                <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-300">{coupon.code}</span>
+                              </div>
+                              <span className="text-xs font-bold text-emerald-600">-{coupon.discount_percent}%</span>
+                              <div className="flex-1 flex items-center gap-2 text-[11px] text-slate-400">
+                                {coupon.max_uses && <span>{coupon.max_uses} usos</span>}
+                                {coupon.expires_in_days && <span>{coupon.expires_in_days} dias</span>}
+                                {!coupon.max_uses && !coupon.expires_in_days && <span>Ilimitado</span>}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setFormData({ ...formData, coupons: formData.coupons.filter((_, j) => j !== i) })}
+                                className="text-red-400 hover:text-red-500 p-0.5"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <div className="flex-1 flex items-center gap-2 text-[11px] text-slate-500">
-                              {coupon.max_uses && (
-                                <span className="flex items-center gap-0.5"><Hash className="w-3 h-3" />{coupon.max_uses} usos</span>
-                              )}
-                              {coupon.expires_in_days && (
-                                <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{coupon.expires_in_days}d</span>
-                              )}
-                              {!coupon.max_uses && !coupon.expires_in_days && <span>Ilimitado</span>}
-                              <span className="ml-auto text-emerald-600 font-medium">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(couponPrice)}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setFormData({ ...formData, coupons: formData.coupons.filter((_, j) => j !== i) })}
-                              className="text-red-400 hover:text-red-500 p-0.5"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {price > 0 && (
+                              <div className="flex items-center gap-2 text-xs pl-1">
+                                <span className="text-red-400 line-through">{fmt(price)}</span>
+                                <span className="font-bold text-emerald-600">{fmt(finalPrice)}</span>
+                                <span className="text-slate-400">(-{fmt(saved)})</span>
+                                {generalDisc > 0 && !isBetterThanGeneral && (
+                                  <span className="text-[10px] text-amber-500 ml-auto">Desconto geral ({generalDisc}%) já é maior</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -854,97 +866,85 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
                   <Calculator className="w-4 h-4 text-teal-600" />
                   Simulador de custos
                 </Label>
-                <p className="text-[11px] text-slate-400 -mt-1">Veja como ficará o preço final do produto para o comprador</p>
 
                 {(() => {
                   const price = parseFloat(formData.price) || 0;
+                  if (price <= 0) return <p className="text-xs text-slate-400 italic">Defina um preço para ver a simulação</p>;
+
                   const discount = parseFloat(formData.discount_percent) || 0;
-                  const discountedPrice = price - (price * discount / 100);
-                  const platformFeeRate = 0.05; // 5%
-                  const taxRate = 0.03; // 3%
-                  const shippingEstimate = formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t))
-                    ? (formData.shipping_paid_by === 'seller' ? 12 : 0)
-                    : 0;
+                  const discountValue = price * discount / 100;
+                  const discountedPrice = price - discountValue;
+                  const platformFeeRate = 0.05;
+                  const taxRate = 0.03;
+                  const hasPaidDelivery = formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t));
+                  const shippingEstimate = hasPaidDelivery && formData.shipping_paid_by === 'seller' ? 12 : 0;
                   const platformFee = discountedPrice * platformFeeRate;
                   const tax = discountedPrice * taxRate;
-
                   const sellerReceives = discountedPrice - platformFee - tax - shippingEstimate;
-                  const buyerPays = discountedPrice
-                    + (formData.absorb_platform_fee ? 0 : platformFee)
-                    + (formData.absorb_tax ? 0 : tax)
-                    + (formData.shipping_paid_by === 'buyer' && formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t)) ? 12 : 0);
+
+                  const buyerShipping = hasPaidDelivery && formData.shipping_paid_by === 'buyer' ? 12 : 0;
+                  const buyerPlatformFee = formData.absorb_platform_fee ? 0 : platformFee;
+                  const buyerTax = formData.absorb_tax ? 0 : tax;
+                  const buyerTotal = discountedPrice + buyerPlatformFee + buyerTax + buyerShipping;
 
                   const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-                  return price > 0 ? (
-                    <div className="space-y-2">
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Preço base</span>
-                          <span className="font-medium">{fmt(price)}</span>
+                  return (
+                    <div className="space-y-3">
+                      {/* Vendedor recebe */}
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Vendedor recebe</p>
+                        <div className="space-y-0.5 text-xs">
+                          <div className="flex justify-between"><span className="text-slate-500">Preço base</span><span>{fmt(price)}</span></div>
+                          {discount > 0 && (
+                            <div className="flex justify-between text-emerald-600">
+                              <span>Desconto {discount}%</span>
+                              <span>-{fmt(discountValue)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-amber-600"><span>Taxa plataforma (5%)</span><span>-{fmt(platformFee)}</span></div>
+                          <div className="flex justify-between text-amber-600"><span>Impostos (3%)</span><span>-{fmt(tax)}</span></div>
+                          {shippingEstimate > 0 && (
+                            <div className="flex justify-between text-amber-600"><span>Frete absorvido</span><span>-{fmt(shippingEstimate)}</span></div>
+                          )}
                         </div>
-                        {discount > 0 && (
-                          <div className="flex justify-between text-emerald-600">
-                            <span>Desconto ({discount}%)</span>
-                            <span>-{fmt(price * discount / 100)}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Taxa da plataforma (5%)</span>
-                          <span className="text-amber-600">-{fmt(platformFee)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Impostos (3%)</span>
-                          <span className="text-amber-600">-{fmt(tax)}</span>
-                        </div>
-                        {shippingEstimate > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Frete estimado (absorvido)</span>
-                            <span className="text-amber-600">-{fmt(shippingEstimate)}</span>
-                          </div>
-                        )}
-                        <div className="border-t border-slate-200 dark:border-slate-600 pt-1 mt-1 flex justify-between font-semibold">
-                          <span className="text-slate-700 dark:text-slate-300">Você recebe</span>
+                        <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-600 font-bold text-sm">
+                          <span className="text-slate-700 dark:text-slate-300">Líquido</span>
                           <span className={sellerReceives > 0 ? 'text-teal-600' : 'text-red-500'}>{fmt(Math.max(0, sellerReceives))}</span>
                         </div>
                       </div>
 
+                      {/* Repassar encargos */}
                       <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-1.5">
                         <p className="text-[11px] font-semibold text-slate-500">Repassar encargos ao comprador?</p>
                         <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.absorb_platform_fee}
-                            onChange={(e) => setFormData({ ...formData, absorb_platform_fee: e.target.checked })}
-                            className="rounded border-slate-300"
-                          />
+                          <input type="checkbox" checked={formData.absorb_platform_fee} onChange={(e) => setFormData({ ...formData, absorb_platform_fee: e.target.checked })} className="rounded border-slate-300" />
                           <span className="text-slate-600 dark:text-slate-400">Comprador paga taxa da plataforma (5%)</span>
                         </label>
                         <label className="flex items-center gap-2 text-xs cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.absorb_tax}
-                            onChange={(e) => setFormData({ ...formData, absorb_tax: e.target.checked })}
-                            className="rounded border-slate-300"
-                          />
+                          <input type="checkbox" checked={formData.absorb_tax} onChange={(e) => setFormData({ ...formData, absorb_tax: e.target.checked })} className="rounded border-slate-300" />
                           <span className="text-slate-600 dark:text-slate-400">Comprador paga impostos (3%)</span>
                         </label>
                       </div>
 
-                      <div className="pt-2 border-t border-slate-200 dark:border-slate-600">
-                        <div className="flex justify-between text-xs font-semibold">
-                          <span className="text-slate-500">Comprador pagará</span>
-                          <span className="text-slate-800 dark:text-slate-200 text-sm">{fmt(buyerPays)}</span>
+                      {/* Comprador paga */}
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-1">
+                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Comprador paga</p>
+                        <div className="space-y-0.5 text-xs">
+                          <div className="flex justify-between"><span className="text-slate-500">Produto</span><span>{fmt(discountedPrice)}</span></div>
+                          {buyerPlatformFee > 0 && <div className="flex justify-between text-slate-500"><span>Taxa plataforma</span><span>+{fmt(buyerPlatformFee)}</span></div>}
+                          {buyerTax > 0 && <div className="flex justify-between text-slate-500"><span>Impostos</span><span>+{fmt(buyerTax)}</span></div>}
+                          {buyerShipping > 0 && <div className="flex justify-between text-slate-500"><span>Frete estimado</span><span>+{fmt(buyerShipping)}</span></div>}
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          {formData.shipping_paid_by === 'buyer' && formData.delivery_types.some(t => !['retirada', 'entrega_propria'].includes(t))
-                            ? 'Inclui frete estimado — valor real varia por distância. Frete cobrado uma vez por pedido, não por item.'
-                            : 'Frete gratuito ou absorvido pelo vendedor'}
-                        </p>
+                        <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-600 font-bold text-sm">
+                          <span className="text-slate-700 dark:text-slate-300">Total</span>
+                          <span className="text-slate-800 dark:text-slate-200">{fmt(buyerTotal)}</span>
+                        </div>
+                        {buyerShipping > 0 && (
+                          <p className="text-[10px] text-slate-400">Frete estimado — varia por distância. Cobrado uma vez por pedido.</p>
+                        )}
                       </div>
                     </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">Defina um preço para ver a simulação</p>
                   );
                 })()}
               </div>
