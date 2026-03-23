@@ -37,7 +37,7 @@ import { ProductCardSkeleton } from '../components/shared/SkeletonLoader';
 export default function Store() {
   const [storeTab, setStoreTab] = useState<'produtos' | 'cardapio'>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('tab') === 'cardapio' ? 'cardapio' : 'produtos';
+    return params.get('tab') === 'produtos' ? 'produtos' : 'cardapio';
   });
   const isCardapio = storeTab === 'cardapio';
 
@@ -46,8 +46,8 @@ export default function Store() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('tab') === 'cardapio') return 'alimentos';
-    return params.get('category') || 'all';
+    if (params.get('tab') === 'produtos') return 'all';
+    return 'alimentos';
   });
   const [conditionFilter, setConditionFilter] = useState<string>('all');
   const [priceRange, setPriceRange] = useState<number[]>([0, 10000]);
@@ -124,7 +124,9 @@ export default function Store() {
     .filter(product => {
       const matchesSearch = product.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.description?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
+      const matchesCategory = isCardapio
+        ? product.category === 'alimentos'
+        : (categoryFilter === 'all' ? product.category !== 'alimentos' : product.category === categoryFilter);
       const matchesCondition = conditionFilter === 'all' || product.condition === conditionFilter;
       const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
       return matchesSearch && matchesCategory && matchesCondition && matchesPrice;
@@ -174,10 +176,10 @@ export default function Store() {
     setStoreTab(tab);
     if (tab === 'cardapio') {
       setCategoryFilter('alimentos');
-      window.history.replaceState(null, '', '?tab=cardapio');
+      window.history.replaceState(null, '', window.location.pathname);
     } else {
       setCategoryFilter('all');
-      window.history.replaceState(null, '', window.location.pathname);
+      window.history.replaceState(null, '', '?tab=produtos');
     }
   };
 
@@ -214,6 +216,17 @@ export default function Store() {
       {/* Tab Bar */}
       <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
         <button
+          onClick={() => handleTabSwitch('cardapio')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            isCardapio
+              ? 'bg-red-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <UtensilsCrossed className="w-4 h-4" />
+          Cardápio
+        </button>
+        <button
           onClick={() => handleTabSwitch('produtos')}
           className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
             !isCardapio
@@ -223,17 +236,6 @@ export default function Store() {
         >
           <Package className="w-4 h-4" />
           Produtos
-        </button>
-        <button
-          onClick={() => handleTabSwitch('cardapio')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-            isCardapio
-              ? 'bg-red-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <UtensilsCrossed className="w-4 h-4" />
-          Cardapio
         </button>
       </div>
 
@@ -284,7 +286,7 @@ export default function Store() {
                   <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map(cat => (
+                  {categories.filter(cat => cat.value !== 'alimentos').map(cat => (
                     <SelectItem key={cat.value} value={cat.value}>
                       {cat.label}
                     </SelectItem>
