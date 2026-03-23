@@ -308,23 +308,25 @@ export default function Register() {
   const handleCompanySubmit = async () => {
     setLoading(true);
     try {
-      // 1. Cria a conta do usuário com accountType COMPANY
+      // 1. Cria a conta com accountType COMPANY e dados da empresa
       await polysApi.auth.register({
-        full_name: companyForm.name,
+        full_name: companyForm.companyName || companyForm.name,
         email: companyForm.email,
         password: companyForm.password,
         phone: companyForm.phone || undefined,
         accountType: 'COMPANY',
+        companyDescription: companyForm.description || undefined,
+        companyDocumentUrl: companyForm.cnpj || undefined,
       });
 
-      // 2. Envia dados da empresa para verificação do gestor
+      // 2. Envia solicitacao para verificacao do gestor
       await polysApi.adminRequests.create({
         name: `${companyForm.companyName} (${companyForm.name})`,
         email: companyForm.email,
         phone: companyForm.phone,
         location: `CNPJ: ${companyForm.cnpj}`,
         objective: `[EMPRESA] ${companyForm.description || 'Cadastro de empresa'}`,
-      }).catch(() => {}); // não bloqueia se falhar
+      }).catch(() => {});
 
       toast.success('Conta criada! Seus dados serão verificados por um gestor.');
       navigate(createPageUrl('Dashboard'), { replace: true, state: { fromRegister: true } });

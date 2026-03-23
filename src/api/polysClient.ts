@@ -693,7 +693,8 @@ const auth = {
     return sanitizeUser(mapped);
   },
 
-  async register({ full_name, email, password, role, accountType, phone, cep, state, city, neighborhood, street, houseNumber }: {
+  async register({ full_name, email, password, role, accountType, phone, cep, state, city, neighborhood, street, houseNumber,
+    companyDescription, companyCategory, companyWebsite, companyDocumentUrl }: {
     full_name: string;
     email: string;
     password: string;
@@ -706,6 +707,10 @@ const auth = {
     neighborhood?: string;
     street?: string;
     houseNumber?: string;
+    companyDescription?: string;
+    companyCategory?: string;
+    companyWebsite?: string;
+    companyDocumentUrl?: string;
   }): Promise<any> {
     const payload: Record<string, any> = {
       name: full_name,
@@ -723,6 +728,12 @@ const auth = {
     if (neighborhood) payload.neighborhood = neighborhood;
     if (street) payload.street = street;
     if (houseNumber) payload.houseNumber = houseNumber;
+
+    // Campos de empresa
+    if (companyDescription) payload.companyDescription = companyDescription;
+    if (companyCategory) payload.companyCategory = companyCategory;
+    if (companyWebsite) payload.companyWebsite = companyWebsite;
+    if (companyDocumentUrl) payload.companyDocumentUrl = companyDocumentUrl;
 
     const data = await apiRequest('/auth/register', {
       method: 'POST',
