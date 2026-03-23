@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { polysApi } from '@/api/polysClient';
 import ZonePublishSelector from '@/components/shared/ZonePublishSelector';
 import { useQueryClient } from '@tanstack/react-query';
-import { MapPin, Upload, X, Loader2 } from 'lucide-react';
+import { MapPin, Upload, X, Loader2, Search } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -187,6 +187,8 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
   const [uploading, setUploading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [gettingLocation, setGettingLocation] = useState<boolean>(false);
+  const [addressSearch, setAddressSearch] = useState<string>('');
+  const [searchingAddress, setSearchingAddress] = useState<boolean>(false);
 
   const roundCoordinate = (coord: number): number => {
     return Math.round(coord * 1000) / 1000;
@@ -218,6 +220,29 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
         maximumAge: 0
       }
     );
+  };
+
+  const handleSearchAddress = async () => {
+    if (!addressSearch.trim()) return;
+    setSearchingAddress(true);
+    try {
+      const query = encodeURIComponent(addressSearch.trim());
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`, {
+        headers: { 'Accept-Language': 'pt-BR' }
+      });
+      const data = await res.json();
+      if (data.length === 0) {
+        toast.error('Endereço não encontrado. Tente ser mais específico.');
+        return;
+      }
+      const lat = roundCoordinate(parseFloat(data[0].lat));
+      const lng = roundCoordinate(parseFloat(data[0].lon));
+      setFormData(prev => ({ ...prev, lat, lng }));
+      toast.success(`Localização encontrada: ${data[0].display_name.split(',').slice(0, 3).join(', ')}`);
+    } catch {
+      toast.error('Erro ao buscar endereço. Verifique sua conexão.');
+    }
+    setSearchingAddress(false);
   };
 
   useEffect(() => {
@@ -395,6 +420,32 @@ export default function CreateServiceModal({ open, onClose, service, user, onSuc
                     </div>
                   )}
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                  <span className="text-xs text-slate-400">ou</span>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    value={addressSearch}
+                    onChange={(e) => setAddressSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchAddress()}
+                    placeholder="Digite um endereço, cidade ou bairro..."
+                    className="h-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSearchAddress}
+                    disabled={searchingAddress || !addressSearch.trim()}
+                    className="shrink-0 h-10"
+                  >
+                    {searchingAddress ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  </Button>
+                </div>
+
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   A localização é aproximada para preservar sua privacidade. Será usada para filtrar serviços próximos aos clientes.
                 </p>
