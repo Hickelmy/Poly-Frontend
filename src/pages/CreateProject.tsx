@@ -53,6 +53,8 @@ export default function CreateProject() {
   const [loadingUser, setLoadingUser] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [fundingDate, setFundingDate] = useState<any>(null);
+  const [coverImage, setCoverImage] = useState<string>('');
+  const [uploadingCover, setUploadingCover] = useState<boolean>(false);
   const [evidences, setEvidences] = useState<any[]>([]);
   const [uploadingEvidence, setUploadingEvidence] = useState<boolean>(false);
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -277,7 +279,12 @@ export default function CreateProject() {
     }
 
     if (!formData.title || !formData.category) {
-      toast.error('Preencha pelo menos título e categoria.');
+      toast.error('Preencha pelo menos titulo e categoria.');
+      return;
+    }
+
+    if (!coverImage) {
+      toast.error('Adicione uma imagem de capa para o projeto.');
       return;
     }
 
@@ -319,6 +326,7 @@ export default function CreateProject() {
         short_description: formData.short_description || formData.description?.slice(0, 140),
         description: formData.description,
         category: formData.category,
+        image_url: coverImage,
         target_amount: expensesTotal,
         current_amount: 0,
         min_votes: minVotesNumber,
@@ -426,7 +434,66 @@ export default function CreateProject() {
               onChange={setLocation}
             />
 
-            {/* Evidências / Imagens */}
+            {/* Imagem de Capa (obrigatoria) */}
+            <div className="space-y-3 border rounded-lg p-4 bg-slate-50/70 dark:bg-slate-900/30">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <Label className="font-semibold">Imagem de capa *</Label>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Imagem principal do projeto, exibida no banner e no card.
+                  </p>
+                </div>
+                {!coverImage && (
+                  <label className="flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800">
+                    {uploadingCover ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    <span>{uploadingCover ? 'Enviando...' : 'Carregar imagem'}</span>
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                        if (!allowedTypes.includes(file.type)) {
+                          toast.error('Use JPG, PNG ou WEBP.');
+                          e.target.value = '';
+                          return;
+                        }
+                        setUploadingCover(true);
+                        try {
+                          const { file_url } = await polysApi.integrations.Core.UploadFile({ file });
+                          setCoverImage(file_url);
+                        } catch (err) {
+                          console.error(err);
+                          toast.error('Erro ao enviar imagem de capa');
+                        }
+                        setUploadingCover(false);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+              {coverImage && (
+                <div className="relative group rounded-xl overflow-hidden border">
+                  <img src={coverImage} alt="Capa do projeto" className="w-full h-48 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setCoverImage('')}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Evidencias / Imagens */}
             <div className="space-y-3 border rounded-lg p-4 bg-slate-50/70 dark:bg-slate-900/30">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div>

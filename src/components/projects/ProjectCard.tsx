@@ -60,9 +60,11 @@ export default function ProjectCard({ project, onVote, onDonate, userVoted, curr
   const diff = upVotes - downVotes;
   const remainingVotes = Math.max(0, minVotes - Math.max(diff, 0));
 
-  const images: string[] = (project.evidences && project.evidences.length > 0)
-    ? project.evidences
-    : [project.image_url || "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=400&h=300&fit=crop"];
+  const images: string[] = project.image_url
+    ? [project.image_url, ...(project.evidences || [])]
+    : (project.evidences && project.evidences.length > 0)
+      ? project.evidences
+      : [];
 
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const hasMultipleImages = images.length > 1;
@@ -82,11 +84,15 @@ export default function ProjectCard({ project, onVote, onDonate, userVoted, curr
   return (
     <Card className="overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300 group bg-white dark:bg-slate-900">
       <div className="relative h-48 overflow-hidden">
-        <img
-          src={images[currentImageIndex]}
-          alt={project.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+        {images.length > 0 ? (
+          <img
+            src={images[currentImageIndex]}
+            alt={project.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-teal-600 to-emerald-700" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
         <div className="absolute top-4 left-4">
