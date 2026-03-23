@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { MapPin, Package, Truck, CheckCircle2, Loader2, Plus, Minus, CreditCard, AlertTriangle, QrCode, Copy, Store, HandshakeIcon, Bike, Car, TruckIcon, Container } from 'lucide-react';
+import { MapPin, Package, Truck, CheckCircle2, Loader2, Plus, Minus, CreditCard, AlertTriangle, QrCode, Copy, Store, HandshakeIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import AddressSelectionModal from "./AddressSelectionModal";
 import { Input } from "@/components/ui/input";
@@ -52,13 +52,6 @@ const STEPS = [
   { id: 3, label: 'Confirmação', name: 'confirmation' },
 ];
 
-const TRANSPORT_OPTIONS = [
-  { value: 'moto', label: 'Motoboy', icon: <Bike className="w-5 h-5" /> },
-  { value: 'carro', label: 'Carro', icon: <Car className="w-5 h-5" /> },
-  { value: 'van', label: 'Van', icon: <TruckIcon className="w-5 h-5" /> },
-  { value: 'caminhao', label: 'Caminhão', icon: <Container className="w-5 h-5" /> },
-];
-
 interface DeliveryStepProps {
   product: any;
   user?: any;
@@ -71,17 +64,9 @@ interface DeliveryStepProps {
   setShowAddressModal: (v: boolean) => void;
   quantity: number;
   setQuantity: (v: number | ((prev: number) => number)) => void;
-  selectedTransport: string | null;
-  setSelectedTransport: (v: string) => void;
 }
 
-function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod, selectedAddress, setSelectedAddress, showAddressModal, setShowAddressModal, quantity, setQuantity, selectedTransport, setSelectedTransport }: DeliveryStepProps) {
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value || 0);
-
+function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod, selectedAddress, setSelectedAddress, showAddressModal, setShowAddressModal, quantity, setQuantity }: DeliveryStepProps) {
   const formatAddress = (): string => {
     if (!selectedAddress) return '';
     const parts = [
@@ -98,13 +83,13 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
   const displayAddress = formatAddress();
   const hasAddress = selectedAddress && selectedAddress.street && selectedAddress.city;
 
-  const shippingIncluded = product?.shippingPaidBy === 'seller';
   const sellerDeliveryTypes: string[] = product?.deliveryTypes || [];
   const hasRetirada = sellerDeliveryTypes.includes('retirada');
-  const hasEntregaPropria = sellerDeliveryTypes.includes('entrega_propria');
-  const availableTransports = sellerDeliveryTypes
-    .map((v: string) => TRANSPORT_OPTIONS.find(o => o.value === v))
-    .filter(Boolean) as typeof TRANSPORT_OPTIONS;
+  const hasAnyDelivery = sellerDeliveryTypes.some((t: string) => t !== 'retirada');
+
+  // Frete grátis se vendedor paga ou se é entrega própria (sem transportadora)
+  const shippingFree = product?.shippingPaidBy === 'seller'
+    || sellerDeliveryTypes.includes('entrega_propria');
 
   const maxQuantity = product?.quantityAvailable ?? product?.quantity_available ?? 99999;
   const unitType = product?.unitType || 'unidade';
@@ -154,7 +139,7 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
           </Button>
           {maxQuantity < 99999 && (
             <span className="text-sm text-slate-500 dark:text-slate-400">
-              Disponível: {maxQuantity}{unitLabel ? ` ${unitLabel}` : maxQuantity === 1 ? ' unidade' : ' unidades'}
+              Disponivel: {maxQuantity}{unitLabel ? ` ${unitLabel}` : maxQuantity === 1 ? ' unidade' : ' unidades'}
             </span>
           )}
         </div>
@@ -162,69 +147,41 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
 
       <div>
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
-          Escolha a forma de entrega
+          Como deseja receber?
         </h3>
 
         <RadioGroup value={deliveryMethod ?? ''} onValueChange={setDeliveryMethod}>
           <div className="space-y-4">
+            {/* Entrega */}
             <Card className={cn(
               "border-2 transition-all",
-              availableTransports.length === 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+              !hasAnyDelivery ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
               deliveryMethod === 'delivery'
                 ? "border-teal-500 bg-teal-50/50 dark:bg-teal-900/20"
                 : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
             )}>
-              <label className={cn("block", availableTransports.length > 0 ? "cursor-pointer" : "cursor-not-allowed")}>
-                <CardContent className="p-5 space-y-4">
+              <label className={cn("block", hasAnyDelivery ? "cursor-pointer" : "cursor-not-allowed")}>
+                <CardContent className="p-5">
                   <div className="flex items-start gap-3">
-                    <RadioGroupItem value="delivery" id="delivery" className="mt-1" disabled={availableTransports.length === 0} />
+                    <RadioGroupItem value="delivery" id="delivery" className="mt-1" disabled={!hasAnyDelivery} />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <Truck className="w-5 h-5 text-teal-600" />
                         <Label htmlFor="delivery" className="text-base font-semibold text-slate-900 dark:text-white cursor-pointer">
-                          Enviar no meu endereço
+                          Receber no meu endereco
                         </Label>
-                        <span className={cn("text-sm font-semibold ml-auto", shippingIncluded ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
-                          {shippingIncluded ? 'Frete incluso' : 'Frete a combinar'}
+                        <span className={cn("text-sm font-semibold ml-auto", shippingFree ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
+                          {shippingFree ? 'Frete gratis' : 'Frete a combinar'}
                         </span>
                       </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {shippingFree
+                          ? 'O vendedor entrega no seu endereco sem custo adicional'
+                          : 'O tipo de transporte sera definido automaticamente com base no produto'}
+                      </p>
 
-                      {availableTransports.length === 0 ? (
-                        <p className="text-xs text-slate-400 mt-1">O vendedor não cadastrou opções de entrega.</p>
-                      ) : (
-                        <>
-                          {deliveryMethod === 'delivery' && (
-                            <div className="mt-3 space-y-2">
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Selecione o meio de transporte:</p>
-                              <div className="grid grid-cols-2 gap-2">
-                                {availableTransports.map(({ value, label, icon }) => (
-                                  <button
-                                    key={value}
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); setSelectedTransport(value); }}
-                                    className={cn(
-                                      "flex items-center gap-2 p-2.5 rounded-lg border-2 text-left transition-all",
-                                      selectedTransport === value
-                                        ? "border-teal-500 bg-teal-50 dark:bg-teal-900/30"
-                                        : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                                    )}
-                                  >
-                                    <span className={cn("shrink-0", selectedTransport === value ? "text-teal-600" : "text-slate-400")}>{icon}</span>
-                                    <span className={cn("text-sm font-medium", selectedTransport === value ? "text-teal-700 dark:text-teal-300" : "text-slate-700 dark:text-slate-300")}>{label}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {deliveryMethod !== 'delivery' && (
-                            <div className="flex gap-1.5 mt-1 flex-wrap text-slate-400">
-                              {availableTransports.map(({ value, icon, label }) => (
-                                <span key={value} title={label}>{icon}</span>
-                              ))}
-                            </div>
-                          )}
-                        </>
+                      {!hasAnyDelivery && (
+                        <p className="text-xs text-slate-400 mt-1">O vendedor nao oferece entrega para este produto.</p>
                       )}
 
                       {deliveryMethod === 'delivery' && (
@@ -233,12 +190,12 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
                             <>
                               <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">{displayAddress}</p>
                               <button type="button" className="text-sm text-teal-600 dark:text-teal-400 hover:underline" onClick={(e) => { e.preventDefault(); setShowAddressModal(true); }}>
-                                Alterar endereço
+                                Alterar endereco
                               </button>
                             </>
                           ) : (
                             <button type="button" className="text-sm text-teal-600 dark:text-teal-400 hover:underline" onClick={(e) => { e.preventDefault(); setShowAddressModal(true); }}>
-                              Selecionar endereço de entrega
+                              Selecionar endereco de entrega
                             </button>
                           )}
                         </div>
@@ -249,89 +206,40 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
               </label>
             </Card>
 
-            {hasEntregaPropria && (
+            {/* Retirada */}
+            {hasRetirada && (
             <Card className={cn(
               "border-2 cursor-pointer transition-all",
-              deliveryMethod === 'seller_delivery'
-                ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20"
+              deliveryMethod === 'pickup'
+                ? "border-teal-500 bg-teal-50/50 dark:bg-teal-900/20"
                 : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
             )}>
               <label className="block cursor-pointer">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
-                    <RadioGroupItem value="seller_delivery" id="seller_delivery" className="mt-1" />
+                    <RadioGroupItem value="pickup" id="pickup" className="mt-1" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <HandshakeIcon className="w-5 h-5 text-emerald-600" />
-                        <Label htmlFor="seller_delivery" className="text-base font-semibold text-slate-900 dark:text-white cursor-pointer">
-                          Entrega pelo Vendedor
+                        <Store className="w-5 h-5 text-teal-600" />
+                        <Label htmlFor="pickup" className="text-base font-semibold text-slate-900 dark:text-white cursor-pointer">
+                          Retirar no local
                         </Label>
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400 ml-auto">
-                          Sem taxa de entrega
+                          Sem custo
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        O vendedor entrega diretamente no seu endereço, sem custo de frete
-                      </p>
-                      {deliveryMethod === 'seller_delivery' && (
-                        <div className="mt-3">
-                          {hasAddress ? (
-                            <>
-                              <p className="text-sm text-slate-600 dark:text-slate-300 mb-1">{displayAddress}</p>
-                              <button type="button" className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline" onClick={(e) => { e.preventDefault(); setShowAddressModal(true); }}>
-                                Alterar endereço
-                              </button>
-                            </>
-                          ) : (
-                            <button type="button" className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline" onClick={(e) => { e.preventDefault(); setShowAddressModal(true); }}>
-                              Selecionar endereço de entrega
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </label>
-            </Card>
-            )}
-
-            {hasRetirada && (
-            <Card className={cn(
-              "border-2 cursor-pointer transition-all",
-              deliveryMethod === 'pickup'
-                ? "border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20"
-                : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
-            )}>
-              <label className="block cursor-pointer">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      <RadioGroupItem value="pickup" id="pickup" className="mt-1" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Store className="w-5 h-5 text-emerald-600" />
-                          <Label htmlFor="pickup" className="text-base font-semibold text-slate-900 dark:text-white cursor-pointer">
-                            Retirada no Local
-                          </Label>
-                          <span className="text-sm font-semibold text-green-600 dark:text-green-400 ml-auto">
-                            Sem taxa de entrega
-                          </span>
-                        </div>
-
-                        <div className="space-y-2">
+                      <div className="space-y-1">
+                        <p className="text-sm text-slate-600 dark:text-slate-300">
+                          {product.sellerName || 'Vendedor'}
+                        </p>
+                        {product.location_address && (
                           <p className="text-sm text-slate-600 dark:text-slate-300">
-                            {product.sellerName || 'Vendedor'}
+                            {product.location_address}
                           </p>
-                          {product.location_address && (
-                            <p className="text-sm text-slate-600 dark:text-slate-300">
-                              {product.location_address}
-                            </p>
-                          )}
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Você busca o produto diretamente no endereço do vendedor
-                          </p>
-                        </div>
+                        )}
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Voce busca o produto diretamente no endereco do vendedor
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -346,7 +254,7 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
       <div className="flex justify-end pt-4 border-t">
         <Button
           onClick={async () => {
-            if ((deliveryMethod === 'delivery' || deliveryMethod === 'seller_delivery') && hasAddress && user) {
+            if (deliveryMethod === 'delivery' && hasAddress && user) {
               try {
                 const { polysApi } = await import('@/api/polysClient');
                 await polysApi.auth.updateMe({
@@ -360,15 +268,14 @@ function DeliveryStep({ product, user, onNext, deliveryMethod, setDeliveryMethod
                   residence_lng: selectedAddress!.longitude,
                 });
               } catch (error) {
-                console.error('Erro ao salvar endereço:', error);
+                console.error('Erro ao salvar endereco:', error);
               }
             }
             onNext();
           }}
           disabled={
             !deliveryMethod
-            || (deliveryMethod === 'delivery' && (!hasAddress || (availableTransports.length > 0 && !selectedTransport)))
-            || (deliveryMethod === 'seller_delivery' && !hasAddress)
+            || (deliveryMethod === 'delivery' && !hasAddress)
           }
           className="bg-teal-600 hover:bg-teal-700"
         >
@@ -437,11 +344,16 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
     setLoading(true);
     try {
       const { polysApi } = await import('@/api/polysClient');
+      const addressStr = selectedAddress
+        ? [selectedAddress.street, selectedAddress.house_number, selectedAddress.neighborhood, selectedAddress.city, selectedAddress.state, selectedAddress.cep].filter(Boolean).join(', ')
+        : undefined;
       const result = await polysApi.paymentGateway.createPixPayment({
         amount: total,
         product_id: product.id,
         product_title: product.title,
         quantity,
+        delivery_method: deliveryMethod || undefined,
+        delivery_address: addressStr,
       });
       if (result.success) {
         setPixData(result);
@@ -462,12 +374,17 @@ function PaymentStep({ product, quantity, total, deliveryMethod, selectedAddress
     setLoading(true);
     try {
       const { polysApi } = await import('@/api/polysClient');
+      const addrStr = selectedAddress
+        ? [selectedAddress.street, selectedAddress.house_number, selectedAddress.neighborhood, selectedAddress.city, selectedAddress.state, selectedAddress.cep].filter(Boolean).join(', ')
+        : undefined;
       const result = await polysApi.paymentGateway.createStripePayment({
         amount: total,
         product_id: product.id,
         product_title: product.title,
         quantity,
         currency: 'brl',
+        delivery_method: deliveryMethod || undefined,
+        delivery_address: addrStr,
       });
       if (result.success && result.checkout_url) {
         window.location.href = result.checkout_url;
@@ -729,7 +646,6 @@ function PurchaseSummary({ product, deliveryMethod, shippingCost, quantity = 1 }
 export default function CheckoutModal({ open, onClose, product, user, paymentStatus }: CheckoutModalProps) {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [deliveryMethod, setDeliveryMethod] = useState<string | null>(null);
-  const [selectedTransport, setSelectedTransport] = useState<string | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<AddressData | null>(null);
   const [showAddressModal, setShowAddressModal] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -759,7 +675,6 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
   const resetAndClose = () => {
     setCurrentStep(1);
     setDeliveryMethod(null);
-    setSelectedTransport(null);
     setSelectedAddress(null);
     setShowAddressModal(false);
     setQuantity(1);
@@ -876,8 +791,6 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
                   setShowAddressModal={setShowAddressModal}
                   quantity={quantity}
                   setQuantity={setQuantity}
-                  selectedTransport={selectedTransport}
-                  setSelectedTransport={setSelectedTransport}
                 />
               )}
 

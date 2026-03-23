@@ -4,7 +4,7 @@ import { createPageUrl } from '../../utils';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingCart, MapPin, Package, Eye, User, ImageOff, ShieldCheck, AlertTriangle, Sparkles, Megaphone, Ban, CheckCircle2, Store, HandshakeIcon, Bike, Car, TruckIcon, Container } from 'lucide-react';
+import { ShoppingCart, MapPin, Package, Eye, User, ImageOff, ShieldCheck, AlertTriangle, Sparkles, Megaphone, Ban, CheckCircle2, Truck, Store } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const conditionLabels: Record<string, string> = {
@@ -14,14 +14,6 @@ const conditionLabels: Record<string, string> = {
   usado_regular: "Usado - Regular"
 };
 
-const TRANSPORT_ICONS: Record<string, React.ReactNode> = {
-  retirada: <Store className="w-3.5 h-3.5 text-emerald-500" />,
-  entrega_propria: <HandshakeIcon className="w-3.5 h-3.5 text-emerald-500" />,
-  moto: <Bike className="w-3.5 h-3.5" />,
-  carro: <Car className="w-3.5 h-3.5" />,
-  van: <TruckIcon className="w-3.5 h-3.5" />,
-  caminhao: <Container className="w-3.5 h-3.5" />,
-};
 
 import verificadoImg from '@/assets/verificado.png';
 import aprovadoImg from '@/assets/aprovado.png';
@@ -193,12 +185,19 @@ export default function ProductCard({ product, onAddToCart, isOwner }: ProductCa
             <span>{product.quantityAvailable} {product.unitType === 'kg' ? 'kg' : product.unitType === 'litro' ? 'L' : 'un'}</span>
           </div>
           {product.deliveryTypes?.length > 0 && (
-            <div className="flex items-center gap-1">
-              {product.deliveryTypes.map((t: string) => (
-                <span key={t} title={t}>{TRANSPORT_ICONS[t]}</span>
-              ))}
-              {product.shippingPaidBy === 'seller' && (
-                <span className="ml-1 text-xs text-green-600 dark:text-green-400 font-medium">Frete incluso</span>
+            <div className="flex items-center gap-1.5">
+              {product.deliveryTypes.some((t: string) => t !== 'retirada') && (
+                <span className="flex items-center gap-0.5 text-xs text-teal-600 dark:text-teal-400">
+                  <Truck className="w-3.5 h-3.5" />
+                  {product.shippingPaidBy === 'seller' || product.deliveryTypes.includes('entrega_propria')
+                    ? <span className="font-medium text-green-600 dark:text-green-400">Frete gratis</span>
+                    : 'Entrega'}
+                </span>
+              )}
+              {product.deliveryTypes.includes('retirada') && (
+                <span className="flex items-center gap-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  <Store className="w-3.5 h-3.5" /> Retirada
+                </span>
               )}
             </div>
           )}
