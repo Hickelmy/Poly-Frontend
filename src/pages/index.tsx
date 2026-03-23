@@ -35,6 +35,7 @@ import AdminRequestForm from "./AdminRequestForm";
 import AdminCompleteRegister from "./AdminCompleteRegister";
 
 import ZoneManagement from "./ZoneManagement";
+import CompanyManagement from "./CompanyManagement";
 
 import JoinZone from "./JoinZone";
 
@@ -101,6 +102,7 @@ const PAGES: Record<string, React.ComponentType> = {
     AdminCompleteRegister: AdminCompleteRegister,
 
     ZoneManagement: ZoneManagement,
+    CompanyManagement: CompanyManagement,
 
     Login: Login,
 
@@ -191,6 +193,7 @@ function PagesContent() {
                 <Route path="/ZoneManagement" element={<ZoneManagement />} />
 
                 <Route path="/InviteLinks" element={<ZoneManagement />} />
+                <Route path="/CompanyManagement" element={<CompanyManagement />} />
                 <Route path="/join/:code" element={<JoinZone />} />
 
                 <Route path="/AppSettings" element={<AppSettings />} />

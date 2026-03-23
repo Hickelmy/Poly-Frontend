@@ -1228,6 +1228,39 @@ const users = {
   },
 };
 
+// Gestao de empresas
+const companies = {
+  async list(limit?: number): Promise<any[]> {
+    const params = limit ? `?limit=${limit}` : '';
+    return apiRequest(`/users/companies${params}`, { method: 'GET' });
+  },
+  async getStats(id: string): Promise<any> {
+    return apiRequest(`/users/companies/${id}/stats`, { method: 'GET' });
+  },
+  async getProducts(id: string): Promise<any[]> {
+    return apiRequest(`/users/companies/${id}/products`, { method: 'GET' });
+  },
+  async getOrders(id: string): Promise<any[]> {
+    return apiRequest(`/users/companies/${id}/orders`, { method: 'GET' });
+  },
+  async getServices(id: string): Promise<any[]> {
+    return apiRequest(`/users/companies/${id}/services`, { method: 'GET' });
+  },
+  async getProjects(id: string): Promise<any[]> {
+    return apiRequest(`/users/companies/${id}/projects`, { method: 'GET' });
+  },
+  async updateVerification(id: string, status: string, note?: string): Promise<any> {
+    return apiRequest(`/users/companies/${id}/verification`, {
+      method: 'POST', body: JSON.stringify({ status, note }),
+    });
+  },
+  async requestDocuments(id: string, note: string): Promise<any> {
+    return apiRequest(`/users/companies/${id}/request-documents`, {
+      method: 'POST', body: JSON.stringify({ note }),
+    });
+  },
+};
+
 // Eventos comportamentais (analytics)
 const events = {
   async getByUser(
@@ -1419,6 +1452,7 @@ export const polysApi = {
   integrations,
   news,
   users,
+  companies,
   events,
   contentModeration,
   featureFlags,

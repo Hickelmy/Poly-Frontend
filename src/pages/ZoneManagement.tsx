@@ -16,7 +16,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Map, Plus, Pencil, Trash2, Check, X, Loader2, Save,
   Users, MoreVertical, AlertCircle, Link2, Copy,
-  Mail, Shield, MapPin, UserMinus, Crown, CheckCircle, XCircle
+  MapPin, UserMinus, Crown
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1089,7 +1089,6 @@ export default function ZoneManagement() {
     },
   });
 
-  const isManager = user?.user_role === 'gestor' || user?.user_role === 'administrador';
 
   // Auto-select first zone for Membros/Convites tabs
   useEffect(() => {
@@ -1112,12 +1111,6 @@ export default function ZoneManagement() {
     enabled: !!selectedZoneId && (activeTab === 'convites' || activeTab === 'membros'),
   });
 
-  // Admin requests (manager only)
-  const { data: adminRequests = [] } = useQuery({
-    queryKey: ['adminRequests'],
-    queryFn: () => polysApi.adminRequests.list('pending'),
-    enabled: isManager,
-  });
 
   // Invite link mutations
   const createLinkMutation = useMutation({
@@ -1162,22 +1155,6 @@ export default function ZoneManagement() {
     onError: () => toast.error('Erro ao remover membro'),
   });
 
-  const approveMutation = useMutation({
-    mutationFn: (id: string) => polysApi.adminRequests.approve(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminRequests'] });
-      toast.success('Solicitacao aprovada!');
-    },
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
-      polysApi.adminRequests.reject(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminRequests'] });
-      toast.success('Solicitacao rejeitada');
-    },
-  });
 
   const copyCode = (code: string) => {
     const link = `${window.location.origin}/join/${code}`;
@@ -1416,11 +1393,6 @@ export default function ZoneManagement() {
           <TabsTrigger value="convites" className="gap-1.5">
             <Link2 className="w-4 h-4" /> Convites
           </TabsTrigger>
-          {isManager && (
-            <TabsTrigger value="solicitacoes" className="gap-1.5">
-              <Mail className="w-4 h-4" /> Solicitacoes {adminRequests.length > 0 && `(${adminRequests.length})`}
-            </TabsTrigger>
-          )}
         </TabsList>
 
         {/* ===== TAB: AREAS ===== */}
@@ -1645,59 +1617,6 @@ export default function ZoneManagement() {
           </Card>
         </TabsContent>
 
-        {/* ===== TAB: SOLICITACOES ===== */}
-        {isManager && (
-          <TabsContent value="solicitacoes" className="mt-4">
-            <Card className="border-0 shadow-sm">
-              <CardContent className="p-0">
-                {adminRequests.length === 0 ? (
-                  <div className="p-12 text-center">
-                    <Mail className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                    <p className="text-slate-500">Nenhuma solicitacao pendente</p>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {adminRequests.map((req: any) => (
-                      <div key={req.id} className="p-4">
-                        <div className="flex items-start gap-4">
-                          <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                            <Shield className="w-5 h-5 text-amber-600" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium">{req.name}</p>
-                            <p className="text-sm text-slate-500">{req.email}</p>
-                            {req.phone && <p className="text-sm text-slate-500">Tel: {req.phone}</p>}
-                            {req.location && <p className="text-sm text-slate-500">Local: {req.location}</p>}
-                            {req.objective && (
-                              <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 p-2 bg-slate-50 dark:bg-slate-800 rounded">
-                                "{req.objective}"
-                              </p>
-                            )}
-                            <p className="text-xs text-slate-400 mt-2">
-                              {format(new Date(req.created_at), "dd 'de' MMM 'as' HH:mm", { locale: ptBR })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 mt-3 ml-14">
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700"
-                            onClick={() => approveMutation.mutate(req.id)}
-                            disabled={approveMutation.isPending}>
-                            {approveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
-                            Aprovar
-                          </Button>
-                          <Button size="sm" variant="outline" className="text-red-600"
-                            onClick={() => rejectMutation.mutate({ id: req.id })}>
-                            <XCircle className="w-4 h-4 mr-1" /> Rejeitar
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
       </Tabs>
 
       {/* Create/Edit Zone Modal - Custom without Portal to avoid react-leaflet issues */}
