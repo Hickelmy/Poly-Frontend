@@ -34,9 +34,11 @@ interface ProductCardProps {
   product: any;
   onAddToCart?: (product: any) => void;
   isOwner?: boolean;
+  variant?: 'default' | 'cardapio';
 }
 
-export default function ProductCard({ product, onAddToCart, isOwner }: ProductCardProps) {
+export default function ProductCard({ product, onAddToCart, isOwner, variant = 'default' }: ProductCardProps) {
+  const isCardapio = variant === 'cardapio';
   const isAvailable = product.quantityAvailable > 0 && product.active;
   const mod = product._moderation;
   const modStatus = mod?.status ?? 'active';
@@ -204,7 +206,7 @@ export default function ProductCard({ product, onAddToCart, isOwner }: ProductCa
         </div>
 
         <div className="flex items-center justify-between">
-          <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">
+          <p className={`text-2xl font-bold ${isCardapio ? 'text-red-600 dark:text-red-400' : 'text-teal-600 dark:text-teal-400'}`}>
             {formatCurrency(product.price)}
           </p>
           <span className="text-xs text-slate-400">/{product.unitType || 'unidade'}</span>
@@ -228,7 +230,7 @@ export default function ProductCard({ product, onAddToCart, isOwner }: ProductCa
 
         <Button
           size="sm"
-          className="bg-teal-600 hover:bg-teal-700 text-white"
+          className={`${isCardapio ? 'bg-red-600 hover:bg-red-700' : 'bg-teal-600 hover:bg-teal-700'} text-white`}
           onClick={() => onAddToCart && onAddToCart(product)}
           disabled={!isAvailable || isRestricted || isRemoved}
         >

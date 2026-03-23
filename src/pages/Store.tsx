@@ -5,9 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useSelectedZone } from '@/contexts/SelectedZoneContext';
 import { useProximityFilter } from '@/hooks/useProximityFilter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Search, Filter, Grid3X3, List, ShoppingBag, Package,
-  SlidersHorizontal, X, MapPin
+  SlidersHorizontal, X, MapPin, UtensilsCrossed
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +35,18 @@ import FullScreenLoading from '../components/shared/FullScreenLoading';
 import { ProductCardSkeleton } from '../components/shared/SkeletonLoader';
 
 export default function Store() {
+  const [storeTab, setStoreTab] = useState<'produtos' | 'cardapio'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') === 'cardapio' ? 'cardapio' : 'produtos';
+  });
+  const isCardapio = storeTab === 'cardapio';
+
   const [user, setUser] = useState<any>(null);
   const [userLocation, setUserLocation] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'cardapio') return 'alimentos';
     return params.get('category') || 'all';
   });
   const [conditionFilter, setConditionFilter] = useState<string>('all');
@@ -163,6 +170,17 @@ export default function Store() {
     window.location.href = `${createPageUrl('ProductDetail')}?id=${product.id}`;
   };
 
+  const handleTabSwitch = (tab: 'produtos' | 'cardapio') => {
+    setStoreTab(tab);
+    if (tab === 'cardapio') {
+      setCategoryFilter('alimentos');
+      window.history.replaceState(null, '', '?tab=cardapio');
+    } else {
+      setCategoryFilter('all');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  };
+
   const availableCount = products.filter(p => (p.quantityAvailable || p.quantity_available || 0) > 0 && p.active).length;
 
   return (
@@ -171,34 +189,60 @@ export default function Store() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Loja Local
+            {isCardapio ? 'Polys Cardapio' : 'Loja Local'}
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Compre e venda na sua vizinhança
+            {isCardapio ? 'Comidas e bebidas da vizinhanca' : 'Compre e venda na sua vizinhanca'}
           </p>
         </div>
-        
-        <Button 
-          className="bg-teal-600 hover:bg-teal-700"
+
+        <Button
+          className={isCardapio ? "bg-red-600 hover:bg-red-700" : "bg-teal-600 hover:bg-teal-700"}
           onClick={() => {
             if (!user) {
-              toast.error('Faça login para vender produtos');
+              toast.error('Faca login para vender');
               return;
             }
             setCreateProductModalOpen(true);
           }}
         >
-          <ShoppingBag className="w-4 h-4 mr-2" />
-          Vender Produto
+          {isCardapio ? <UtensilsCrossed className="w-4 h-4 mr-2" /> : <ShoppingBag className="w-4 h-4 mr-2" />}
+          {isCardapio ? 'Adicionar ao Cardapio' : 'Vender Produto'}
         </Button>
+      </div>
+
+      {/* Tab Bar */}
+      <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => handleTabSwitch('produtos')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            !isCardapio
+              ? 'bg-teal-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          Produtos
+        </button>
+        <button
+          onClick={() => handleTabSwitch('cardapio')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            isCardapio
+              ? 'bg-red-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <UtensilsCrossed className="w-4 h-4" />
+          Cardapio
+        </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-teal-100 dark:bg-teal-900/30">
-              <Package className="w-5 h-5 text-teal-600" />
+            <div className={`p-3 rounded-xl ${isCardapio ? 'bg-red-100 dark:bg-red-900/30' : 'bg-teal-100 dark:bg-teal-900/30'}`}>
+              <Package className={`w-5 h-5 ${isCardapio ? 'text-red-600' : 'text-teal-600'}`} />
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900 dark:text-white">{products.length}</p>
@@ -234,6 +278,7 @@ export default function Store() {
             </div>
             
             <div className="flex flex-wrap gap-3">
+              {!isCardapio && (
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="w-44">
                   <SelectValue placeholder="Categoria" />
@@ -246,6 +291,7 @@ export default function Store() {
                   ))}
                 </SelectContent>
               </Select>
+              )}
 
               <Select value={conditionFilter} onValueChange={setConditionFilter}>
                 <SelectTrigger className="w-40">
@@ -448,6 +494,7 @@ export default function Store() {
                   product={product}
                   onAddToCart={handleAddToCart}
                   isOwner={user?.id && product.sellerId === user.id}
+                  variant={isCardapio ? 'cardapio' : 'default'}
                 />
               </motion.div>
             ))}
@@ -460,6 +507,7 @@ export default function Store() {
         open={createProductModalOpen}
         onClose={() => setCreateProductModalOpen(false)}
         user={user}
+        defaultCategory={isCardapio ? 'alimentos' : undefined}
         onSuccess={() => {
           // Query invalidation is handled inside the modal
         }}

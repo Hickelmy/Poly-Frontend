@@ -153,6 +153,7 @@ interface CreateProductModalProps {
   product?: any;
   user?: any;
   onSuccess?: () => void;
+  defaultCategory?: string;
 }
 
 interface CouponData {
@@ -185,7 +186,7 @@ interface FormData {
   absorb_tax: boolean;
 }
 
-export default function CreateProductModal({ open, onClose, product, user, onSuccess }: CreateProductModalProps) {
+export default function CreateProductModal({ open, onClose, product, user, onSuccess, defaultCategory }: CreateProductModalProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState<FormData>({
     title: '',
@@ -194,7 +195,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
     quantity_available: '1',
     unit_type: 'unidade',
     weight_kg: '',
-    category: '',
+    category: defaultCategory || '',
     condition: 'novo',
     delivery_types: [],
     shipping_paid_by: 'buyer',
@@ -308,7 +309,7 @@ export default function CreateProductModal({ open, onClose, product, user, onSuc
         quantity_available: '1',
         unit_type: 'unidade',
         weight_kg: '',
-        category: '',
+        category: defaultCategory || '',
         condition: 'novo',
         delivery_types: [],
         shipping_paid_by: 'buyer',
