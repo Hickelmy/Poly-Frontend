@@ -812,13 +812,16 @@ export default function CheckoutModal({ open, onClose, product, user, paymentSta
                   <div className="text-center py-8">
                     <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
                     <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                      Pedido realizado com sucesso! 🎉
+                      Pagamento confirmado!
                     </h3>
                     <p className="text-slate-600 dark:text-slate-300 mb-4">
-                      Obrigado pela sua compra! Seu pedido foi confirmado e será processado em breve.
+                      Aguardando o vendedor aceitar o pedido.
+                      {product?.category === 'alimentos'
+                        ? ' O vendedor tem 15 minutos para aceitar.'
+                        : ' O vendedor tem 24 horas para aceitar.'}
                     </p>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Você receberá um email com os detalhes do pedido.
+                      Se o vendedor nao responder, voce sera reembolsado automaticamente.
                     </p>
                   </div>
                   <div className="flex justify-end pt-4 border-t gap-3">

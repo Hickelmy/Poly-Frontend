@@ -44,11 +44,11 @@ export default function MyOrders() {
     loadUser();
   }, []);
 
-  // Fetch user's orders
+  // Fetch user's orders - usando API real
   const { data: orders = [], isLoading: loadingOrders } = useQuery({
-    queryKey: ['myOrders', user?.email],
-    queryFn: () => polysApi.entities.Order.filter({ buyer_email: user.email }, '-created_date'),
-    enabled: !!user?.email,
+    queryKey: ['myOrders', user?.id],
+    queryFn: () => polysApi.orders.getBuyerOrders(),
+    enabled: !!user?.id,
   });
 
   // Fetch user's service bookings
@@ -121,22 +121,22 @@ export default function MyOrders() {
 
     if (type === 'order') {
       addLine('Dados do produto', { bold: true });
-      addLine(`Produto: ${item.product_title}`);
+      addLine(`Produto: ${item.productTitle}`);
       addLine(`Quantidade: ${item.quantity}`);
-      addLine(`Preço unitário: ${formatCurrency(item.unit_price)}`);
-      addLine(`Total: ${formatCurrency(item.total_amount)}`);
-      addLine(`Entrega: ${item.delivery_option === 'pickup' ? 'Retirada no local' : 'Entrega'}`);
+      addLine(`Subtotal: ${formatCurrency(item.subtotal)}`);
+      addLine(`Total: ${formatCurrency(item.total)}`);
+      addLine(`Entrega: ${item.deliveryMethod === 'pickup' ? 'Retirada no local' : 'Entrega'}`);
       addLine(`Status do pagamento: ${item.status}`);
       addLine('Impostos e taxas: incluídos no valor final (quando aplicável).', { size: 9 });
       y += 4;
 
       addLine('Contratante', { bold: true });
-      addLine(`Email: ${item.buyer_email}`);
+      addLine(`Email: ${item.userEmail}`);
       addLine(`CPF (parcial): ${contratanteCpf}`);
       y += 2;
 
       addLine('Contratado', { bold: true });
-      addLine(`Email: ${item.seller_email}`);
+      addLine(`Email: ${item.sellerEmail}`);
       addLine(`CPF (parcial): ${contratadoCpf}`);
     } else if (type === 'booking') {
       addLine('Dados do serviço', { bold: true });
@@ -244,14 +244,14 @@ export default function MyOrders() {
                         <Package className="w-8 h-8 text-slate-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{order.product_title}</p>
+                        <p className="font-semibold truncate">{order.productTitle}</p>
                         <p className="text-sm text-slate-500">
-                          Qtd: {order.quantity} • {format(new Date(order.created_date), 'dd/MM/yyyy')}
+                          Qtd: {order.quantity} • {format(new Date(order.createdAt), 'dd/MM/yyyy')}
                         </p>
                         <StatusBadge status={order.status} size="sm" />
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-teal-600">{formatCurrency(order.total_amount)}</p>
+                        <p className="font-bold text-teal-600">{formatCurrency(order.total)}</p>
                       </div>
                       <ChevronRight className="w-5 h-5 text-slate-400" />
                     </div>
@@ -378,13 +378,35 @@ export default function MyOrders() {
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
                 {detailType === 'order' && (
                   <>
-                    <p className="font-semibold text-lg mb-2">{selectedItem.product_title}</p>
+                    <p className="font-semibold text-lg mb-2">{selectedItem.productTitle}</p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div><span className="text-slate-500">Quantidade:</span> {selectedItem.quantity}</div>
-                      <div><span className="text-slate-500">Preço unit.:</span> {formatCurrency(selectedItem.unit_price)}</div>
-                      <div><span className="text-slate-500">Total:</span> <strong className="text-teal-600">{formatCurrency(selectedItem.total_amount)}</strong></div>
-                      <div><span className="text-slate-500">Entrega:</span> {selectedItem.delivery_option === 'pickup' ? 'Retirada' : 'Entrega'}</div>
+                      <div><span className="text-slate-500">Subtotal:</span> {formatCurrency(selectedItem.subtotal)}</div>
+                      <div><span className="text-slate-500">Total:</span> <strong className="text-teal-600">{formatCurrency(selectedItem.total)}</strong></div>
+                      <div><span className="text-slate-500">Entrega:</span> {selectedItem.deliveryMethod === 'pickup' ? 'Retirada' : 'Entrega'}</div>
                     </div>
+                    {selectedItem.status === 'awaiting_seller' && (
+                      <div className="mt-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                          Aguardando o vendedor aceitar o pedido.
+                          {selectedItem.isCardapio ? ' Prazo: 15 minutos.' : ' Prazo: 24 horas.'}
+                        </p>
+                      </div>
+                    )}
+                    {selectedItem.status === 'rejected' && selectedItem.rejectionReason && (
+                      <div className="mt-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                        <p className="text-sm text-red-700 dark:text-red-300">
+                          Pedido recusado: {selectedItem.rejectionReason}
+                        </p>
+                      </div>
+                    )}
+                    {selectedItem.status === 'refunded' && (
+                      <div className="mt-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                        <p className="text-sm text-orange-700 dark:text-orange-300">
+                          Pagamento reembolsado automaticamente.
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
                 
@@ -513,7 +535,7 @@ export default function MyOrders() {
               <div className="flex items-center gap-2">
                 <StatusBadge status={selectedItem.status} />
                 <span className="text-sm text-slate-500">
-                  Criado em {format(new Date(selectedItem.created_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  Criado em {format(new Date(selectedItem.createdAt || selectedItem.created_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                 </span>
               </div>
 

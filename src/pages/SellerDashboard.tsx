@@ -223,11 +223,12 @@ export default function SellerDashboard() {
     enabled: !!user?.email,
   });
 
-  // Fetch seller's orders (as seller)
+  // Fetch seller's orders (as seller) - usando API real
   const { data: orders = [], isLoading: loadingOrders } = useQuery({
     queryKey: ['sellerOrders', user?.email],
-    queryFn: () => polysApi.entities.Order.filter({ seller_email: user.email }, '-created_date'),
+    queryFn: () => polysApi.orders.getSellerOrders(),
     enabled: !!user?.email,
+    refetchInterval: 30000, // polling a cada 30s para novos pedidos
   });
 
   // Fetch seller's bookings (as provider)
@@ -249,7 +250,8 @@ export default function SellerDashboard() {
     .filter(b => b.status === 'completed')
     .reduce((sum, b) => sum + (b.total_amount || 0), 0);
 
-  const pendingOrders = orders.filter(o => ['pending', 'paid'].includes(o.status)).length;
+  const pendingOrders = orders.filter(o => ['pending', 'awaiting_seller', 'paid'].includes(o.status)).length;
+  const awaitingOrders = orders.filter(o => o.status === 'awaiting_seller');
   const pendingBookings = bookings.filter(b => ['requested', 'accepted'].includes(b.status)).length;
 
   const formatCurrency = (value) => {
@@ -420,17 +422,55 @@ export default function SellerDashboard() {
         </TabsContent>
 
         {/* Orders Tab */}
-        <TabsContent value="orders">
+        <TabsContent value="orders" className="space-y-4">
+          {/* Pedidos Aguardando Aceitacao */}
+          {awaitingOrders.length > 0 && (
+            <Card className="border-0 shadow-sm border-l-4 border-l-amber-500">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-amber-600">
+                  <Clock className="w-5 h-5" />
+                  Pedidos Aguardando ({awaitingOrders.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {awaitingOrders.map((order: any) => (
+                  <PendingOrderCard
+                    key={order.id}
+                    order={order}
+                    onAccept={async () => {
+                      try {
+                        await polysApi.orders.acceptOrder(order.id);
+                        toast.success('Pedido aceito!');
+                        queryClient.invalidateQueries({ queryKey: ['sellerOrders'] });
+                      } catch (e: any) {
+                        toast.error(e.message || 'Erro ao aceitar pedido');
+                      }
+                    }}
+                    onReject={async (reason: string) => {
+                      try {
+                        await polysApi.orders.rejectOrder(order.id, reason);
+                        toast.success('Pedido recusado');
+                        queryClient.invalidateQueries({ queryKey: ['sellerOrders'] });
+                      } catch (e: any) {
+                        toast.error(e.message || 'Erro ao recusar pedido');
+                      }
+                    }}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="border-0 shadow-sm">
             <CardHeader>
-              <CardTitle>Pedidos Recebidos</CardTitle>
+              <CardTitle>Todos os Pedidos</CardTitle>
             </CardHeader>
             <CardContent>
               {loadingOrders ? (
                 <TableSkeleton rows={5} columns={7} />
               ) : orders.length === 0 ? (
                 <div className="text-center py-12 text-slate-500">
-                  Você ainda não recebeu pedidos
+                  Voce ainda nao recebeu pedidos
                 </div>
               ) : (
                 <Table>
@@ -446,11 +486,11 @@ export default function SellerDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orders.map((order) => (
-                      <OrderRow 
-                        key={order.id} 
-                        order={order} 
-                        onUpdate={() => queryClient.invalidateQueries(['sellerOrders'])}
+                    {orders.map((order: any) => (
+                      <OrderRow
+                        key={order.id}
+                        order={order}
+                        onUpdate={() => queryClient.invalidateQueries({ queryKey: ['sellerOrders'] })}
                         onViewDetails={() => setSelectedOrder(order)}
                       />
                     ))}
@@ -741,28 +781,108 @@ function ServiceCard({ service, onEdit, onDelete }: any) {
 }
 
 // Order Row Component
-function OrderRow({ order, onUpdate, onViewDetails }: any) {
-  const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+function PendingOrderCard({ order, onAccept, onReject }: { order: any; onAccept: () => void; onReject: (reason: string) => void }) {
+  const [rejectReason, setRejectReason] = React.useState('');
+  const [showRejectDialog, setShowRejectDialog] = React.useState(false);
+  const [timeLeft, setTimeLeft] = React.useState('');
+  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
-  const updateStatus = async (status) => {
-    await polysApi.entities.Order.update(order.id, { status });
-    onUpdate();
-    toast.success('Status atualizado');
+  React.useEffect(() => {
+    if (!order.acceptDeadline) return;
+    const update = () => {
+      const remaining = new Date(order.acceptDeadline).getTime() - Date.now();
+      if (remaining <= 0) { setTimeLeft('Expirado'); return; }
+      const min = Math.floor(remaining / 60000);
+      const sec = Math.floor((remaining % 60000) / 1000);
+      setTimeLeft(min > 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : `${min}:${sec.toString().padStart(2, '0')}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [order.acceptDeadline]);
+
+  const isUrgent = order.isCardapio;
+
+  return (
+    <div className={`p-4 rounded-lg border-2 ${isUrgent ? 'border-red-300 bg-red-50 dark:bg-red-900/10 dark:border-red-800' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800'}`}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-semibold text-slate-900 dark:text-white truncate">{order.productTitle || 'Produto'}</span>
+            {isUrgent && <Badge className="bg-red-600 text-white text-[10px]">Cardapio</Badge>}
+          </div>
+          <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+            <span>{order.userEmail}</span>
+            <span>x{order.quantity}</span>
+            <span className="font-semibold">{formatCurrency(order.total)}</span>
+          </div>
+          {order.deliveryMethod === 'delivery' && order.deliveryAddress && (
+            <p className="text-xs text-slate-500 mt-1 truncate">{order.deliveryAddress}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className={`text-center ${timeLeft === 'Expirado' ? 'text-red-600' : isUrgent ? 'text-red-500' : 'text-amber-600'}`}>
+            <Clock className="w-4 h-4 mx-auto mb-0.5" />
+            <span className="text-sm font-mono font-bold">{timeLeft}</span>
+          </div>
+          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={onAccept}>
+            Aceitar
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => setShowRejectDialog(true)}>
+            Recusar
+          </Button>
+        </div>
+      </div>
+
+      {showRejectDialog && (
+        <div className="mt-3 p-3 rounded-lg bg-white dark:bg-slate-800 border">
+          <Label className="text-xs mb-1">Motivo da recusa</Label>
+          <div className="flex gap-2">
+            <Input
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Ex: Produto indisponivel"
+              className="text-sm"
+            />
+            <Button size="sm" variant="destructive" onClick={() => { onReject(rejectReason); setShowRejectDialog(false); }}>
+              Confirmar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowRejectDialog(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OrderRow({ order, onUpdate, onViewDetails }: any) {
+  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+
+  const updateStatus = async (status: string) => {
+    try {
+      await polysApi.orders.updateStatus(order.id, status);
+      onUpdate();
+      toast.success('Status atualizado');
+    } catch (e: any) {
+      toast.error(e.message || 'Erro ao atualizar status');
+    }
   };
 
   return (
-    <TableRow 
-      className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group" 
+    <TableRow
+      className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group"
       onClick={onViewDetails}
     >
       <TableCell className="font-medium group-hover:text-teal-600 dark:group-hover:text-teal-400">
-        {order.product_title}
+        {order.productTitle || order.product_title}
       </TableCell>
-      <TableCell>{order.buyer_email}</TableCell>
+      <TableCell>{order.userEmail || order.buyer_email}</TableCell>
       <TableCell>{order.quantity}</TableCell>
-      <TableCell className="font-semibold">{formatCurrency(order.total_amount)}</TableCell>
+      <TableCell className="font-semibold">{formatCurrency(order.total || order.total_amount)}</TableCell>
       <TableCell><StatusBadge status={order.status} size="sm" /></TableCell>
-      <TableCell>{format(new Date(order.created_date), 'dd/MM/yy')}</TableCell>
+      <TableCell>{format(new Date(order.createdAt || order.created_date), 'dd/MM/yy')}</TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -775,7 +895,7 @@ function OrderRow({ order, onUpdate, onViewDetails }: any) {
               <Eye className="w-4 h-4 mr-2" />
               Ver Detalhes
             </DropdownMenuItem>
-            {order.status === 'paid' && (
+            {order.status === 'accepted' && (
               <DropdownMenuItem onClick={() => updateStatus('shipped')}>
                 Marcar como Enviado
               </DropdownMenuItem>

@@ -1388,11 +1388,34 @@ const zoneMembers = {
   },
 };
 
+const orders = {
+  async getSellerOrders(status?: string): Promise<any[]> {
+    const params = status ? `?status=${status}` : '';
+    return apiRequest(`/orders/seller${params}`, { method: 'GET' });
+  },
+  async getBuyerOrders(): Promise<any[]> {
+    return apiRequest('/orders/buyer', { method: 'GET' });
+  },
+  async getOrder(id: string): Promise<any> {
+    return apiRequest(`/orders/${id}`, { method: 'GET' });
+  },
+  async acceptOrder(id: string): Promise<any> {
+    return apiRequest(`/orders/${id}/accept`, { method: 'PATCH' });
+  },
+  async rejectOrder(id: string, reason: string): Promise<any> {
+    return apiRequest(`/orders/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) });
+  },
+  async updateStatus(id: string, status: string): Promise<any> {
+    return apiRequest(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+  },
+};
+
 export const polysApi = {
   auth,
   settings,
   apiTokens,
   paymentGateway,
+  orders,
   integrations,
   news,
   users,
