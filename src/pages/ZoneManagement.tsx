@@ -11,9 +11,12 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
-import { 
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import {
   Map, Plus, Pencil, Trash2, Check, X, Loader2, Save,
-  Users, MoreVertical, AlertCircle
+  Users, MoreVertical, AlertCircle, Link2, Copy,
+  Mail, Shield, MapPin, UserMinus, Crown, CheckCircle, XCircle
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,11 +24,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -34,6 +39,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tabs, TabsContent, TabsList, TabsTrigger,
+} from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -987,16 +995,24 @@ function ZoneCardMap({ zone, getZonePolygon }: any) {
 
 export default function ZoneManagement() {
   const [user, setUser] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('areas');
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [mapReady, setMapReady] = useState<boolean>(false);
   const [mapKey, setMapKey] = useState<number>(Date.now());
   const [editingZone, setEditingZone] = useState<any>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [drawnPoints, setDrawnPoints] = useState<any[]>([]);
-  const [mapCenter, setMapCenter] = useState<any>(null); // Inicia como null até obter localização
+  const [mapCenter, setMapCenter] = useState<any>(null);
   const [locationLoading, setLocationLoading] = useState<boolean>(true);
-  const [overlapWarning, setOverlapWarning] = useState<any>(null); // Aviso de sobreposição
-  
+  const [overlapWarning, setOverlapWarning] = useState<any>(null);
+
+  // Shared zone selector for Membros/Convites tabs
+  const [selectedZoneId, setSelectedZoneId] = useState('');
+  // Invite link creation
+  const [createInviteModalOpen, setCreateInviteModalOpen] = useState(false);
+  const [maxUses, setMaxUses] = useState('');
+  const [expiresInDays, setExpiresInDays] = useState('7');
+
   const [formData, setFormData] = useState<{ name: string; description: string; admin_email: string }>({
     name: '',
     description: '',
@@ -1072,6 +1088,111 @@ export default function ZoneManagement() {
       return result;
     },
   });
+
+  const isManager = user?.user_role === 'gestor' || user?.user_role === 'administrador';
+
+  // Auto-select first zone for Membros/Convites tabs
+  useEffect(() => {
+    if (zones.length > 0 && !selectedZoneId) {
+      setSelectedZoneId(zones[0].id);
+    }
+  }, [zones, selectedZoneId]);
+
+  // Members of selected zone
+  const { data: members = [], isLoading: membersLoading } = useQuery({
+    queryKey: ['zoneMembers', selectedZoneId],
+    queryFn: () => polysApi.zoneMembers.list(selectedZoneId),
+    enabled: !!selectedZoneId && activeTab === 'membros',
+  });
+
+  // Invite links of selected zone
+  const { data: inviteLinks = [], isLoading: linksLoading } = useQuery({
+    queryKey: ['inviteLinks', selectedZoneId],
+    queryFn: () => polysApi.inviteLinks.listByZone(selectedZoneId),
+    enabled: !!selectedZoneId && (activeTab === 'convites' || activeTab === 'membros'),
+  });
+
+  // Admin requests (manager only)
+  const { data: adminRequests = [] } = useQuery({
+    queryKey: ['adminRequests'],
+    queryFn: () => polysApi.adminRequests.list('pending'),
+    enabled: isManager,
+  });
+
+  // Invite link mutations
+  const createLinkMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedZoneId) throw new Error('Selecione uma zona');
+      const expiresAt = expiresInDays && expiresInDays !== 'never'
+        ? new Date(Date.now() + parseInt(expiresInDays) * 86400000).toISOString()
+        : undefined;
+      return polysApi.inviteLinks.create({
+        zone_id: selectedZoneId,
+        max_uses: maxUses ? parseInt(maxUses) : undefined,
+        expires_at: expiresAt,
+      });
+    },
+    onSuccess: (link: any) => {
+      queryClient.invalidateQueries({ queryKey: ['inviteLinks'] });
+      const fullLink = `${window.location.origin}/join/${link.code}`;
+      navigator.clipboard.writeText(fullLink).catch(() => {});
+      toast.success(`Link criado! Codigo: ${link.code}`);
+      setCreateInviteModalOpen(false);
+      setMaxUses('');
+      setExpiresInDays('7');
+    },
+    onError: (e: any) => toast.error(e.message || 'Erro ao criar link'),
+  });
+
+  const deactivateLinkMutation = useMutation({
+    mutationFn: (id: string) => polysApi.inviteLinks.deactivate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inviteLinks'] });
+      toast.success('Link desativado');
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: ({ zoneId, userId }: { zoneId: string; userId: string }) =>
+      polysApi.zoneMembers.remove(zoneId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['zoneMembers'] });
+      toast.success('Membro removido');
+    },
+    onError: () => toast.error('Erro ao remover membro'),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => polysApi.adminRequests.approve(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminRequests'] });
+      toast.success('Solicitacao aprovada!');
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      polysApi.adminRequests.reject(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminRequests'] });
+      toast.success('Solicitacao rejeitada');
+    },
+  });
+
+  const copyCode = (code: string) => {
+    const link = `${window.location.origin}/join/${code}`;
+    navigator.clipboard.writeText(link);
+    toast.success(`Link copiado! Codigo: ${code}`);
+  };
+
+  const getLinkStatus = (link: any) => {
+    if (!link.active) return { label: 'Desativado', color: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' };
+    if (link.expires_at && new Date(link.expires_at) < new Date()) return { label: 'Expirado', color: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' };
+    if (link.max_uses > 0 && link.uses_count >= link.max_uses) return { label: 'Esgotado', color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' };
+    return { label: 'Ativo', color: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' };
+  };
+
+  const selectedZoneName = zones.find((z: any) => z.id === selectedZoneId)?.name || '';
 
   // Verificar e ajustar automaticamente sobreposição quando os pontos mudam
   const isAdjustingRef = useRef<boolean>(false);
@@ -1249,202 +1370,423 @@ export default function ZoneManagement() {
 
   if (!user) return null;
 
+  // Zone selector component (reused in Membros and Convites tabs)
+  const ZoneSelector = ({ extra }: { extra?: React.ReactNode }) => (
+    <div className="flex items-center gap-3 flex-wrap">
+      <Select value={selectedZoneId} onValueChange={setSelectedZoneId}>
+        <SelectTrigger className="w-[280px]">
+          <SelectValue placeholder="Selecione uma zona" />
+        </SelectTrigger>
+        <SelectContent>
+          {zones.map((z: any) => (
+            <SelectItem key={z.id} value={z.id}>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: z.color || '#14b8a6' }} />
+                {z.name}
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {extra}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Gestão de Áreas
-          </h1>
-          <p className="text-slate-500">Cadastre e gerencie as áreas da plataforma</p>
-        </div>
-        <Button 
-          className="bg-teal-600 hover:bg-teal-700"
-          onClick={() => {
-            resetForm();
-            setCreateModalOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Área
-        </Button>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          Gestao de Areas
+        </h1>
+        <p className="text-slate-500 dark:text-slate-400">
+          Gerencie areas, membros e convites da plataforma
+        </p>
       </div>
 
-      {/* Zones List */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {isLoading ? (
-          [1, 2, 3].map(i => (
-            <Card key={i} className="h-48 animate-pulse bg-slate-100" />
-          ))
-        ) : zones.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="py-12 text-center">
-              <Map className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500">Nenhuma área cadastrada</p>
-            </CardContent>
-          </Card>
-        ) : (
-          zones.map(zone => (
-            <Card key={zone.id} className="overflow-hidden">
-              <div className="h-32 bg-slate-100 relative">
-                {zone.polygon_geojson && !createModalOpen && (
-                  <MapErrorBoundary simple>
-                    <ZoneCardMap zone={zone} getZonePolygon={getZonePolygon} />
-                  </MapErrorBoundary>
-                )}
-                {createModalOpen && (
-                  <div className="h-full w-full flex items-center justify-center bg-slate-200">
-                    <Map className="w-8 h-8 text-slate-400" />
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="areas" className="gap-1.5">
+            <Map className="w-4 h-4" /> Areas
+          </TabsTrigger>
+          <TabsTrigger value="membros" className="gap-1.5">
+            <Users className="w-4 h-4" /> Membros
+          </TabsTrigger>
+          <TabsTrigger value="convites" className="gap-1.5">
+            <Link2 className="w-4 h-4" /> Convites
+          </TabsTrigger>
+          {isManager && (
+            <TabsTrigger value="solicitacoes" className="gap-1.5">
+              <Mail className="w-4 h-4" /> Solicitacoes {adminRequests.length > 0 && `(${adminRequests.length})`}
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        {/* ===== TAB: AREAS ===== */}
+        <TabsContent value="areas" className="mt-4 space-y-4">
+          <div className="flex justify-end">
+            <Button
+              className="bg-teal-600 hover:bg-teal-700"
+              onClick={() => { resetForm(); setCreateModalOpen(true); }}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Area
+            </Button>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {isLoading ? (
+              [1, 2, 3].map(i => (
+                <Card key={i} className="h-48 animate-pulse bg-slate-100 dark:bg-slate-800" />
+              ))
+            ) : zones.length === 0 ? (
+              <Card className="col-span-full">
+                <CardContent className="py-12 text-center">
+                  <Map className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500">Nenhuma area cadastrada</p>
+                </CardContent>
+              </Card>
+            ) : (
+              zones.map(zone => (
+                <Card key={zone.id} className="overflow-hidden">
+                  <div className="h-32 bg-slate-100 dark:bg-slate-800 relative">
+                    {zone.polygon_geojson && !createModalOpen && (
+                      <MapErrorBoundary simple>
+                        <ZoneCardMap zone={zone} getZonePolygon={getZonePolygon} />
+                      </MapErrorBoundary>
+                    )}
+                    {createModalOpen && (
+                      <div className="h-full w-full flex items-center justify-center bg-slate-200 dark:bg-slate-700">
+                        <Map className="w-8 h-8 text-slate-400" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold">{zone.name}</h3>
-                    <p className="text-sm text-slate-500 truncate">{zone.description}</p>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(zone)}>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => deleteMutation.mutate(zone.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <div className="flex items-center gap-2 mt-3">
-                  <Badge variant={zone.active ? 'default' : 'secondary'}>
-                    {zone.active ? 'Ativa' : 'Inativa'}
-                  </Badge>
-                  {zone.admin_email && (
-                    <Badge variant="outline" className="text-xs">
-                      <Users className="w-3 h-3 mr-1" />
-                      {zone.admin_email}
-                    </Badge>
-                  )}
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold">{zone.name}</h3>
+                        <p className="text-sm text-slate-500 truncate">{zone.description}</p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(zone)}>
+                            <Pencil className="w-4 h-4 mr-2" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => deleteMutation.mutate(zone.id)} className="text-red-600">
+                            <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Badge variant={zone.active ? 'default' : 'secondary'}>
+                        {zone.active ? 'Ativa' : 'Inativa'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ===== TAB: MEMBROS ===== */}
+        <TabsContent value="membros" className="mt-4 space-y-4">
+          <ZoneSelector />
+
+          {!selectedZoneId ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500">Selecione uma zona para ver os membros</p>
+              </CardContent>
+            </Card>
+          ) : membersLoading ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+              </CardContent>
+            </Card>
+          ) : members.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-500">Nenhum membro nesta zona</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span>{selectedZoneName} — {members.length} {members.length === 1 ? 'membro' : 'membros'}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {members.map((member: any) => (
+                    <div key={member.id} className="flex items-center gap-4 px-6 py-4">
+                      <Avatar className="w-10 h-10">
+                        <AvatarFallback className="bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-400">
+                          {(member.name || member.email || '?').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-slate-900 dark:text-white truncate">
+                          {member.name || member.email?.split('@')[0]}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate">{member.email}</p>
+                      </div>
+                      <Badge className={member.role === 'ADMIN'
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                      }>
+                        {member.role === 'ADMIN' ? (
+                          <><Crown className="w-3 h-3 mr-1" />Admin</>
+                        ) : 'Membro'}
+                      </Badge>
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-slate-500">
+                          {member.joined_at ? format(new Date(member.joined_at), 'dd/MM/yyyy', { locale: ptBR }) : '--'}
+                        </p>
+                        {member.invite_code && (
+                          <p className="text-[10px] text-slate-400 font-mono">
+                            via {member.invite_code}
+                          </p>
+                        )}
+                      </div>
+                      {member.role !== 'ADMIN' && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title="Remover membro"
+                          onClick={() => removeMemberMutation.mutate({ zoneId: selectedZoneId, userId: member.user_id })}
+                          disabled={removeMemberMutation.isPending}
+                        >
+                          <UserMinus className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          )}
+        </TabsContent>
 
-      {/* Create/Edit Modal - Custom without Portal to avoid react-leaflet issues */}
+        {/* ===== TAB: CONVITES ===== */}
+        <TabsContent value="convites" className="mt-4 space-y-4">
+          <ZoneSelector extra={
+            <Button
+              className="bg-teal-600 hover:bg-teal-700"
+              onClick={() => setCreateInviteModalOpen(true)}
+              disabled={!selectedZoneId}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Novo Convite
+            </Button>
+          } />
+
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-0">
+              {linksLoading ? (
+                <div className="p-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
+              ) : !selectedZoneId ? (
+                <div className="p-12 text-center">
+                  <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500">Selecione uma zona para ver os convites</p>
+                </div>
+              ) : inviteLinks.length === 0 ? (
+                <div className="p-12 text-center">
+                  <Link2 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500">Nenhum convite criado para esta zona</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {inviteLinks.map((link: any) => {
+                    const status = getLinkStatus(link);
+                    return (
+                      <div key={link.id} className="p-4 flex items-center gap-4">
+                        <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+                          <Link2 className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono font-semibold text-lg">{link.code}</p>
+                          <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5 flex-wrap">
+                            <span>{link.uses_count}{link.max_uses > 0 ? `/${link.max_uses}` : ''} usos</span>
+                            {link.expires_at && (
+                              <span>Expira: {format(new Date(link.expires_at), 'dd/MM/yyyy')}</span>
+                            )}
+                            {link.created_by_email && <span>por {link.created_by_email}</span>}
+                          </div>
+                        </div>
+                        <Badge className={status.color}>{status.label}</Badge>
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => copyCode(link.code)} title="Copiar link">
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                          {link.active && (
+                            <Button size="icon" variant="ghost" className="text-red-600" onClick={() => deactivateLinkMutation.mutate(link.id)} title="Desativar">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ===== TAB: SOLICITACOES ===== */}
+        {isManager && (
+          <TabsContent value="solicitacoes" className="mt-4">
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-0">
+                {adminRequests.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <Mail className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-500">Nenhuma solicitacao pendente</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {adminRequests.map((req: any) => (
+                      <div key={req.id} className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                            <Shield className="w-5 h-5 text-amber-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium">{req.name}</p>
+                            <p className="text-sm text-slate-500">{req.email}</p>
+                            {req.phone && <p className="text-sm text-slate-500">Tel: {req.phone}</p>}
+                            {req.location && <p className="text-sm text-slate-500">Local: {req.location}</p>}
+                            {req.objective && (
+                              <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                                "{req.objective}"
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-400 mt-2">
+                              {format(new Date(req.created_at), "dd 'de' MMM 'as' HH:mm", { locale: ptBR })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3 ml-14">
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700"
+                            onClick={() => approveMutation.mutate(req.id)}
+                            disabled={approveMutation.isPending}>
+                            {approveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                            Aprovar
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-red-600"
+                            onClick={() => rejectMutation.mutate({ id: req.id })}>
+                            <XCircle className="w-4 h-4 mr-1" /> Rejeitar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
+
+      {/* Create/Edit Zone Modal - Custom without Portal to avoid react-leaflet issues */}
       {createModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Overlay */}
-          <div 
-            className="fixed inset-0 bg-black/80 animate-in fade-in-0"
-            onClick={resetForm}
-          />
-          {/* Content */}
+          <div className="fixed inset-0 bg-black/80 animate-in fade-in-0" onClick={resetForm} />
           <div className="relative z-50 w-full max-w-3xl max-h-[90vh] mx-4 bg-background rounded-lg border shadow-lg overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-6 border-b">
               <h2 className="text-lg font-semibold">
-              {editingZone ? 'Editar Área' : 'Nova Área'}
+                {editingZone ? 'Editar Area' : 'Nova Area'}
               </h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={resetForm}
-                className="h-6 w-6"
-              >
+              <Button variant="ghost" size="icon" onClick={resetForm} className="h-6 w-6">
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <div className="overflow-y-auto p-6">
-          <div className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Nome da Área *</Label>
-                <Input
-                  placeholder="Ex: Jardim das Flores"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Administrador Responsável</Label>
-                <Select 
-                  value={formData.admin_email} 
-                  onValueChange={(v) => setFormData({ ...formData, admin_email: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={null}>Nenhum</SelectItem>
-                    {admins.map(admin => (
-                      <SelectItem key={admin.id} value={admin.email}>
-                        {admin.full_name || admin.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Descrição</Label>
-              <Textarea
-                placeholder="Descrição da área..."
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Desenhar Área no Mapa *</Label>
-                <div className="flex gap-2">
-                  {!isDrawing ? (
-                    <Button size="sm" variant="outline" onClick={() => setIsDrawing(true)}>
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Desenhar
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={() => setIsDrawing(false)}>
-                      <Check className="w-4 h-4 mr-2" />
-                      Finalizar ({drawnPoints.length} pontos)
-                    </Button>
-                  )}
-                  {drawnPoints.length > 0 && (
-                    <Button size="sm" variant="ghost" onClick={() => setDrawnPoints([])}>
-                      <X className="w-4 h-4 mr-2" />
-                      Limpar
-                    </Button>
-                  )}
+              <div className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nome da Area *</Label>
+                    <Input
+                      placeholder="Ex: Jardim das Flores"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Administrador Responsavel</Label>
+                    <Select
+                      value={formData.admin_email}
+                      onValueChange={(v) => setFormData({ ...formData, admin_email: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={null}>Nenhum</SelectItem>
+                        {admins.map(admin => (
+                          <SelectItem key={admin.id} value={admin.email}>
+                            {admin.full_name || admin.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="h-[350px] rounded-xl overflow-hidden border">
+
+                <div className="space-y-2">
+                  <Label>Descricao</Label>
+                  <Textarea
+                    placeholder="Descricao da area..."
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={2}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Desenhar Area no Mapa *</Label>
+                    <div className="flex gap-2">
+                      {!isDrawing ? (
+                        <Button size="sm" variant="outline" onClick={() => setIsDrawing(true)}>
+                          <Pencil className="w-4 h-4 mr-2" /> Desenhar
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => setIsDrawing(false)}>
+                          <Check className="w-4 h-4 mr-2" /> Finalizar ({drawnPoints.length} pontos)
+                        </Button>
+                      )}
+                      {drawnPoints.length > 0 && (
+                        <Button size="sm" variant="ghost" onClick={() => setDrawnPoints([])}>
+                          <X className="w-4 h-4 mr-2" /> Limpar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="h-[350px] rounded-xl overflow-hidden border">
                     <MapErrorBoundary
                       onRetry={() => {
-                        // Força remontagem do mapa
                         setMapReady(false);
                         setMapKey(Date.now());
-                        setTimeout(() => {
-                          setMapReady(true);
-                        }, 100);
+                        setTimeout(() => setMapReady(true), 100);
                       }}
                     >
                       <DialogMap
                         mapCenter={mapCenter}
-                    isDrawing={isDrawing}
+                        isDrawing={isDrawing}
                         drawnPoints={drawnPoints}
                         setDrawnPoints={setDrawnPoints}
                         zones={zones}
@@ -1452,7 +1794,7 @@ export default function ZoneManagement() {
                         mapReady={mapReady}
                         mapKey={mapKey}
                         hasOverlap={!!overlapWarning}
-                    />
+                      />
                     </MapErrorBoundary>
                   </div>
                   {overlapWarning && (
@@ -1460,42 +1802,78 @@ export default function ZoneManagement() {
                       <AlertCircle className="w-5 h-5 flex-shrink-0" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">{overlapWarning.message}</p>
-                        <p className="text-xs opacity-80">Mova ou remova pontos para eliminar a sobreposição</p>
-              </div>
+                        <p className="text-xs opacity-80">Mova ou remova pontos para eliminar a sobreposicao</p>
+                      </div>
                     </div>
                   )}
-                  
-              <p className="text-xs text-slate-500">
-                {isDrawing 
-                      ? 'Clique no mapa para adicionar pontos • Clique direito no ponto para remover • Arraste pontos para ajustar'
-                  : 'Clique em "Desenhar" e depois nos pontos do mapa para definir a área'
-                }
-              </p>
-            </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={resetForm}>
-                Cancelar
-              </Button>
-              <Button 
+                  <p className="text-xs text-slate-500">
+                    {isDrawing
+                      ? 'Clique no mapa para adicionar pontos - Clique direito no ponto para remover - Arraste pontos para ajustar'
+                      : 'Clique em "Desenhar" e depois nos pontos do mapa para definir a area'
+                    }
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button variant="outline" onClick={resetForm}>Cancelar</Button>
+                  <Button
                     className={overlapWarning ? "bg-slate-400 cursor-not-allowed" : "bg-teal-600 hover:bg-teal-700"}
-                onClick={() => saveMutation.mutate()}
+                    onClick={() => saveMutation.mutate()}
                     disabled={saveMutation.isPending || !!overlapWarning}
-                    title={overlapWarning ? "Resolva a sobreposição antes de salvar" : ""}
-              >
-                {saveMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                {editingZone ? 'Salvar' : 'Criar Área'}
-              </Button>
-            </div>
-          </div>
+                    title={overlapWarning ? "Resolva a sobreposicao antes de salvar" : ""}
+                  >
+                    {saveMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    {editingZone ? 'Salvar' : 'Criar Area'}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Create Invite Link Modal */}
+      <Dialog open={createInviteModalOpen} onOpenChange={setCreateInviteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Link de Convite</DialogTitle>
+            <DialogDescription>
+              Crie um codigo de convite para {selectedZoneName || 'a zona selecionada'}. Membros podem usar este codigo para entrar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Limite de usos (0 = ilimitado)</Label>
+              <Input type="number" min="0" placeholder="0" value={maxUses} onChange={(e) => setMaxUses(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Expira em (dias)</Label>
+              <Select value={expiresInDays} onValueChange={setExpiresInDays}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 dia</SelectItem>
+                  <SelectItem value="3">3 dias</SelectItem>
+                  <SelectItem value="7">7 dias</SelectItem>
+                  <SelectItem value="14">14 dias</SelectItem>
+                  <SelectItem value="30">30 dias</SelectItem>
+                  <SelectItem value="never">Nunca expira</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full bg-teal-600 hover:bg-teal-700"
+              onClick={() => createLinkMutation.mutate()}
+              disabled={createLinkMutation.isPending}>
+              {createLinkMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Gerar Codigo de Convite
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

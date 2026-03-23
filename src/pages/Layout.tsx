@@ -10,7 +10,7 @@ import { useCart } from '@/contexts/CartContext';
 import {
   Home, Map, Users, ShoppingBag, Wrench, Settings, Bell,
   LogOut, Menu, X, Sun, Moon, ChevronDown, Shield,
-  HelpCircle, FileText, LayoutDashboard, UserCog, Link2, MapPinned,
+  HelpCircle, FileText, LayoutDashboard, UserCog, MapPinned,
   BarChart3, MapPin, Check, Newspaper, ShoppingCart
 } from 'lucide-react';
 import CartDrawer from '@/components/cart/CartDrawer';
@@ -194,8 +194,7 @@ export default function Layout({ children, currentPageName }: { children: React.
 
   const adminMenuItems = [
     { name: 'Gestão de Áreas', icon: MapPinned, page: 'ZoneManagement', roles: ['gestor'], showForZoneAdmin: true },
-    { name: 'Links de Convite', icon: Link2, page: 'InviteLinks', roles: ['gestor'], showForZoneAdmin: true },
-    { name: 'Gestão de Usuários', icon: UserCog, page: 'UserManagement', roles: ['gestor', 'administrador'] },
+{ name: 'Gestão de Usuários', icon: UserCog, page: 'UserManagement', roles: ['gestor', 'administrador'] },
     { name: 'Custos e Lucros', icon: BarChart3, page: 'FinancialReport', roles: ['gestor', 'administrador'] },
     { name: 'Configurações', icon: Settings, page: 'AppSettings', roles: ['gestor'] },
     { name: 'Auditoria', icon: Shield, page: 'AuditLogs', roles: ['gestor', 'administrador'] },

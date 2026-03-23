@@ -36,8 +36,6 @@ import AdminCompleteRegister from "./AdminCompleteRegister";
 
 import ZoneManagement from "./ZoneManagement";
 
-import InviteLinks from "./InviteLinks";
-
 import JoinZone from "./JoinZone";
 
 import Login from "./Login";
@@ -103,8 +101,6 @@ const PAGES: Record<string, React.ComponentType> = {
     AdminCompleteRegister: AdminCompleteRegister,
 
     ZoneManagement: ZoneManagement,
-
-    InviteLinks: InviteLinks,
 
     Login: Login,
 
@@ -194,7 +190,7 @@ function PagesContent() {
 
                 <Route path="/ZoneManagement" element={<ZoneManagement />} />
 
-                <Route path="/InviteLinks" element={<InviteLinks />} />
+                <Route path="/InviteLinks" element={<ZoneManagement />} />
                 <Route path="/join/:code" element={<JoinZone />} />
 
                 <Route path="/AppSettings" element={<AppSettings />} />
